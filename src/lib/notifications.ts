@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { calculatePoints } from "@/lib/scoring";
-import { sendReminderEmail, sendPostGameEmail } from "@/lib/email";
+import { sendReminderEmail, sendPostGameEmail, sendSubAdminActionEmail } from "@/lib/email";
 import { sendPushToUser, sendPushToAll } from "@/lib/webpush";
 
 // ── 2-hour reminder ──────────────────────────────────────────────────────────
@@ -198,6 +198,52 @@ export async function sendPostGameNotifications(
       });
     })
   );
+}
+
+// ── Sub-admin action notification to admin ────────────────────────────────────
+
+export async function notifyAdminOfSubAdminAction(
+  actorName: string,
+  action: "score_update" | "prediction_update",
+  details: {
+    matchId: string;
+    matchHomeTeam: string;
+    matchAwayTeam: string;
+    matchNumber: number;
+    newHomeScore: number;
+    newAwayScore: number;
+    prevHomeScore?: number | null;
+    prevAwayScore?: number | null;
+    targetUserName?: string;
+  }
+) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail) return;
+
+  try {
+    await sendSubAdminActionEmail(adminEmail, actorName, action, details);
+  } catch (e) {
+    console.error("[notifications] sub-admin action email failed:", e);
+  }
+
+  const adminUser = await prisma.user.findFirst({
+    where: { email: adminEmail },
+    select: { id: true },
+  });
+
+  if (adminUser) {
+    const label = action === "score_update" ? "updated a score" : "edited a prediction";
+    try {
+      await sendPushToUser(adminUser.id, {
+        title: "Sub-admin action",
+        body: `${actorName} ${label}: ${details.matchHomeTeam} vs ${details.matchAwayTeam}`,
+        url: "/admin",
+        tag: "subadmin-action",
+      });
+    } catch (e) {
+      console.error("[notifications] sub-admin push failed:", e);
+    }
+  }
 }
 
 function buildPushBody(

@@ -80,6 +80,60 @@ interface LeaderboardEntry {
   pointsGained?: number;
 }
 
+export async function sendSubAdminActionEmail(
+  adminEmail: string,
+  actorName: string,
+  action: "score_update" | "prediction_update",
+  details: {
+    matchHomeTeam: string;
+    matchAwayTeam: string;
+    matchNumber: number;
+    newHomeScore: number;
+    newAwayScore: number;
+    prevHomeScore?: number | null;
+    prevAwayScore?: number | null;
+    targetUserName?: string;
+  }
+) {
+  const isScore = action === "score_update";
+  const subject = isScore
+    ? `[Sub-admin] Score updated: ${details.matchHomeTeam} vs ${details.matchAwayTeam}`
+    : `[Sub-admin] Prediction edited: ${details.targetUserName} — ${details.matchHomeTeam} vs ${details.matchAwayTeam}`;
+
+  const body = isScore
+    ? `<strong>${actorName}</strong> updated the score for Match #${details.matchNumber}
+       <strong>${details.matchHomeTeam} vs ${details.matchAwayTeam}</strong>.<br><br>
+       Previous: ${details.prevHomeScore ?? "?"} – ${details.prevAwayScore ?? "?"}<br>
+       New: <strong>${details.newHomeScore} – ${details.newAwayScore}</strong>`
+    : `<strong>${actorName}</strong> edited the prediction for
+       <strong>${details.targetUserName}</strong> on Match #${details.matchNumber}
+       <strong>${details.matchHomeTeam} vs ${details.matchAwayTeam}</strong>.<br><br>
+       New prediction: <strong>${details.newHomeScore} – ${details.newAwayScore}</strong>`;
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: adminEmail,
+    subject,
+    html: `
+      <div style="font-family:sans-serif;max-width:540px;margin:0 auto">
+        <div style="background:#003366;padding:24px;text-align:center">
+          <h1 style="color:#fff;margin:0;font-size:22px">⚽ WC2026 — Sub-admin Action</h1>
+        </div>
+        <div style="padding:24px">
+          <p>${body}</p>
+          <a href="${process.env.NEXTAUTH_URL}/admin"
+             style="display:inline-block;margin-top:16px;background:#003366;color:#fff;padding:12px 28px;border-radius:8px;font-weight:bold;text-decoration:none">
+            Open Admin Panel →
+          </a>
+        </div>
+        <div style="background:#f8f9fa;padding:12px;text-align:center;color:#999;font-size:12px">
+          WC2026 Predictions · Sub-admin activity log
+        </div>
+      </div>
+    `,
+  });
+}
+
 export async function sendPostGameEmail(
   to: string,
   name: string,
