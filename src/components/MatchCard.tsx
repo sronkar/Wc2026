@@ -1,0 +1,161 @@
+"use client";
+
+import { useState } from "react";
+import { isPredictionLocked } from "@/lib/scoring";
+
+interface Match {
+  id: string;
+  matchNumber: number;
+  homeTeam: string;
+  awayTeam: string;
+  group: string | null;
+  round: string;
+  venue: string;
+  city: string;
+  kickoff: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: string;
+}
+
+interface Prediction {
+  homeScore: number;
+  awayScore: number;
+  points: number | null;
+}
+
+interface Props {
+  match: Match;
+  prediction?: Prediction;
+  onSave?: (matchId: string, home: number, away: number) => Promise<void>;
+  isLoggedIn: boolean;
+}
+
+export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
+  const [homeInput, setHomeInput] = useState<string>(
+    prediction !== undefined ? String(prediction.homeScore) : ""
+  );
+  const [awayInput, setAwayInput] = useState<string>(
+    prediction !== undefined ? String(prediction.awayScore) : ""
+  );
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+
+  const kickoff = new Date(match.kickoff);
+  const locked = isPredictionLocked(kickoff);
+  const finished = match.status === "FINISHED";
+
+  const handleSave = async () => {
+    const h = parseInt(homeInput, 10);
+    const a = parseInt(awayInput, 10);
+    if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
+      setError("Enter valid scores (0 or more)");
+      return;
+    }
+    setError("");
+    setSaving(true);
+    try {
+      await onSave!(match.id, h, a);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setError("Failed to save. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const pointsBadge = () => {
+    if (!finished || prediction?.points === undefined || prediction.points === null) return null;
+    const pts = prediction.points;
+    const color = pts >= 5 ? "bg-green-100 text-green-800" : pts > 0 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-500";
+    return <span className={`badge ${color} ml-2`}>{pts > 0 ? `+${pts}` : "0"} pts</span>;
+  };
+
+  return (
+    <div className={`card flex flex-col gap-3 ${finished ? "opacity-90" : ""}`}>
+      {/* Header */}
+      <div className="flex items-center justify-between text-xs text-gray-400">
+        <span>
+          {match.group ? `Group ${match.group}` : match.round} · #{match.matchNumber}
+        </span>
+        <span className="truncate max-w-[140px] text-right">{match.city}</span>
+      </div>
+
+      {/* Teams & Score */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-semibold text-gray-800 flex-1 text-sm">{match.homeTeam}</span>
+        <div className="flex items-center gap-2 text-center">
+          {finished ? (
+            <span className="text-lg font-bold text-fifa-blue">
+              {match.homeScore} – {match.awayScore}
+            </span>
+          ) : (
+            <span className="text-xs text-gray-400 font-medium">
+              {kickoff.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                timeZoneName: "short",
+              })}
+            </span>
+          )}
+        </div>
+        <span className="font-semibold text-gray-800 flex-1 text-right text-sm">{match.awayTeam}</span>
+      </div>
+
+      {/* Prediction row */}
+      {isLoggedIn && (
+        <div className="border-t border-gray-100 pt-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-gray-400">Your prediction:</span>
+            {pointsBadge()}
+          </div>
+          {finished && prediction ? (
+            <div className="text-sm text-gray-600 mt-1">
+              {prediction.homeScore} – {prediction.awayScore}
+            </div>
+          ) : finished && !prediction ? (
+            <div className="text-xs text-gray-400 italic mt-1">No prediction submitted</div>
+          ) : locked ? (
+            <div className="text-xs text-orange-500 font-medium mt-1">
+              {prediction ? `${prediction.homeScore} – ${prediction.awayScore} (locked)` : "Locked — no prediction submitted"}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="number"
+                min="0"
+                max="20"
+                value={homeInput}
+                onChange={(e) => setHomeInput(e.target.value)}
+                className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                placeholder="0"
+              />
+              <span className="text-gray-400">–</span>
+              <input
+                type="number"
+                min="0"
+                max="20"
+                value={awayInput}
+                onChange={(e) => setAwayInput(e.target.value)}
+                className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                placeholder="0"
+              />
+              <button
+                onClick={handleSave}
+                disabled={saving || !onSave}
+                className="btn-primary text-xs px-3 py-1.5"
+              >
+                {saving ? "..." : saved ? "Saved ✓" : "Save"}
+              </button>
+            </div>
+          )}
+          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
