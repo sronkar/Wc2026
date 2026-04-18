@@ -2,11 +2,12 @@ import { prisma } from "@/lib/prisma";
 import { calculatePoints } from "@/lib/scoring";
 import { sendReminderEmail, sendPostGameEmail, sendSubAdminActionEmail } from "@/lib/email";
 import { sendPushToUser, sendPushToAll } from "@/lib/webpush";
+import { getNow } from "@/lib/time";
 
 // ── 2-hour reminder ──────────────────────────────────────────────────────────
 
 export async function sendMatchReminders() {
-  const now = new Date();
+  const now = getNow();
   const windowStart = new Date(now.getTime() + 90 * 60 * 1000);  // 1.5 hr from now
   const windowEnd = new Date(now.getTime() + 150 * 60 * 1000);   // 2.5 hr from now
 

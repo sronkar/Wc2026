@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { calculatePoints } from "@/lib/scoring";
 import { sendPostGameNotifications } from "@/lib/notifications";
+import { getNow } from "@/lib/time";
 
 // ── Team name normalisation ───────────────────────────────────────────────────
 // Maps external API names → names stored in our DB
@@ -156,7 +157,7 @@ export interface PollResult {
 }
 
 export async function pollAndUpdateScores(): Promise<PollResult> {
-  const now = new Date();
+  const now = getNow();
   const cutoff = new Date(now.getTime() - 105 * 60 * 1000); // 1h 45m ago
   const ceiling = new Date(now.getTime() - 8 * 60 * 60 * 1000); // 8h ago (don't re-check very old)
 

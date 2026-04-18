@@ -23,6 +23,8 @@ export function calculatePoints(
   return { exact: false, direction: false, points: 0 };
 }
 
+import { getNowMs } from "@/lib/time";
+
 export function isPredictionLocked(kickoff: Date): boolean {
-  return Date.now() >= kickoff.getTime() - 60 * 60 * 1000;
+  return getNowMs() >= kickoff.getTime() - 60 * 60 * 1000;
 }
