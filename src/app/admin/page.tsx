@@ -191,23 +191,12 @@ export default function AdminPage() {
     }
   };
 
-  const handleSaveResult = async (matchId: string, isOverride = false) => {
+  const handleSaveResult = async (matchId: string) => {
     const input = resultInputs[matchId];
     if (!input) return;
     const home = parseInt(input.home, 10);
     const away = parseInt(input.away, 10);
     if (isNaN(home) || isNaN(away)) return;
-
-    if (isOverride) {
-      const match = matches.find((m) => m.id === matchId);
-      const confirmed = window.confirm(
-        `Override score for ${match?.homeTeam} vs ${match?.awayTeam}?\n\n` +
-        `Current: ${match?.homeScore ?? "?"} – ${match?.awayScore ?? "?"}\n` +
-        `New:     ${home} – ${away}\n\n` +
-        `This will recalculate points for all predictions on this match and resend notifications.`
-      );
-      if (!confirmed) return;
-    }
 
     setSaving((prev) => ({ ...prev, [matchId]: true }));
     await fetch("/api/admin/results", {
@@ -352,6 +341,7 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {filtered.map((match, i) => {
+                  const isFinished = match.status === "FINISHED";
                   const input = resultInputs[match.id] ?? { home: "", away: "" };
                   return (
                     <tr key={match.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
@@ -368,29 +358,35 @@ export default function AdminPage() {
                         })}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number" min="0" max="20" value={input.home}
-                            onChange={(e) =>
-                              setResultInputs((prev) => ({ ...prev, [match.id]: { ...prev[match.id], home: e.target.value } }))
-                            }
-                            className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                            placeholder="0"
-                          />
-                          <span className="text-gray-400">–</span>
-                          <input
-                            type="number" min="0" max="20" value={input.away}
-                            onChange={(e) =>
-                              setResultInputs((prev) => ({ ...prev, [match.id]: { ...prev[match.id], away: e.target.value } }))
-                            }
-                            className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                            placeholder="0"
-                          />
-                        </div>
+                        {isFinished ? (
+                          <span className="font-bold text-gray-700">
+                            {match.homeScore} – {match.awayScore}
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number" min="0" max="20" value={input.home}
+                              onChange={(e) =>
+                                setResultInputs((prev) => ({ ...prev, [match.id]: { ...prev[match.id], home: e.target.value } }))
+                              }
+                              className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                              placeholder="0"
+                            />
+                            <span className="text-gray-400">–</span>
+                            <input
+                              type="number" min="0" max="20" value={input.away}
+                              onChange={(e) =>
+                                setResultInputs((prev) => ({ ...prev, [match.id]: { ...prev[match.id], away: e.target.value } }))
+                              }
+                              className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                              placeholder="0"
+                            />
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`badge ${
-                          match.status === "FINISHED" ? "bg-green-100 text-green-700" :
+                          isFinished ? "bg-green-100 text-green-700" :
                           match.status === "LIVE" ? "bg-red-100 text-red-700" :
                           "bg-gray-100 text-gray-500"
                         }`}>
@@ -398,17 +394,17 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleSaveResult(match.id, match.status === "FINISHED")}
-                          disabled={saving[match.id]}
-                          className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50 ${
-                            match.status === "FINISHED"
-                              ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
-                              : "btn-primary"
-                          }`}
-                        >
-                          {saving[match.id] ? "…" : savedMatches.has(match.id) ? "Saved ✓" : match.status === "FINISHED" ? "✎ Override" : "Save"}
-                        </button>
+                        {isFinished ? (
+                          <span className="text-xs text-gray-400 flex items-center gap-1">🔒 Locked</span>
+                        ) : (
+                          <button
+                            onClick={() => handleSaveResult(match.id)}
+                            disabled={saving[match.id]}
+                            className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50"
+                          >
+                            {saving[match.id] ? "…" : savedMatches.has(match.id) ? "Saved ✓" : "Save"}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -455,6 +451,12 @@ export default function AdminPage() {
           </div>
 
           {selectedMatchId && (
+            <>
+              {selectedMatch && Date.now() >= new Date(selectedMatch.kickoff).getTime() - 60 * 60 * 1000 && (
+                <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center gap-2">
+                  🔒 <strong>Predictions locked.</strong> This match is within 1 hour of kickoff or has finished — no edits allowed.
+                </div>
+              )}
             <div className="card overflow-hidden p-0">
               {loadingPreds ? (
                 <div className="p-8 text-center text-gray-400 text-sm">Loading predictions…</div>
@@ -472,6 +474,9 @@ export default function AdminPage() {
                   </thead>
                   <tbody>
                     {matchPredictions.map((pred, i) => {
+                      const isLocked = selectedMatch
+                        ? Date.now() >= new Date(selectedMatch.kickoff).getTime() - 60 * 60 * 1000
+                        : false;
                       const input = predInputs[pred.userId] ?? { home: String(pred.homeScore), away: String(pred.awayScore) };
                       return (
                         <tr key={pred.userId} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
@@ -488,23 +493,27 @@ export default function AdminPage() {
                             </div>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number" min="0" max="20" value={input.home}
-                                onChange={(e) =>
-                                  setPredInputs((prev) => ({ ...prev, [pred.userId]: { ...prev[pred.userId], home: e.target.value } }))
-                                }
-                                className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                              />
-                              <span className="text-gray-400">–</span>
-                              <input
-                                type="number" min="0" max="20" value={input.away}
-                                onChange={(e) =>
-                                  setPredInputs((prev) => ({ ...prev, [pred.userId]: { ...prev[pred.userId], away: e.target.value } }))
-                                }
-                                className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                              />
-                            </div>
+                            {isLocked ? (
+                              <span className="font-semibold text-gray-700">{pred.homeScore} – {pred.awayScore}</span>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number" min="0" max="20" value={input.home}
+                                  onChange={(e) =>
+                                    setPredInputs((prev) => ({ ...prev, [pred.userId]: { ...prev[pred.userId], home: e.target.value } }))
+                                  }
+                                  className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                                />
+                                <span className="text-gray-400">–</span>
+                                <input
+                                  type="number" min="0" max="20" value={input.away}
+                                  onChange={(e) =>
+                                    setPredInputs((prev) => ({ ...prev, [pred.userId]: { ...prev[pred.userId], away: e.target.value } }))
+                                  }
+                                  className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                                />
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             {pred.points !== null ? (
@@ -514,13 +523,17 @@ export default function AdminPage() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <button
-                              onClick={() => handleSavePrediction(pred.userId)}
-                              disabled={savingPred[pred.userId]}
-                              className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50 bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
-                            >
-                              {savingPred[pred.userId] ? "…" : savedPreds.has(pred.userId) ? "Saved ✓" : "✎ Edit"}
-                            </button>
+                            {isLocked ? (
+                              <span className="text-xs text-gray-400">🔒 Locked</span>
+                            ) : (
+                              <button
+                                onClick={() => handleSavePrediction(pred.userId)}
+                                disabled={savingPred[pred.userId]}
+                                className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50 bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
+                              >
+                                {savingPred[pred.userId] ? "…" : savedPreds.has(pred.userId) ? "Saved ✓" : "✎ Edit"}
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -529,6 +542,7 @@ export default function AdminPage() {
                 </table>
               )}
             </div>
+            </>
           )}
         </div>
       )}

@@ -21,6 +21,14 @@ export async function POST(req: NextRequest) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
 
+  // Immutability: once a result is recorded it is permanent
+  if (match.status === "FINISHED") {
+    return NextResponse.json(
+      { error: "Result is already recorded and cannot be changed" },
+      { status: 409 }
+    );
+  }
+
   await applyMatchResult(matchId, homeScore, awayScore);
 
   if (role === "SUB_ADMIN") {

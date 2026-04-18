@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { sendMatchReminders } from "@/lib/notifications";
 import { pollAndUpdateScores } from "@/lib/scores";
+import { createDailyBackup } from "@/lib/backup";
 
 let started = false;
 
@@ -32,5 +33,14 @@ export function startCronJobs() {
     }
   });
 
-  console.log("[cron] started — reminders every 30 min, scores every 5 min");
+  // Daily at 03:00 UTC — backup the database (keeps last 7 days)
+  cron.schedule("0 3 * * *", async () => {
+    try {
+      await createDailyBackup();
+    } catch (err) {
+      console.error("[cron] backup job failed:", err);
+    }
+  });
+
+  console.log("[cron] started — reminders every 30 min, scores every 5 min, backup daily at 03:00 UTC");
 }
