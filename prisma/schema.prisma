@@ -34,17 +34,19 @@ model Session {
 }
 
 model User {
-  id            String       @id @default(cuid())
-  name          String?
-  email         String?      @unique
-  emailVerified DateTime?
-  image         String?
-  role          String       @default("USER")
-  predictions   Prediction[]
-  accounts      Account[]
-  sessions      Session[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id                String             @id @default(cuid())
+  name              String?
+  email             String?            @unique
+  emailVerified     DateTime?
+  image             String?
+  role              String             @default("USER")
+  predictions       Prediction[]
+  accounts          Account[]
+  sessions          Session[]
+  pushSubscriptions PushSubscription[]
+  matchReminders    MatchReminder[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model VerificationToken {
@@ -56,21 +58,22 @@ model VerificationToken {
 }
 
 model Match {
-  id          String       @id @default(cuid())
-  matchNumber Int          @unique
-  homeTeam    String
-  awayTeam    String
-  group       String?
-  round       String
-  venue       String
-  city        String
-  kickoff     DateTime
-  homeScore   Int?
-  awayScore   Int?
-  status      String       @default("SCHEDULED")
-  predictions Prediction[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id             String          @id @default(cuid())
+  matchNumber    Int             @unique
+  homeTeam       String
+  awayTeam       String
+  group          String?
+  round          String
+  venue          String
+  city           String
+  kickoff        DateTime
+  homeScore      Int?
+  awayScore      Int?
+  status         String          @default("SCHEDULED")
+  predictions    Prediction[]
+  matchReminders MatchReminder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model Prediction {
@@ -93,4 +96,25 @@ model PointSettings {
   exactMatchPoints     Int      @default(5)
   directionMatchPoints Int      @default(1)
   updatedAt            DateTime @updatedAt
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model MatchReminder {
+  id      String   @id @default(cuid())
+  userId  String
+  matchId String
+  sentAt  DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match   Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
 }
