@@ -100,12 +100,23 @@ export default function AdminPage() {
     }
   };
 
-  const handleSaveResult = async (matchId: string) => {
+  const handleSaveResult = async (matchId: string, isOverride = false) => {
     const input = resultInputs[matchId];
     if (!input) return;
     const home = parseInt(input.home, 10);
     const away = parseInt(input.away, 10);
     if (isNaN(home) || isNaN(away)) return;
+
+    if (isOverride) {
+      const match = matches.find((m) => m.id === matchId);
+      const confirmed = window.confirm(
+        `Override score for ${match?.homeTeam} vs ${match?.awayTeam}?\n\n` +
+        `Current: ${match?.homeScore ?? "?"} – ${match?.awayScore ?? "?"}\n` +
+        `New:     ${home} – ${away}\n\n` +
+        `This will recalculate points for all predictions on this match and resend notifications.`
+      );
+      if (!confirmed) return;
+    }
 
     setSaving((prev) => ({ ...prev, [matchId]: true }));
     await fetch("/api/admin/results", {
@@ -331,11 +342,21 @@ export default function AdminPage() {
                   </td>
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => handleSaveResult(match.id)}
+                      onClick={() => handleSaveResult(match.id, match.status === "FINISHED")}
                       disabled={saving[match.id]}
-                      className="btn-primary text-xs px-3 py-1.5"
+                      className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50 ${
+                        match.status === "FINISHED"
+                          ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
+                          : "btn-primary"
+                      }`}
                     >
-                      {saving[match.id] ? "..." : savedMatches.has(match.id) ? "Saved ✓" : "Save"}
+                      {saving[match.id]
+                        ? "…"
+                        : savedMatches.has(match.id)
+                        ? "Saved ✓"
+                        : match.status === "FINISHED"
+                        ? "✎ Override"
+                        : "Save"}
                     </button>
                   </td>
                 </tr>
