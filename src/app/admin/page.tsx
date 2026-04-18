@@ -34,6 +34,14 @@ export default function AdminPage() {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [savedMatches, setSavedMatches] = useState<Set<string>>(new Set());
   const [roundFilter, setRoundFilter] = useState("Group Stage");
+  const [polling, setPolling] = useState(false);
+  const [pollResult, setPollResult] = useState<{
+    updated: number;
+    checked: number;
+    matches: { matchNumber: number; home: string; away: string; score: string }[];
+    source: string | null;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -65,6 +73,32 @@ export default function AdminPage() {
     }
     load();
   }, [session]);
+
+  const handlePollScores = async () => {
+    setPolling(true);
+    setPollResult(null);
+    try {
+      const res = await fetch("/api/admin/poll", { method: "POST" });
+      const data = await res.json();
+      setPollResult(data);
+      if (data.updated > 0) {
+        // Refresh match list to show new statuses
+        const mRes = await fetch("/api/matches");
+        const mData: Match[] = await mRes.json();
+        setMatches(mData);
+        const inputs: Record<string, { home: string; away: string }> = {};
+        mData.forEach((m) => {
+          inputs[m.id] = {
+            home: m.homeScore !== null ? String(m.homeScore) : "",
+            away: m.awayScore !== null ? String(m.awayScore) : "",
+          };
+        });
+        setResultInputs(inputs);
+      }
+    } finally {
+      setPolling(false);
+    }
+  };
 
   const handleSaveResult = async (matchId: string) => {
     const input = resultInputs[matchId];
@@ -151,6 +185,66 @@ export default function AdminPage() {
         <p className="text-xs text-gray-400 mt-2">
           Note: changing settings here only affects future result entries. Re-save a match result to recalculate its points.
         </p>
+      </div>
+
+      {/* Auto Score Sync */}
+      <div className="card mb-8">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-bold text-gray-800">Auto Score Sync</h2>
+            <p className="text-xs text-gray-400 mt-1 max-w-md">
+              Fetches finished match scores automatically every 5 minutes (1h 45m after kickoff).
+              Uses <strong>football-data.org</strong> if you set <code className="bg-gray-100 px-1 rounded">FOOTBALL_DATA_API_KEY</code>,
+              otherwise falls back to ESPN&apos;s unofficial API.
+            </p>
+          </div>
+          <button
+            onClick={handlePollScores}
+            disabled={polling}
+            className="btn-primary flex items-center gap-2 whitespace-nowrap"
+          >
+            {polling ? (
+              <>
+                <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Checking…
+              </>
+            ) : (
+              "⟳ Sync Scores Now"
+            )}
+          </button>
+        </div>
+
+        {pollResult && (
+          <div className={`mt-4 rounded-lg p-3 text-sm ${
+            pollResult.updated > 0
+              ? "bg-green-50 border border-green-200 text-green-800"
+              : pollResult.error
+              ? "bg-red-50 border border-red-200 text-red-700"
+              : "bg-gray-50 border border-gray-200 text-gray-600"
+          }`}>
+            {pollResult.updated > 0 ? (
+              <>
+                <p className="font-semibold">✓ Updated {pollResult.updated} match{pollResult.updated > 1 ? "es" : ""} via {pollResult.source}</p>
+                <ul className="mt-1 space-y-0.5">
+                  {pollResult.matches.map((m) => (
+                    <li key={m.matchNumber}>
+                      #{m.matchNumber} {m.home} <strong>{m.score}</strong> {m.away}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : pollResult.error ? (
+              <p>⚠ {pollResult.error} — no scores available yet from any source.</p>
+            ) : (
+              <p>
+                Checked {pollResult.checked} pending match{pollResult.checked !== 1 ? "es" : ""} —
+                {pollResult.checked === 0
+                  ? " no matches in the polling window (1h 45m–8h after kickoff)."
+                  : " no finished scores found yet. Will retry automatically."}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Match Results */}

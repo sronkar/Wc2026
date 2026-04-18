@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { calculatePoints } from "@/lib/scoring";
-import { sendPostGameNotifications } from "@/lib/notifications";
+import { applyMatchResult } from "@/lib/scores";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -17,28 +15,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid scores" }, { status: 400 });
   }
 
-  const settings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
-  const exactPts = settings?.exactMatchPoints ?? 5;
-  const directionPts = settings?.directionMatchPoints ?? 1;
+  await applyMatchResult(matchId, homeScore, awayScore);
 
-  const match = await prisma.match.update({
-    where: { id: matchId },
-    data: { homeScore, awayScore, status: "FINISHED" },
-  });
-
-  const predictions = await prisma.prediction.findMany({ where: { matchId } });
-
-  for (const pred of predictions) {
-    const result = calculatePoints(
-      pred.homeScore, pred.awayScore, homeScore, awayScore, exactPts, directionPts
-    );
-    await prisma.prediction.update({ where: { id: pred.id }, data: { points: result.points } });
-  }
-
-  // Fire-and-forget notifications (don't block the response)
-  sendPostGameNotifications(matchId, homeScore, awayScore, exactPts, directionPts).catch((e) =>
-    console.error("[notifications] post-game send failed:", e)
-  );
-
-  return NextResponse.json({ match, predictionsUpdated: predictions.length });
+  return NextResponse.json({ ok: true });
 }
