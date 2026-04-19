@@ -131,16 +131,18 @@ model DemoSettings {
 }
 
 model Group {
-  id                String              @id @default(cuid())
-  name              String
-  description       String?
-  avatar            String?
-  createdBy         String
-  memberships       GroupMembership[]
-  predictions       Prediction[]
-  customPredictions CustomPrediction[]
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  id                   String              @id @default(cuid())
+  name                 String
+  description          String?
+  avatar               String?
+  createdBy            String
+  exactMatchPoints     Int                 @default(5)
+  directionMatchPoints Int                 @default(1)
+  memberships          GroupMembership[]
+  predictions          Prediction[]
+  customPredictions    CustomPrediction[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 }
 
 model GroupMembership {

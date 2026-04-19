@@ -39,6 +39,8 @@ interface GroupAdmin {
   name: string;
   description: string | null;
   avatar: string | null;
+  exactMatchPoints: number;
+  directionMatchPoints: number;
   createdAt: string;
   memberships: {
     userId: string;
@@ -134,13 +136,13 @@ export default function AdminPage() {
   // ── Groups tab state (admin only) ────────────────────────────────────────────
   const [groups, setGroups] = useState<GroupAdmin[]>([]);
   const [groupsLoaded, setGroupsLoaded] = useState(false);
-  const [groupForm, setGroupForm] = useState({ name: "", description: "", avatar: "" });
+  const [groupForm, setGroupForm] = useState({ name: "", description: "", avatar: "", exactMatchPoints: 5, directionMatchPoints: 1 });
   const [groupCreating, setGroupCreating] = useState(false);
   const [groupDeleting, setGroupDeleting] = useState<Record<string, boolean>>({});
   const [memberUpdating, setMemberUpdating] = useState<Record<string, boolean>>({});
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
-  const [groupEditForms, setGroupEditForms] = useState<Record<string, { name: string; description: string; avatar: string }>>({});
+  const [groupEditForms, setGroupEditForms] = useState<Record<string, { name: string; description: string; avatar: string; exactMatchPoints: number; directionMatchPoints: number }>>({});
   const [groupEditSaving, setGroupEditSaving] = useState<Record<string, boolean>>({});
   const [addMemberInputs, setAddMemberInputs] = useState<Record<string, string>>({});
   const [addMemberSaving, setAddMemberSaving] = useState<Record<string, boolean>>({});
@@ -378,12 +380,14 @@ export default function AdminPage() {
         name: groupForm.name.trim(),
         description: groupForm.description.trim() || null,
         avatar: groupForm.avatar.trim() || null,
+        exactMatchPoints: groupForm.exactMatchPoints,
+        directionMatchPoints: groupForm.directionMatchPoints,
       }),
     });
     if (res.ok) {
       const created: GroupAdmin = await res.json();
       setGroups((prev) => [...prev, created]);
-      setGroupForm({ name: "", description: "", avatar: "" });
+      setGroupForm({ name: "", description: "", avatar: "", exactMatchPoints: 5, directionMatchPoints: 1 });
     }
     setGroupCreating(false);
   };
@@ -399,6 +403,8 @@ export default function AdminPage() {
         name: form.name.trim(),
         description: form.description.trim() || null,
         avatar: form.avatar.trim() || null,
+        exactMatchPoints: form.exactMatchPoints,
+        directionMatchPoints: form.directionMatchPoints,
       }),
     });
     if (res.ok) {
@@ -552,7 +558,7 @@ export default function AdminPage() {
     { key: "results", label: "Match Results" },
     { key: "predictions", label: "Edit Predictions" },
     ...(isAdmin ? [
-      { key: "settings" as Tab, label: "Settings" },
+      { key: "settings" as Tab, label: "Point Defaults" },
       { key: "users" as Tab, label: "Users" },
       { key: "custom" as Tab, label: "Custom Predictions" },
       { key: "groups" as Tab, label: "Groups" },
@@ -838,11 +844,14 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* ── Settings tab (admin only) ─────────────────────────────────────────── */}
+      {/* ── Point Defaults tab (admin only) ─────────────────────────────────────── */}
       {activeTab === "settings" && isAdmin && (
         <>
           <div className="card mb-8">
-            <h2 className="font-bold text-gray-800 mb-4">Point Settings</h2>
+            <h2 className="font-bold text-gray-800 mb-1">Point Defaults</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              These are the defaults used when creating a new group. Each group can override them.
+            </p>
             <div className="flex flex-wrap gap-6 items-end">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Exact Score (pts)</label>
@@ -861,12 +870,9 @@ export default function AdminPage() {
                 />
               </div>
               <button onClick={handleSaveSettings} className="btn-primary">
-                {settingsSaved ? "Saved ✓" : "Save Settings"}
+                {settingsSaved ? "Saved ✓" : "Save Defaults"}
               </button>
             </div>
-            <p className="text-xs text-gray-400 mt-2">
-              Note: changing settings only affects future result entries. Re-save a match result to recalculate its points.
-            </p>
           </div>
 
           <div className="card">
@@ -1209,6 +1215,26 @@ export default function AdminPage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                 />
               </div>
+              <div className="flex gap-4 flex-wrap">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Points: Exact Score</label>
+                  <input
+                    type="number" min="0"
+                    value={groupForm.exactMatchPoints}
+                    onChange={(e) => setGroupForm((f) => ({ ...f, exactMatchPoints: Number(e.target.value) }))}
+                    className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Points: Correct Winner/Draw</label>
+                  <input
+                    type="number" min="0"
+                    value={groupForm.directionMatchPoints}
+                    onChange={(e) => setGroupForm((f) => ({ ...f, directionMatchPoints: Number(e.target.value) }))}
+                    className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                  />
+                </div>
+              </div>
               <button
                 onClick={handleCreateGroup}
                 disabled={groupCreating || !groupForm.name.trim()}
@@ -1260,6 +1286,9 @@ export default function AdminPage() {
                                 {pending.length} pending
                               </span>
                             )}
+                            <span className="text-xs text-gray-400">
+                              {group.exactMatchPoints}pt exact · {group.directionMatchPoints}pt direction
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1267,7 +1296,7 @@ export default function AdminPage() {
                         <button
                           onClick={() => {
                             if (isEditing) { setEditingGroup(null); return; }
-                            setGroupEditForms((p) => ({ ...p, [group.id]: { name: group.name, description: group.description ?? "", avatar: group.avatar ?? "" } }));
+                            setGroupEditForms((p) => ({ ...p, [group.id]: { name: group.name, description: group.description ?? "", avatar: group.avatar ?? "", exactMatchPoints: group.exactMatchPoints, directionMatchPoints: group.directionMatchPoints } }));
                             setEditingGroup(group.id);
                           }}
                           className="text-xs text-gray-500 hover:text-fifa-blue"
@@ -1314,6 +1343,26 @@ export default function AdminPage() {
                           placeholder="Avatar URL (optional)"
                           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                         />
+                        <div className="flex gap-4 flex-wrap">
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Points: Exact Score</label>
+                            <input
+                              type="number" min="0"
+                              value={groupEditForms[group.id]?.exactMatchPoints ?? 5}
+                              onChange={(e) => setGroupEditForms((p) => ({ ...p, [group.id]: { ...p[group.id], exactMatchPoints: Number(e.target.value) } }))}
+                              className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Points: Correct Winner/Draw</label>
+                            <input
+                              type="number" min="0"
+                              value={groupEditForms[group.id]?.directionMatchPoints ?? 1}
+                              onChange={(e) => setGroupEditForms((p) => ({ ...p, [group.id]: { ...p[group.id], directionMatchPoints: Number(e.target.value) } }))}
+                              className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                            />
+                          </div>
+                        </div>
                         <button
                           onClick={() => handleSaveGroupEdit(group.id)}
                           disabled={groupEditSaving[group.id]}

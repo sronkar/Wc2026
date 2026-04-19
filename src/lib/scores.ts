@@ -123,24 +123,28 @@ export async function applyMatchResult(
   homeScore: number,
   awayScore: number
 ) {
-  const settings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
-  const exactPts = settings?.exactMatchPoints ?? 5;
-  const directionPts = settings?.directionMatchPoints ?? 1;
-
   await prisma.match.update({
     where: { id: matchId },
     data: { homeScore, awayScore, status: "FINISHED" },
   });
 
-  const predictions = await prisma.prediction.findMany({ where: { matchId } });
+  const predictions = await prisma.prediction.findMany({
+    where: { matchId },
+    include: { group: { select: { exactMatchPoints: true, directionMatchPoints: true } } },
+  });
+
   for (const pred of predictions) {
     const { points } = calculatePoints(
-      pred.homeScore, pred.awayScore, homeScore, awayScore, exactPts, directionPts
+      pred.homeScore, pred.awayScore, homeScore, awayScore,
+      pred.group.exactMatchPoints, pred.group.directionMatchPoints
     );
     await prisma.prediction.update({ where: { id: pred.id }, data: { points } });
   }
 
-  // Fire-and-forget
+  // Notifications use global defaults for messaging context only
+  const settings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
+  const exactPts = settings?.exactMatchPoints ?? 5;
+  const directionPts = settings?.directionMatchPoints ?? 1;
   sendPostGameNotifications(matchId, homeScore, awayScore, exactPts, directionPts).catch(
     (e) => console.error("[notifications] post-game send failed:", e)
   );

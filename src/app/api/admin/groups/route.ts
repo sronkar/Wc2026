@@ -27,6 +27,8 @@ export async function GET() {
       name: g.name,
       description: g.description,
       avatar: g.avatar,
+      exactMatchPoints: g.exactMatchPoints,
+      directionMatchPoints: g.directionMatchPoints,
       createdAt: g.createdAt.toISOString(),
       memberships: g.memberships.map((m) => ({
         userId: m.userId,
@@ -44,10 +46,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, description, avatar } = await req.json();
+  const { name, description, avatar, exactMatchPoints, directionMatchPoints } = await req.json();
   if (!name?.trim()) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
+
+  // Fall back to global PointSettings if per-group values not provided
+  const globalSettings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
+  const resolvedExact = exactMatchPoints !== undefined ? Number(exactMatchPoints) : (globalSettings?.exactMatchPoints ?? 5);
+  const resolvedDirection = directionMatchPoints !== undefined ? Number(directionMatchPoints) : (globalSettings?.directionMatchPoints ?? 1);
 
   const group = await prisma.group.create({
     data: {
@@ -55,6 +62,8 @@ export async function POST(req: NextRequest) {
       description: description ? String(description).trim() : null,
       avatar: avatar ? String(avatar).trim() : null,
       createdBy: session.user.id,
+      exactMatchPoints: resolvedExact,
+      directionMatchPoints: resolvedDirection,
     },
   });
 
