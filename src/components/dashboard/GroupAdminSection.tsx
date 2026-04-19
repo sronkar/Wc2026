@@ -97,6 +97,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [inviteRole, setInviteRole] = useState("MEMBER");
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteMessage, setInviteMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
   // ── Settings state ────────────────────────────────────────────────────────────
@@ -218,6 +219,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       body: JSON.stringify({ email: inviteEmail.trim(), memberRole: inviteRole }),
     });
     if (res.ok) {
+      const result = await res.json();
       setPendingInvites((prev) => [
         ...prev,
         {
@@ -229,13 +231,20 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         },
       ]);
       setInviteEmail("");
-      setInviteMessage({ ok: true, text: `Invite sent to ${inviteEmail.trim()}` });
+      if (result.emailSent) {
+        setInviteMessage({ ok: true, text: `Invite email sent to ${inviteEmail.trim()}` });
+        setInviteLink(null);
+        setTimeout(() => setInviteMessage(null), 4000);
+      } else {
+        setInviteMessage({ ok: true, text: "Invite created — email unavailable, share this link manually:" });
+        setInviteLink(result.inviteUrl);
+      }
     } else {
       const err = await res.json().catch(() => ({}));
-      setInviteMessage({ ok: false, text: (err as { error?: string }).error ?? "Failed to send invite" });
+      setInviteMessage({ ok: false, text: (err as { error?: string }).error ?? "Failed to create invite" });
+      setTimeout(() => setInviteMessage(null), 4000);
     }
     setInviteSending(false);
-    setTimeout(() => setInviteMessage(null), 4000);
   };
 
   const handleAddMember = async () => {
@@ -483,6 +492,8 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
               className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
             >
               <option value="MEMBER">Member</option>
+              <option value="ADMIN">Admin</option>
+              <option value="SUB_ADMIN">Sub Admin</option>
               <option value="VISITOR_ADMIN">Visitor Admin</option>
             </select>
             <button
@@ -497,6 +508,22 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
             <p className={`text-xs mt-1 ${inviteMessage.ok ? "text-green-600" : "text-red-500"}`}>
               {inviteMessage.text}
             </p>
+          )}
+          {inviteLink && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <input
+                readOnly
+                value={inviteLink}
+                className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 bg-gray-50 text-gray-600 font-mono"
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                onClick={() => { navigator.clipboard.writeText(inviteLink); }}
+                className="text-xs text-fifa-blue hover:underline shrink-0"
+              >
+                Copy
+              </button>
+            </div>
           )}
           {pendingInvites.length > 0 && (
             <div className="mt-2 space-y-1">
@@ -540,6 +567,8 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
               className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
             >
               <option value="MEMBER">Member</option>
+              <option value="ADMIN">Admin</option>
+              <option value="SUB_ADMIN">Sub Admin</option>
               <option value="VISITOR_ADMIN">Visitor Admin</option>
             </select>
             <button
@@ -591,9 +620,13 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                       <p className="text-sm font-medium text-gray-800 truncate">
                         {m.user.name ?? "—"}
                       </p>
-                      {m.memberRole === "VISITOR_ADMIN" && (
-                        <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
-                          Visitor
+                      {m.memberRole !== "MEMBER" && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
+                          m.memberRole === "ADMIN" ? "bg-amber-100 text-amber-800" :
+                          m.memberRole === "SUB_ADMIN" ? "bg-blue-100 text-blue-700" :
+                          "bg-purple-100 text-purple-700"
+                        }`}>
+                          {m.memberRole === "ADMIN" ? "Admin" : m.memberRole === "SUB_ADMIN" ? "Sub Admin" : "Visitor"}
                         </span>
                       )}
                     </div>

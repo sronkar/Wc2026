@@ -75,8 +75,10 @@ export default async function GroupDashboardPage({
       p.awayScore === p.match.awayScore
   ).length;
 
+  const isVisitor = membership?.memberRole === "VISITOR_ADMIN";
+
   const memberships = await prisma.groupMembership.findMany({
-    where: { groupId, status: "APPROVED" },
+    where: { groupId, status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
     include: {
       user: {
         select: {
@@ -170,19 +172,26 @@ export default async function GroupDashboardPage({
       <div className="grid md:grid-cols-2 gap-6">
         {/* Left column */}
         <div className="space-y-6">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-gray-800">Next Up to Predict</h2>
-              <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline">
-                All matches →
-              </Link>
+          {!isVisitor && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-bold text-gray-800">Next Up to Predict</h2>
+                <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline">
+                  All matches →
+                </Link>
+              </div>
+              <MatchCarousel
+                groupId={groupId}
+                matches={carouselMatches as Parameters<typeof MatchCarousel>[0]["matches"]}
+                predictions={predMap}
+              />
             </div>
-            <MatchCarousel
-              groupId={groupId}
-              matches={carouselMatches as Parameters<typeof MatchCarousel>[0]["matches"]}
-              predictions={predMap}
-            />
-          </div>
+          )}
+          {isVisitor && (
+            <div className="card text-center py-6 text-gray-400 text-sm">
+              You are a Visitor Admin — predictions are disabled for your account in this group.
+            </div>
+          )}
           <LockedPredictionsPanel
             groupId={groupId}
             lockedMatch={lockedMatchSerialized as Parameters<typeof LockedPredictionsPanel>[0]["lockedMatch"]}
