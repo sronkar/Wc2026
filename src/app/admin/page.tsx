@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 
 interface Match {
   id: string;
@@ -34,7 +35,15 @@ interface UserRow {
   createdAt: string;
 }
 
-type Tab = "results" | "settings" | "users";
+interface GroupRow {
+  id: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
+  myStatus: string | null;
+}
+
+type Tab = "results" | "settings" | "users" | "groups";
 
 const ROUNDS = [
   "Group Stage",
@@ -75,6 +84,13 @@ export default function AdminPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [roleUpdating, setRoleUpdating] = useState<Record<string, boolean>>({});
+
+  // ── Groups tab state ──────────────────────────────────────────────────────────
+  const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDesc, setNewGroupDesc] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
 
   // ── Tab state ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>("results");
@@ -119,11 +135,16 @@ export default function AdminPage() {
     if (activeTab !== "users" || usersLoaded || !isAdmin) return;
     fetch("/api/admin/users")
       .then((r) => r.json())
-      .then((data: UserRow[]) => {
-        setUsers(data);
-        setUsersLoaded(true);
-      });
+      .then((data: UserRow[]) => { setUsers(data); setUsersLoaded(true); });
   }, [activeTab, usersLoaded, isAdmin]);
+
+  // ── Load groups when Groups tab is opened ────────────────────────────────────
+  useEffect(() => {
+    if (activeTab !== "groups" || groupsLoaded) return;
+    fetch("/api/groups")
+      .then((r) => r.json())
+      .then((data: GroupRow[]) => { if (Array.isArray(data)) { setGroups(data); setGroupsLoaded(true); } });
+  }, [activeTab, groupsLoaded]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -209,8 +230,27 @@ export default function AdminPage() {
 
   const filtered = matches.filter((m) => m.round === roundFilter);
 
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGroupName.trim()) return;
+    setCreatingGroup(true);
+    const res = await fetch("/api/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newGroupName, description: newGroupDesc }),
+    });
+    if (res.ok) {
+      const g = await res.json();
+      setGroups((prev) => [...prev, { ...g, memberCount: 1, myStatus: "APPROVED" }]);
+      setNewGroupName("");
+      setNewGroupDesc("");
+    }
+    setCreatingGroup(false);
+  };
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "results", label: "Match Results" },
+    { key: "groups", label: "Groups" },
     ...(isAdmin ? [
       { key: "settings" as Tab, label: "Point Defaults" },
       { key: "users" as Tab, label: "Users" },
@@ -438,6 +478,78 @@ export default function AdminPage() {
             )}
           </div>
         </>
+      )}
+
+      {/* ── Groups tab ───────────────────────────────────────────────────────── */}
+      {activeTab === "groups" && (
+        <div className="space-y-6">
+          {/* Create group form */}
+          <div className="card">
+            <h2 className="font-bold text-gray-800 mb-4">Create New Group</h2>
+            <form onSubmit={handleCreateGroup} className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Group Name <span className="text-red-400">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="e.g. Office League 2026"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Description (optional)</label>
+                <input
+                  type="text"
+                  value={newGroupDesc}
+                  onChange={(e) => setNewGroupDesc(e.target.value)}
+                  placeholder="A short description"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              <button type="submit" disabled={creatingGroup} className="btn-primary disabled:opacity-50">
+                {creatingGroup ? "Creating…" : "Create Group"}
+              </button>
+            </form>
+          </div>
+
+          {/* Existing groups */}
+          <div className="card overflow-hidden p-0">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <h2 className="font-bold text-gray-800 text-sm">All Groups ({groups.length})</h2>
+            </div>
+            {groups.length === 0 ? (
+              <p className="px-4 py-8 text-center text-gray-400 text-sm">No groups yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
+                    <th className="px-4 py-2">Name</th>
+                    <th className="px-4 py-2">Members</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map((g, i) => (
+                    <tr key={g.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-800">{g.name}</p>
+                        {g.description && <p className="text-xs text-gray-400">{g.description}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">{g.memberCount}</td>
+                      <td className="px-4 py-3">
+                        <Link href={`/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">
+                          Open →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Users tab (admin only) ────────────────────────────────────────────── */}
