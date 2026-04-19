@@ -58,5 +58,10 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  // Auto-add creator as approved member so they can access the group immediately
+  await prisma.groupMembership.create({
+    data: { userId: session.user.id, groupId: group.id, status: "APPROVED" },
+  });
+
   return NextResponse.json({ ...group, memberships: [] }, { status: 201 });
 }

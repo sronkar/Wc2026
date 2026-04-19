@@ -14,5 +14,13 @@ export default async function DashboardPage() {
   });
 
   if (first) redirect(`/groups/${first.groupId}`);
+
+  // Admins without a membership can still see any group
+  const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUB_ADMIN";
+  if (isAdmin) {
+    const anyGroup = await prisma.group.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } });
+    if (anyGroup) redirect(`/groups/${anyGroup.id}`);
+  }
+
   redirect("/groups");
 }
