@@ -159,6 +159,16 @@ export function Navbar() {
               {activeGroupId && (
                 <>
                   <Link
+                    href={`/groups/${activeGroupId}`}
+                    className={`px-3 py-1.5 rounded-md transition ${
+                      pathname === `/groups/${activeGroupId}`
+                        ? "text-white bg-white/15"
+                        : "text-blue-200 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link
                     href={`/groups/${activeGroupId}/matches`}
                     className={`px-3 py-1.5 rounded-md transition ${
                       pathname.startsWith(`/groups/${activeGroupId}/matches`) || subPage === "matches"
