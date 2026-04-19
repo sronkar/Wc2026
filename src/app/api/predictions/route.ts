@@ -60,9 +60,10 @@ export async function GET(req: NextRequest) {
   const matchId = searchParams.get("matchId");
   const groupId = searchParams.get("groupId");
 
-  const where: Record<string, unknown> = { userId: session.user.id };
+  if (!groupId) return NextResponse.json({ error: "groupId is required" }, { status: 400 });
+
+  const where: Record<string, unknown> = { userId: session.user.id, groupId };
   if (matchId) where.matchId = matchId;
-  if (groupId) where.groupId = groupId;
 
   const predictions = await prisma.prediction.findMany({
     where,
