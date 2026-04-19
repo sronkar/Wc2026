@@ -5,6 +5,25 @@ import { prisma } from "@/lib/prisma";
 
 type Ctx = { params: { id: string } };
 
+export async function PATCH(req: NextRequest, { params }: Ctx) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const group = await prisma.group.findUnique({ where: { id: params.id } });
+  if (!group) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { name, description, avatar } = await req.json();
+  const data: Record<string, unknown> = {};
+  if (name?.trim()) data.name = String(name).trim();
+  if (description !== undefined) data.description = description ? String(description).trim() : null;
+  if (avatar !== undefined) data.avatar = avatar ? String(avatar).trim() : null;
+
+  const updated = await prisma.group.update({ where: { id: params.id }, data });
+  return NextResponse.json(updated);
+}
+
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.role !== "ADMIN") {

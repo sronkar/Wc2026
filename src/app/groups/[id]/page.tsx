@@ -1,177 +1,230 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter, useParams } from "next/navigation";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { isPredictionLocked } from "@/lib/scoring";
 import Image from "next/image";
 import Link from "next/link";
+import { MatchCarousel } from "@/components/dashboard/MatchCarousel";
+import { MiniLeaderboard } from "@/components/dashboard/MiniLeaderboard";
+import { LockedPredictionsPanel } from "@/components/dashboard/LockedPredictionsPanel";
+import { CustomPredictionsPanel } from "@/components/dashboard/CustomPredictionsPanel";
 
-interface LeaderboardEntry {
-  userId: string;
-  name: string;
-  image: string | null;
-  totalPoints: number;
-  predictionsCount: number;
-  rank: number;
-}
+export const revalidate = 0;
 
-interface GroupDetail {
-  id: string;
-  name: string;
-  description: string | null;
-  myStatus: string | null;
-  leaderboard: LeaderboardEntry[] | null;
-}
+export default async function GroupDashboardPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) redirect("/login");
 
-const RANK_MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
+  const groupId = params.id;
+  const userId = session.user.id;
+  const role = session.user.role;
+  const isAdminRole = role === "ADMIN" || role === "SUB_ADMIN";
 
-export default function GroupPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const { id } = useParams<{ id: string }>();
-  const [group, setGroup] = useState<GroupDetail | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [group, membership] = await Promise.all([
+    prisma.group.findUnique({ where: { id: groupId } }),
+    prisma.groupMembership.findUnique({
+      where: { userId_groupId: { userId, groupId } },
+    }),
+  ]);
 
-  useEffect(() => {
-    if (status === "loading") return;
-    if (!session) { router.replace("/login"); return; }
-    fetch(`/api/groups/${id}`)
-      .then((r) => r.json())
-      .then((data) => setGroup(data))
-      .finally(() => setLoaded(true));
-  }, [session, status, id, router]);
+  if (!group) redirect("/groups");
+  if (!isAdminRole && membership?.status !== "APPROVED") redirect("/groups");
 
-  if (status === "loading" || !loaded) {
-    return <div className="flex items-center justify-center h-64 text-gray-400">Loading…</div>;
-  }
+  const now = new Date();
 
-  if (!group) {
-    return (
-      <div className="max-w-xl mx-auto px-4 py-16 text-center text-gray-400">
-        Group not found.{" "}
-        <Link href="/groups" className="text-fifa-blue hover:underline">Back to groups</Link>
-      </div>
-    );
-  }
+  const upcomingMatches = await prisma.match.findMany({
+    where: {
+      status: "SCHEDULED",
+      kickoff: { gte: new Date(now.getTime() - 2 * 60 * 60 * 1000) },
+      isDemo: false,
+    },
+    orderBy: { kickoff: "asc" },
+    take: 5,
+  });
 
-  const myId = session?.user?.id;
+  const upcomingPredictions = await prisma.prediction.findMany({
+    where: {
+      userId,
+      groupId,
+      matchId: { in: upcomingMatches.map((m) => m.id) },
+    },
+  });
+  const predMap: Record<string, { homeScore: number; awayScore: number }> = {};
+  upcomingPredictions.forEach((p) => {
+    predMap[p.matchId] = { homeScore: p.homeScore, awayScore: p.awayScore };
+  });
+
+  const lockedMatch = upcomingMatches.find((m) => isPredictionLocked(m.kickoff)) ?? null;
+
+  const groupPredictions = await prisma.prediction.findMany({
+    where: { userId, groupId },
+    include: { match: { select: { status: true, homeScore: true, awayScore: true } } },
+  });
+  const totalPoints = groupPredictions.reduce((s, p) => s + (p.points ?? 0), 0);
+  const exactMatches = groupPredictions.filter(
+    (p) =>
+      p.match.homeScore !== null &&
+      p.homeScore === p.match.homeScore &&
+      p.awayScore === p.match.awayScore
+  ).length;
+
+  const memberships = await prisma.groupMembership.findMany({
+    where: { groupId, status: "APPROVED" },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          image: true,
+          predictions: {
+            where: { points: { not: null }, groupId },
+            select: { points: true },
+          },
+        },
+      },
+    },
+  });
+
+  const leaderboard = memberships
+    .map((m) => ({
+      id: m.user.id,
+      name: m.user.name ?? "Anonymous",
+      image: m.user.image,
+      totalPoints: m.user.predictions.reduce((s, p) => s + (p.points ?? 0), 0),
+      predictionsCount: m.user.predictions.length,
+    }))
+    .sort((a, b) => b.totalPoints - a.totalPoints)
+    .map((u, i) => ({ ...u, rank: i + 1 }));
+
+  const userRank = leaderboard.find((e) => e.id === userId)?.rank ?? null;
+
+  const carouselMatches = upcomingMatches.map((m) => ({
+    ...m,
+    kickoff: m.kickoff.toISOString(),
+    createdAt: undefined,
+    updatedAt: undefined,
+  }));
+
+  const lockedMatchSerialized = lockedMatch
+    ? {
+        ...lockedMatch,
+        kickoff: lockedMatch.kickoff.toISOString(),
+        createdAt: undefined,
+        updatedAt: undefined,
+      }
+    : null;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      {/* Back link */}
-      <Link href="/groups" className="text-xs text-gray-400 hover:text-fifa-blue mb-4 inline-block">
-        ← All groups
-      </Link>
-
-      {/* Header */}
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">{group.name}</h1>
-      {group.description && (
-        <p className="text-gray-500 text-sm mb-4">{group.description}</p>
-      )}
-
-      {/* Not a member states */}
-      {group.leaderboard === null && (
-        <div className="card text-center py-10">
-          {group.myStatus === "PENDING" ? (
-            <>
-              <p className="text-lg font-semibold text-yellow-600 mb-1">Your request is pending</p>
-              <p className="text-sm text-gray-400">An admin or moderator will review your request soon.</p>
-            </>
-          ) : group.myStatus === "REJECTED" ? (
-            <>
-              <p className="text-lg font-semibold text-red-500 mb-1">Request rejected</p>
-              <p className="text-sm text-gray-400">Contact the admin if you think this was a mistake.</p>
-            </>
-          ) : (
-            <>
-              <p className="text-lg font-semibold text-gray-600 mb-1">Members only</p>
-              <p className="text-sm text-gray-400 mb-4">
-                Request to join this group to see the leaderboard.
-              </p>
-              <Link href="/groups" className="btn-primary text-sm">
-                Request to join
-              </Link>
-            </>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Group header */}
+      <div className="flex items-center gap-4 mb-6">
+        {group.avatar ? (
+          <Image
+            src={group.avatar}
+            alt={group.name}
+            width={52}
+            height={52}
+            className="rounded-full object-cover shrink-0 border-2 border-white shadow"
+          />
+        ) : (
+          <div className="w-13 h-13 w-[52px] h-[52px] rounded-full bg-fifa-blue text-white font-extrabold text-xl flex items-center justify-center shrink-0 shadow">
+            {group.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{group.name}</h1>
+          {group.description && (
+            <p className="text-gray-400 text-sm mt-0.5">{group.description}</p>
           )}
-        </div>
-      )}
-
-      {/* Leaderboard */}
-      {group.leaderboard && (
-        <>
-          <p className="text-xs text-gray-400 mb-4">
-            {group.leaderboard.length} {group.leaderboard.length === 1 ? "member" : "members"} · ranked by total points
+          <p className="text-xs text-gray-400 mt-0.5">
+            {userRank ? `You're ranked #${userRank} in this group` : "Start predicting to join the rankings"} · {totalPoints} pts
           </p>
+        </div>
+      </div>
 
-          {group.leaderboard.length === 0 ? (
-            <div className="card text-center py-10 text-gray-400">No members yet.</div>
-          ) : (
-            <div className="card overflow-hidden p-0">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200">
-                    <th className="px-4 py-3 w-10">#</th>
-                    <th className="px-4 py-3">Player</th>
-                    <th className="px-4 py-3 text-right">Predictions</th>
-                    <th className="px-4 py-3 text-right">Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {group.leaderboard.map((entry, i) => {
-                    const isMe = entry.userId === myId;
-                    const isTop = entry.rank <= 3;
-                    return (
-                      <tr
-                        key={entry.userId}
-                        className={`border-t border-gray-100 ${
-                          isMe
-                            ? "bg-yellow-50"
-                            : entry.rank === 1
-                            ? "bg-yellow-50/40"
-                            : i % 2 === 0
-                            ? "bg-white"
-                            : "bg-gray-50"
-                        }`}
-                      >
-                        <td className="px-4 py-3 font-bold text-gray-400">
-                          {isTop ? RANK_MEDAL[entry.rank] : entry.rank}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {entry.image ? (
-                              <Image
-                                src={entry.image}
-                                alt=""
-                                width={28}
-                                height={28}
-                                className="rounded-full"
-                              />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                                {entry.name.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <span className={`font-medium ${isMe ? "text-fifa-blue" : "text-gray-800"}`}>
-                              {entry.name}
-                              {isMe && <span className="text-xs text-gray-400 ml-1">(you)</span>}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-500">
-                          {entry.predictionsCount}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold text-fifa-blue">
-                          {entry.totalPoints}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+      {/* Stats strip */}
+      <div className="grid grid-cols-3 gap-3 mb-8">
+        {[
+          { label: "Group Points", value: totalPoints, color: "text-fifa-blue" },
+          { label: "Predictions", value: groupPredictions.length, color: "text-gray-700" },
+          { label: "Exact Scores", value: exactMatches, color: "text-green-600" },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="card text-center py-3">
+            <div className={`text-2xl font-extrabold ${color}`}>{value}</div>
+            <div className="text-xs text-gray-400 mt-0.5">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Left column */}
+        <div className="space-y-6">
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-bold text-gray-800">Next Up to Predict</h2>
+              <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline">
+                All matches →
+              </Link>
             </div>
-          )}
-        </>
-      )}
+            <MatchCarousel
+              groupId={groupId}
+              matches={carouselMatches as Parameters<typeof MatchCarousel>[0]["matches"]}
+              predictions={predMap}
+            />
+          </div>
+          <LockedPredictionsPanel
+            groupId={groupId}
+            lockedMatch={lockedMatchSerialized as Parameters<typeof LockedPredictionsPanel>[0]["lockedMatch"]}
+          />
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-gray-800">Group Leaderboard</h2>
+              <Link href={`/groups/${groupId}/leaderboard`} className="text-xs text-fifa-blue hover:underline">
+                Full table →
+              </Link>
+            </div>
+            <MiniLeaderboard entries={leaderboard} currentUserId={userId} />
+          </div>
+
+          <CustomPredictionsPanel groupId={groupId} />
+
+          <div className="card">
+            <h2 className="font-bold text-gray-800 mb-3">Quick Links</h2>
+            <div className="space-y-2">
+              <Link
+                href={`/groups/${groupId}/matches`}
+                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition group"
+              >
+                <span className="text-sm text-gray-700 group-hover:text-fifa-blue">⚽ All 104 Matches</span>
+                <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
+              </Link>
+              <Link
+                href={`/groups/${groupId}/leaderboard`}
+                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition group"
+              >
+                <span className="text-sm text-gray-700 group-hover:text-fifa-blue">🏆 Group Leaderboard</span>
+                <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
+              </Link>
+              <Link
+                href="/groups"
+                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition group"
+              >
+                <span className="text-sm text-gray-700 group-hover:text-fifa-blue">👥 All My Groups</span>
+                <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

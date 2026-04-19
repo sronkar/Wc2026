@@ -27,8 +27,8 @@ export async function GET() {
         id: g.id,
         name: g.name,
         description: g.description,
+        avatar: g.avatar,
         memberCount: g.memberships.filter((m) => m.status === "APPROVED").length,
-        pendingCount: g.memberships.filter((m) => m.status === "PENDING").length,
         myStatus: mine?.status ?? null, // null = never requested
       };
     })

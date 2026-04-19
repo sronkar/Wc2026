@@ -16,6 +16,13 @@ export async function POST(
   const cp = await prisma.customPrediction.findUnique({ where: { id: params.id } });
   if (!cp) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const membership = await prisma.groupMembership.findUnique({
+    where: { userId_groupId: { userId: session.user.id, groupId: cp.groupId } },
+  });
+  if (membership?.status !== "APPROVED") {
+    return NextResponse.json({ error: "Not a member of this group" }, { status: 403 });
+  }
+
   if (getNowMs() >= cp.lockTime.getTime()) {
     return NextResponse.json({ error: "This prediction is locked" }, { status: 409 });
   }

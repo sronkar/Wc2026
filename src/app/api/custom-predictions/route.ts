@@ -4,16 +4,21 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getNowMs } from "@/lib/time";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const groupId = searchParams.get("groupId");
+  if (!groupId) return NextResponse.json({ error: "groupId is required" }, { status: 400 });
+
   const userId = session.user.id;
   const now = getNowMs();
 
   const preds = await prisma.customPrediction.findMany({
+    where: { groupId },
     orderBy: { lockTime: "asc" },
     include: {
       answers: {

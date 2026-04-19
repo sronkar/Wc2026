@@ -12,7 +12,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { userId, matchId, homeScore, awayScore } = await req.json();
+  const { userId, matchId, groupId, homeScore, awayScore } = await req.json();
+  if (!groupId) return NextResponse.json({ error: "groupId is required" }, { status: 400 });
 
   if (typeof homeScore !== "number" || typeof awayScore !== "number") {
     return NextResponse.json({ error: "Invalid scores" }, { status: 400 });
@@ -44,9 +45,9 @@ export async function POST(req: NextRequest) {
   }
 
   const prediction = await prisma.prediction.upsert({
-    where: { userId_matchId: { userId, matchId } },
+    where: { userId_matchId_groupId: { userId, matchId, groupId } },
     update: { homeScore, awayScore, points },
-    create: { userId, matchId, homeScore, awayScore, points },
+    create: { userId, matchId, groupId, homeScore, awayScore, points },
   });
 
   if (role === "SUB_ADMIN") {

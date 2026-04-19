@@ -192,16 +192,19 @@ async function handleAutoPredict(body: Record<string, unknown>) {
     where: matchId ? { id: matchId, isDemo: true } : { isDemo: true, status: "SCHEDULED" },
   });
 
+  const firstGroup = await prisma.group.findFirst({ select: { id: true } });
+  if (!firstGroup) return NextResponse.json({ ok: true, predictionsAdded: 0, note: "No groups found — create a group first" });
+
   let count = 0;
   for (const match of matches) {
     if (isPredictionLocked(match.kickoff)) continue;
     for (const user of demoUsers) {
-      const exists = await prisma.prediction.findUnique({
-        where: { userId_matchId: { userId: user.id, matchId: match.id } },
+      const exists = await prisma.prediction.findFirst({
+        where: { userId: user.id, matchId: match.id, groupId: firstGroup.id },
       });
       if (exists) continue;
       await prisma.prediction.create({
-        data: { userId: user.id, matchId: match.id, homeScore: Math.floor(Math.random() * 4), awayScore: Math.floor(Math.random() * 4) },
+        data: { userId: user.id, matchId: match.id, groupId: firstGroup.id, homeScore: Math.floor(Math.random() * 4), awayScore: Math.floor(Math.random() * 4) },
       });
       count++;
     }
@@ -210,16 +213,19 @@ async function handleAutoPredict(body: Record<string, unknown>) {
 }
 
 async function handleAddPrediction(body: Record<string, unknown>) {
-  const { userId, matchId, homeScore, awayScore } = body as { userId: string; matchId: string; homeScore: number; awayScore: number };
+  const { userId, matchId, homeScore, awayScore, groupId: bodyGroupId } = body as { userId: string; matchId: string; homeScore: number; awayScore: number; groupId?: string };
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
   if (isPredictionLocked(match.kickoff)) return NextResponse.json({ error: "Predictions locked" }, { status: 409 });
 
+  const groupId = bodyGroupId ?? (await prisma.group.findFirst({ select: { id: true } }))?.id;
+  if (!groupId) return NextResponse.json({ error: "No group found" }, { status: 400 });
+
   const prediction = await prisma.prediction.upsert({
-    where: { userId_matchId: { userId, matchId } },
+    where: { userId_matchId_groupId: { userId, matchId, groupId } },
     update: { homeScore, awayScore },
-    create: { userId, matchId, homeScore, awayScore },
+    create: { userId, matchId, groupId, homeScore, awayScore },
   });
   return NextResponse.json({ ok: true, prediction });
 }
@@ -261,14 +267,16 @@ async function handleSimulate(body: Record<string, unknown>) {
 
   // Step 1 – auto-predict for any demo users who haven't predicted yet
   const demoUsers = await prisma.user.findMany({ where: { isDemo: true } });
+  const firstGroup = await prisma.group.findFirst({ select: { id: true } });
+  const simGroupId = firstGroup?.id;
   let autoPredCount = 0;
   for (const user of demoUsers) {
-    const exists = await prisma.prediction.findUnique({
-      where: { userId_matchId: { userId: user.id, matchId } },
-    });
-    if (!exists) {
+    const exists = simGroupId
+      ? await prisma.prediction.findFirst({ where: { userId: user.id, matchId, groupId: simGroupId } })
+      : null;
+    if (!exists && simGroupId) {
       await prisma.prediction.create({
-        data: { userId: user.id, matchId, homeScore: Math.floor(Math.random() * 4), awayScore: Math.floor(Math.random() * 4) },
+        data: { userId: user.id, matchId, groupId: simGroupId, homeScore: Math.floor(Math.random() * 4), awayScore: Math.floor(Math.random() * 4) },
       });
       autoPredCount++;
     }

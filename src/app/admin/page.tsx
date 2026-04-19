@@ -38,6 +38,7 @@ interface GroupAdmin {
   id: string;
   name: string;
   description: string | null;
+  avatar: string | null;
   createdAt: string;
   memberships: {
     userId: string;
@@ -122,8 +123,10 @@ export default function AdminPage() {
   // ── Custom predictions tab state (admin only) ────────────────────────────────
   const [customPredictions, setCustomPredictions] = useState<CustomPredictionAdmin[]>([]);
   const [customLoaded, setCustomLoaded] = useState(false);
-  const [cpForm, setCpForm] = useState({ question: "", options: ["", ""], points: 3, lockTime: "" });
+  const [cpForm, setCpForm] = useState({ question: "", options: ["", ""], points: 3, lockTime: "", groupId: "" });
   const [cpCreating, setCpCreating] = useState(false);
+  const [cpGroups, setCpGroups] = useState<{ id: string; name: string }[]>([]);
+  const [cpGroupsLoaded, setCpGroupsLoaded] = useState(false);
   const [cpResolving, setcpResolving] = useState<Record<string, string>>({});
   const [cpResolvingSaving, setCpResolvingSaving] = useState<Record<string, boolean>>({});
   const [cpDeleting, setCpDeleting] = useState<Record<string, boolean>>({});
@@ -131,11 +134,22 @@ export default function AdminPage() {
   // ── Groups tab state (admin only) ────────────────────────────────────────────
   const [groups, setGroups] = useState<GroupAdmin[]>([]);
   const [groupsLoaded, setGroupsLoaded] = useState(false);
-  const [groupForm, setGroupForm] = useState({ name: "", description: "" });
+  const [groupForm, setGroupForm] = useState({ name: "", description: "", avatar: "" });
   const [groupCreating, setGroupCreating] = useState(false);
   const [groupDeleting, setGroupDeleting] = useState<Record<string, boolean>>({});
   const [memberUpdating, setMemberUpdating] = useState<Record<string, boolean>>({});
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [groupEditForms, setGroupEditForms] = useState<Record<string, { name: string; description: string; avatar: string }>>({});
+  const [groupEditSaving, setGroupEditSaving] = useState<Record<string, boolean>>({});
+  const [addMemberInputs, setAddMemberInputs] = useState<Record<string, string>>({});
+  const [addMemberSaving, setAddMemberSaving] = useState<Record<string, boolean>>({});
+  const [addMemberMessages, setAddMemberMessages] = useState<Record<string, { ok: boolean; text: string }>>({});
+
+  // ── Predictions tab group selector ───────────────────────────────────────────
+  const [predGroupId, setPredGroupId] = useState("");
+  const [predGroups, setPredGroups] = useState<{ id: string; name: string }[]>([]);
+  const [predGroupsLoaded, setPredGroupsLoaded] = useState(false);
 
   // ── Tab state ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>("results");
@@ -186,37 +200,60 @@ export default function AdminPage() {
       });
   }, [activeTab, usersLoaded, isAdmin]);
 
-  // ── Load groups when Groups tab is first opened ──────────────────────────────
+  // ── Load groups when Groups tab is first opened (also loads users for add-member) ─
   useEffect(() => {
     if (activeTab !== "groups" || groupsLoaded || !isAdmin) return;
+    Promise.all([
+      fetch("/api/admin/groups").then((r) => r.json()),
+      usersLoaded ? Promise.resolve(null) : fetch("/api/admin/users").then((r) => r.json()),
+    ]).then(([gData, uData]) => {
+      setGroups(gData as GroupAdmin[]);
+      if (uData) { setUsers(uData as UserRow[]); setUsersLoaded(true); }
+      setGroupsLoaded(true);
+    });
+  }, [activeTab, groupsLoaded, isAdmin, usersLoaded]);
+
+  // ── Load groups for predictions tab group selector ───────────────────────────
+  useEffect(() => {
+    if (activeTab !== "predictions" || predGroupsLoaded || !session) return;
     fetch("/api/admin/groups")
       .then((r) => r.json())
       .then((data: GroupAdmin[]) => {
-        setGroups(data);
-        setGroupsLoaded(true);
+        setPredGroups(data.map((g) => ({ id: g.id, name: g.name })));
+        setPredGroupsLoaded(true);
       });
-  }, [activeTab, groupsLoaded, isAdmin]);
+  }, [activeTab, predGroupsLoaded, session]);
 
   // ── Load custom predictions when Custom tab is first opened ──────────────────
   useEffect(() => {
-    if (activeTab !== "custom" || customLoaded || !isAdmin) return;
-    fetch("/api/admin/custom-predictions")
-      .then((r) => r.json())
-      .then((data: CustomPredictionAdmin[]) => {
-        setCustomPredictions(data);
-        setCustomLoaded(true);
-      });
-  }, [activeTab, customLoaded, isAdmin]);
+    if (activeTab !== "custom" || !isAdmin) return;
+    if (!cpGroupsLoaded) {
+      fetch("/api/admin/groups")
+        .then((r) => r.json())
+        .then((data: GroupAdmin[]) => {
+          setCpGroups(data.map((g) => ({ id: g.id, name: g.name })));
+          setCpGroupsLoaded(true);
+        });
+    }
+    if (!customLoaded) {
+      fetch("/api/admin/custom-predictions")
+        .then((r) => r.json())
+        .then((data: CustomPredictionAdmin[]) => {
+          setCustomPredictions(data);
+          setCustomLoaded(true);
+        });
+    }
+  }, [activeTab, customLoaded, cpGroupsLoaded, isAdmin]);
 
-  // ── Load predictions when a match is selected ────────────────────────────────
+  // ── Load predictions when a match+group is selected ──────────────────────────
   useEffect(() => {
-    if (!selectedMatchId) {
+    if (!selectedMatchId || !predGroupId) {
       setMatchPredictions([]);
       setPredInputs({});
       return;
     }
     setLoadingPreds(true);
-    fetch(`/api/admin/matches/${selectedMatchId}/predictions`)
+    fetch(`/api/admin/matches/${selectedMatchId}/predictions?groupId=${predGroupId}`)
       .then((r) => r.json())
       .then((data: PredictionRow[]) => {
         setMatchPredictions(data);
@@ -227,7 +264,7 @@ export default function AdminPage() {
         setPredInputs(inputs);
       })
       .finally(() => setLoadingPreds(false));
-  }, [selectedMatchId]);
+  }, [selectedMatchId, predGroupId]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -307,7 +344,7 @@ export default function AdminPage() {
 
   const handleSavePrediction = async (userId: string) => {
     const input = predInputs[userId];
-    if (!input || !selectedMatchId) return;
+    if (!input || !selectedMatchId || !predGroupId) return;
     const home = parseInt(input.home, 10);
     const away = parseInt(input.away, 10);
     if (isNaN(home) || isNaN(away)) return;
@@ -316,7 +353,7 @@ export default function AdminPage() {
     await fetch("/api/admin/predictions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, matchId: selectedMatchId, homeScore: home, awayScore: away }),
+      body: JSON.stringify({ userId, matchId: selectedMatchId, groupId: predGroupId, homeScore: home, awayScore: away }),
     });
     setSavingPred((prev) => ({ ...prev, [userId]: false }));
     setSavedPreds((prev) => new Set(Array.from(prev).concat(userId)));
@@ -337,14 +374,70 @@ export default function AdminPage() {
     const res = await fetch("/api/admin/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: groupForm.name.trim(), description: groupForm.description.trim() || null }),
+      body: JSON.stringify({
+        name: groupForm.name.trim(),
+        description: groupForm.description.trim() || null,
+        avatar: groupForm.avatar.trim() || null,
+      }),
     });
     if (res.ok) {
       const created: GroupAdmin = await res.json();
       setGroups((prev) => [...prev, created]);
-      setGroupForm({ name: "", description: "" });
+      setGroupForm({ name: "", description: "", avatar: "" });
     }
     setGroupCreating(false);
+  };
+
+  const handleSaveGroupEdit = async (groupId: string) => {
+    const form = groupEditForms[groupId];
+    if (!form?.name.trim()) return;
+    setGroupEditSaving((p) => ({ ...p, [groupId]: true }));
+    const res = await fetch(`/api/admin/groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: form.name.trim(),
+        description: form.description.trim() || null,
+        avatar: form.avatar.trim() || null,
+      }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, ...updated } : g));
+      setEditingGroup(null);
+    }
+    setGroupEditSaving((p) => ({ ...p, [groupId]: false }));
+  };
+
+  const handleAddMember = async (groupId: string) => {
+    const userId = addMemberInputs[groupId]?.trim();
+    if (!userId) return;
+    setAddMemberSaving((p) => ({ ...p, [groupId]: true }));
+    const res = await fetch(`/api/admin/groups/${groupId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (res.ok) {
+      const { membership, user: addedUser } = await res.json();
+      setGroups((prev) =>
+        prev.map((g) => {
+          if (g.id !== groupId) return g;
+          const existing = g.memberships.find((m) => m.userId === membership.userId);
+          if (existing) {
+            return { ...g, memberships: g.memberships.map((m) => m.userId === membership.userId ? { ...m, status: "APPROVED" } : m) };
+          }
+          return { ...g, memberships: [...g.memberships, { userId: membership.userId, status: "APPROVED", createdAt: membership.createdAt, user: addedUser }] };
+        })
+      );
+      setAddMemberInputs((p) => ({ ...p, [groupId]: "" }));
+      setAddMemberMessages((p) => ({ ...p, [groupId]: { ok: true, text: `${addedUser.name ?? addedUser.email} added!` } }));
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setAddMemberMessages((p) => ({ ...p, [groupId]: { ok: false, text: err.error ?? "Failed to add member" } }));
+    }
+    setAddMemberSaving((p) => ({ ...p, [groupId]: false }));
+    setTimeout(() => setAddMemberMessages((p) => { const n = { ...p }; delete n[groupId]; return n; }), 3000);
   };
 
   const handleDeleteGroup = async (groupId: string) => {
@@ -399,7 +492,7 @@ export default function AdminPage() {
 
   const handleCreateCustomPrediction = async () => {
     const cleanOptions = cpForm.options.map((o) => o.trim()).filter(Boolean);
-    if (!cpForm.question.trim() || cleanOptions.length < 2 || !cpForm.lockTime) return;
+    if (!cpForm.question.trim() || cleanOptions.length < 2 || !cpForm.lockTime || !cpForm.groupId) return;
     setCpCreating(true);
     const res = await fetch("/api/admin/custom-predictions", {
       method: "POST",
@@ -409,10 +502,11 @@ export default function AdminPage() {
         options: cleanOptions,
         points: cpForm.points,
         lockTime: new Date(cpForm.lockTime).toISOString(),
+        groupId: cpForm.groupId,
       }),
     });
     if (res.ok) {
-      setCpForm({ question: "", options: ["", ""], points: 3, lockTime: "" });
+      setCpForm({ question: "", options: ["", ""], points: 3, lockTime: "", groupId: cpForm.groupId });
       setCustomLoaded(false);
     }
     setCpCreating(false);
@@ -602,7 +696,21 @@ export default function AdminPage() {
       {activeTab === "predictions" && (
         <div>
           <div className="card mb-6">
-            <h2 className="font-bold text-gray-800 mb-3">Select Match</h2>
+            <h2 className="font-bold text-gray-800 mb-3">Select Group &amp; Match</h2>
+            <div className="mb-3">
+              <label className="block text-xs text-gray-500 mb-1">Group</label>
+              <select
+                value={predGroupId}
+                onChange={(e) => { setPredGroupId(e.target.value); setMatchPredictions([]); }}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+              >
+                <option value="">— choose a group —</option>
+                {predGroups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+            <label className="block text-xs text-gray-500 mb-1">Match</label>
             <select
               value={selectedMatchId}
               onChange={(e) => setSelectedMatchId(e.target.value)}
@@ -867,6 +975,19 @@ export default function AdminPage() {
                   >+ Add option</button>
                 </div>
               </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Group</label>
+                <select
+                  value={cpForm.groupId}
+                  onChange={(e) => setCpForm((f) => ({ ...f, groupId: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                >
+                  <option value="">— select group —</option>
+                  {cpGroups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="flex gap-4 flex-wrap">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Points</label>
@@ -888,7 +1009,7 @@ export default function AdminPage() {
               </div>
               <button
                 onClick={handleCreateCustomPrediction}
-                disabled={cpCreating}
+                disabled={cpCreating || !cpForm.groupId}
                 className="btn-primary disabled:opacity-50"
               >
                 {cpCreating ? "Creating…" : "Create Prediction"}
@@ -1078,6 +1199,16 @@ export default function AdminPage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                 />
               </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Avatar URL (optional)</label>
+                <input
+                  type="url"
+                  value={groupForm.avatar}
+                  onChange={(e) => setGroupForm((f) => ({ ...f, avatar: e.target.value }))}
+                  placeholder="https://…"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
               <button
                 onClick={handleCreateGroup}
                 disabled={groupCreating || !groupForm.name.trim()}
@@ -1101,27 +1232,48 @@ export default function AdminPage() {
                 const rejected = group.memberships.filter((m) => m.status === "REJECTED");
                 const isExpanded = expandedGroup === group.id;
 
+                const isEditing = editingGroup === group.id;
+
                 return (
                   <div key={group.id} className="card">
                     {/* Group header */}
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-bold text-gray-800">{group.name}</h3>
-                        {group.description && (
-                          <p className="text-xs text-gray-400 mt-0.5">{group.description}</p>
+                      <div className="flex items-center gap-3 min-w-0">
+                        {group.avatar ? (
+                          <Image src={group.avatar} alt="" width={36} height={36} className="rounded-full object-cover shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-fifa-blue text-white font-bold flex items-center justify-center text-sm shrink-0">
+                            {group.name.charAt(0).toUpperCase()}
+                          </div>
                         )}
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-xs text-gray-500">
-                            {approved.length} {approved.length === 1 ? "member" : "members"}
-                          </span>
-                          {pending.length > 0 && (
-                            <span className="badge bg-yellow-100 text-yellow-700">
-                              {pending.length} pending
-                            </span>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-gray-800">{group.name}</h3>
+                          {group.description && (
+                            <p className="text-xs text-gray-400 mt-0.5">{group.description}</p>
                           )}
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-xs text-gray-500">
+                              {approved.length} {approved.length === 1 ? "member" : "members"}
+                            </span>
+                            {pending.length > 0 && (
+                              <span className="badge bg-yellow-100 text-yellow-700">
+                                {pending.length} pending
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => {
+                            if (isEditing) { setEditingGroup(null); return; }
+                            setGroupEditForms((p) => ({ ...p, [group.id]: { name: group.name, description: group.description ?? "", avatar: group.avatar ?? "" } }));
+                            setEditingGroup(group.id);
+                          }}
+                          className="text-xs text-gray-500 hover:text-fifa-blue"
+                        >
+                          {isEditing ? "Cancel" : "Edit"}
+                        </button>
                         <button
                           onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
                           className="text-xs text-fifa-blue hover:underline"
@@ -1138,9 +1290,74 @@ export default function AdminPage() {
                       </div>
                     </div>
 
+                    {/* Inline edit form */}
+                    {isEditing && (
+                      <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
+                        <input
+                          type="text"
+                          value={groupEditForms[group.id]?.name ?? ""}
+                          onChange={(e) => setGroupEditForms((p) => ({ ...p, [group.id]: { ...p[group.id], name: e.target.value } }))}
+                          placeholder="Group name"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                        />
+                        <input
+                          type="text"
+                          value={groupEditForms[group.id]?.description ?? ""}
+                          onChange={(e) => setGroupEditForms((p) => ({ ...p, [group.id]: { ...p[group.id], description: e.target.value } }))}
+                          placeholder="Description (optional)"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                        />
+                        <input
+                          type="url"
+                          value={groupEditForms[group.id]?.avatar ?? ""}
+                          onChange={(e) => setGroupEditForms((p) => ({ ...p, [group.id]: { ...p[group.id], avatar: e.target.value } }))}
+                          placeholder="Avatar URL (optional)"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                        />
+                        <button
+                          onClick={() => handleSaveGroupEdit(group.id)}
+                          disabled={groupEditSaving[group.id]}
+                          className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50"
+                        >
+                          {groupEditSaving[group.id] ? "Saving…" : "Save Changes"}
+                        </button>
+                      </div>
+                    )}
+
                     {/* Expanded member management */}
                     {isExpanded && (
                       <div className="mt-4 border-t border-gray-100 pt-4 space-y-4">
+                        {/* Add member directly */}
+                        <div>
+                          <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Add Member</p>
+                          <div className="flex gap-2">
+                            <select
+                              value={addMemberInputs[group.id] ?? ""}
+                              onChange={(e) => setAddMemberInputs((p) => ({ ...p, [group.id]: e.target.value }))}
+                              className="flex-1 border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                            >
+                              <option value="">— select user —</option>
+                              {users
+                                .filter((u) => !group.memberships.some((m) => m.userId === u.id && m.status === "APPROVED"))
+                                .map((u) => (
+                                  <option key={u.id} value={u.id}>{u.name ?? u.email}</option>
+                                ))}
+                            </select>
+                            <button
+                              onClick={() => handleAddMember(group.id)}
+                              disabled={addMemberSaving[group.id] || !addMemberInputs[group.id]}
+                              className="text-xs px-3 py-1.5 rounded-lg font-semibold border bg-green-50 text-green-700 border-green-200 hover:bg-green-100 disabled:opacity-40 shrink-0"
+                            >
+                              {addMemberSaving[group.id] ? "…" : "Add"}
+                            </button>
+                          </div>
+                          {addMemberMessages[group.id] && (
+                            <p className={`text-xs mt-1 ${addMemberMessages[group.id].ok ? "text-green-600" : "text-red-500"}`}>
+                              {addMemberMessages[group.id].text}
+                            </p>
+                          )}
+                        </div>
+
                         {/* Pending requests */}
                         {pending.length > 0 && (
                           <div>

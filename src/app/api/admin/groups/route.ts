@@ -26,6 +26,7 @@ export async function GET() {
       id: g.id,
       name: g.name,
       description: g.description,
+      avatar: g.avatar,
       createdAt: g.createdAt.toISOString(),
       memberships: g.memberships.map((m) => ({
         userId: m.userId,
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, description } = await req.json();
+  const { name, description, avatar } = await req.json();
   if (!name?.trim()) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
@@ -52,6 +53,7 @@ export async function POST(req: NextRequest) {
     data: {
       name: String(name).trim(),
       description: description ? String(description).trim() : null,
+      avatar: avatar ? String(avatar).trim() : null,
       createdBy: session.user.id,
     },
   });

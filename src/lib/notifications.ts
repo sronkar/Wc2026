@@ -35,9 +35,9 @@ export async function sendMatchReminders() {
       });
       if (alreadySent) continue;
 
-      // Skip if user already predicted
-      const hasPrediction = await prisma.prediction.findUnique({
-        where: { userId_matchId: { userId: user.id, matchId: match.id } },
+      // Skip if user already predicted (in any group)
+      const hasPrediction = await prisma.prediction.findFirst({
+        where: { userId: user.id, matchId: match.id },
       });
       if (hasPrediction) continue;
 

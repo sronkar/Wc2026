@@ -39,19 +39,18 @@ function Countdown({ lockTime }: { lockTime: string }) {
   return <span>{label}</span>;
 }
 
-export function CustomPredictionsPanel() {
+export function CustomPredictionsPanel({ groupId }: { groupId: string }) {
   const [predictions, setPredictions] = useState<CustomPrediction[]>([]);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    fetch("/api/custom-predictions")
+    fetch(`/api/custom-predictions?groupId=${groupId}`)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
           setPredictions(data);
-          // Pre-select user's existing answers
           const sel: Record<string, string> = {};
           data.forEach((cp: CustomPrediction) => {
             if (cp.userAnswer) sel[cp.id] = cp.userAnswer;
@@ -59,7 +58,7 @@ export function CustomPredictionsPanel() {
           setSelected(sel);
         }
       });
-  }, []);
+  }, [groupId]);
 
   const handleSubmit = async (cpId: string) => {
     const option = selected[cpId];

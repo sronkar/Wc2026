@@ -22,6 +22,7 @@ interface PredictionEntry {
 }
 
 interface Props {
+  groupId: string;
   lockedMatch: LockedMatch | null;
 }
 
@@ -35,7 +36,7 @@ function formatCountdown(kickoff: Date): string {
   return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
 }
 
-export function LockedPredictionsPanel({ lockedMatch }: Props) {
+export function LockedPredictionsPanel({ groupId, lockedMatch }: Props) {
   const [entries, setEntries] = useState<PredictionEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState("");
@@ -43,7 +44,7 @@ export function LockedPredictionsPanel({ lockedMatch }: Props) {
   useEffect(() => {
     if (!lockedMatch) return;
     setLoading(true);
-    fetch(`/api/matches/${lockedMatch.id}/predictions`)
+    fetch(`/api/matches/${lockedMatch.id}/predictions?groupId=${groupId}`)
       .then((r) => r.json())
       .then((data) => {
         setEntries(Array.isArray(data) ? data : []);

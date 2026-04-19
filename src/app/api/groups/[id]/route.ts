@@ -13,9 +13,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const userId = session.user.id;
   const role = session.user.role;
+  const groupId = params.id;
 
   const group = await prisma.group.findUnique({
-    where: { id: params.id },
+    where: { id: groupId },
     include: {
       memberships: {
         where: { status: "APPROVED" },
@@ -26,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
               name: true,
               image: true,
               predictions: {
-                where: { points: { not: null } },
+                where: { points: { not: null }, groupId },
                 select: { points: true },
               },
             },
@@ -40,7 +41,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const isAdminRole = role === "ADMIN" || role === "SUB_ADMIN";
   const myMembership = await prisma.groupMembership.findUnique({
-    where: { userId_groupId: { userId, groupId: params.id } },
+    where: { userId_groupId: { userId, groupId } },
   });
 
   if (!isAdminRole && myMembership?.status !== "APPROVED") {
@@ -48,6 +49,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       id: group.id,
       name: group.name,
       description: group.description,
+      avatar: group.avatar,
       myStatus: myMembership?.status ?? null,
       leaderboard: null,
     });
@@ -68,6 +70,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     id: group.id,
     name: group.name,
     description: group.description,
+    avatar: group.avatar,
+    memberCount: group.memberships.length,
     myStatus: myMembership?.status ?? (isAdminRole ? "ADMIN" : null),
     leaderboard,
   });

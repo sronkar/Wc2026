@@ -13,20 +13,19 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const groupId = searchParams.get("groupId");
+  if (!groupId) return NextResponse.json({ error: "groupId is required" }, { status: 400 });
+
   const match = await prisma.match.findUnique({ where: { id: params.matchId } });
   if (!match) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Only reveal predictions once locked or finished
   const locked = isPredictionLocked(match.kickoff);
-  if (!locked && match.status !== "FINISHED") {
-    return NextResponse.json([]);
-  }
+  if (!locked && match.status !== "FINISHED") return NextResponse.json([]);
 
   const predictions = await prisma.prediction.findMany({
-    where: { matchId: params.matchId },
-    include: {
-      user: { select: { id: true, name: true, image: true } },
-    },
+    where: { matchId: params.matchId, groupId },
+    include: { user: { select: { id: true, name: true, image: true } } },
     orderBy: { user: { name: "asc" } },
   });
 

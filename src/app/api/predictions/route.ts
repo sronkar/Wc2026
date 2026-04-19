@@ -10,7 +10,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { matchId, homeScore, awayScore } = await req.json();
+  const { matchId, groupId, homeScore, awayScore } = await req.json();
+
+  if (!groupId) return NextResponse.json({ error: "groupId is required" }, { status: 400 });
 
   if (
     typeof homeScore !== "number" ||
@@ -21,10 +23,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid scores" }, { status: 400 });
   }
 
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match) {
-    return NextResponse.json({ error: "Match not found" }, { status: 404 });
+  // Verify user is an approved member of this group
+  const membership = await prisma.groupMembership.findUnique({
+    where: { userId_groupId: { userId: session.user.id, groupId } },
+  });
+  if (membership?.status !== "APPROVED") {
+    return NextResponse.json({ error: "Not a member of this group" }, { status: 403 });
   }
+
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
 
   if (isPredictionLocked(match.kickoff)) {
     return NextResponse.json(
@@ -34,9 +42,9 @@ export async function POST(req: NextRequest) {
   }
 
   const prediction = await prisma.prediction.upsert({
-    where: { userId_matchId: { userId: session.user.id, matchId } },
+    where: { userId_matchId_groupId: { userId: session.user.id, matchId, groupId } },
     update: { homeScore, awayScore, points: null },
-    create: { userId: session.user.id, matchId, homeScore, awayScore },
+    create: { userId: session.user.id, matchId, groupId, homeScore, awayScore },
   });
 
   return NextResponse.json(prediction);
@@ -50,10 +58,11 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const matchId = searchParams.get("matchId");
+  const groupId = searchParams.get("groupId");
 
-  const where = matchId
-    ? { userId: session.user.id, matchId }
-    : { userId: session.user.id };
+  const where: Record<string, unknown> = { userId: session.user.id };
+  if (matchId) where.matchId = matchId;
+  if (groupId) where.groupId = groupId;
 
   const predictions = await prisma.prediction.findMany({
     where,

@@ -21,11 +21,12 @@ interface CarouselPrediction {
 }
 
 interface Props {
+  groupId: string;
   matches: CarouselMatch[];
   predictions: Record<string, CarouselPrediction>;
 }
 
-export function MatchCarousel({ matches, predictions: initialPredictions }: Props) {
+export function MatchCarousel({ groupId, matches, predictions: initialPredictions }: Props) {
   const [current, setCurrent] = useState(0);
   const [preds, setPreds] = useState(initialPredictions);
   const [inputs, setInputs] = useState<Record<string, { home: string; away: string }>>(() => {
@@ -56,7 +57,7 @@ export function MatchCarousel({ matches, predictions: initialPredictions }: Prop
       const res = await fetch("/api/predictions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ matchId, homeScore: h, awayScore: a }),
+        body: JSON.stringify({ matchId, groupId, homeScore: h, awayScore: a }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       setPreds((p) => ({ ...p, [matchId]: { homeScore: h, awayScore: a } }));
