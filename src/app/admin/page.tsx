@@ -550,9 +550,14 @@ export default function AdminPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-500">{g.memberCount}</td>
                       <td className="px-4 py-3">
-                        <Link href={`/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">
-                          Open →
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">
+                            View
+                          </Link>
+                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">
+                            Manage →
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -9,9 +9,7 @@ import { MatchCarousel } from "@/components/dashboard/MatchCarousel";
 import { MiniLeaderboard } from "@/components/dashboard/MiniLeaderboard";
 import { LockedPredictionsPanel } from "@/components/dashboard/LockedPredictionsPanel";
 import { CustomPredictionsPanel } from "@/components/dashboard/CustomPredictionsPanel";
-import { GroupAdminSection } from "@/components/dashboard/GroupAdminSection";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
-
 export const revalidate = 0;
 
 export default async function GroupDashboardPage({
@@ -240,12 +238,6 @@ export default async function GroupDashboardPage({
           </div>
         </div>
       </div>
-      {isAdminRole && (
-        <div className="mt-10 border-t border-gray-200 pt-8">
-          <h2 className="text-lg font-bold text-gray-800 mb-6">Group Administration</h2>
-          <GroupAdminSection groupId={groupId} />
-        </div>
-      )}
     </div>
   );
 }
