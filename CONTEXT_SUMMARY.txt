@@ -1,0 +1,166 @@
+================================================================================
+WC2026 FIFA PREDICTION APP — SESSION CONTEXT SUMMARY
+Date: 2026-04-19
+Branch: claude/fifa-prediction-app-WsAHW
+Repo: sronkar/Wc2026
+================================================================================
+
+PROJECT OVERVIEW
+----------------
+A Next.js FIFA World Cup 2026 prediction app using:
+- Next.js (App Router)
+- NextAuth (Google + Email providers, Prisma adapter, database sessions)
+- Prisma + SQLite
+- Tailwind CSS
+- Push notifications (web push)
+
+User roles: USER | SUB_ADMIN | ADMIN
+Group-based predictions: users join groups, predictions are scoped to a group
+
+
+ARCHITECTURE SUMMARY
+--------------------
+- /src/app/             → Next.js pages (App Router)
+- /src/app/api/         → API routes
+- /src/components/      → Shared components (Navbar.tsx, etc.)
+- /src/lib/auth.ts      → NextAuth config
+- /src/lib/prisma.ts    → Prisma client singleton
+- /prisma/schema.prisma → DB schema
+- /prisma/seed.ts       → Official WC2026 fixture data (104 matches)
+
+
+KEY SCHEMA MODELS
+-----------------
+User         → id, name, email, role, isDemo
+Group        → id, name, description, avatar, createdBy, exactMatchPoints, directionMatchPoints
+GroupMembership → userId, groupId, status (PENDING|APPROVED|REJECTED)
+Prediction   → userId, matchId, groupId, homeScore, awayScore, points
+Match        → matchNumber(1-104), homeTeam, awayTeam, group, round, venue, city, kickoff, homeScore, awayScore, status
+CustomPrediction → groupId, question, options(JSON), points, lockTime, correctOption, status(OPEN|RESOLVED)
+CustomPredictionAnswer → userId, customPredictionId, option, points
+PointSettings → exactMatchPoints(5), directionMatchPoints(1)  [global default, now per-group too]
+PushSubscription, MatchReminder, DemoSettings
+
+
+CHANGES MADE IN THIS SESSION
+-----------------------------
+
+1. src/lib/auth.ts
+   - Changed prisma.user.update() → prisma.user.updateMany() in signIn callback
+   - Reason: NextAuth adapter creates user AFTER signIn callback returns,
+     so update() throws P2025 "Record not found" on first sign-in after DB reset
+   - updateMany() silently no-ops if user doesn't exist yet
+
+2. src/app/api/groups/route.ts
+   - Added POST endpoint (admin/sub-admin only) to create groups
+   - Auto-approves creator as APPROVED member
+   - GET returns all groups with myStatus for current user
+
+3. src/app/admin/page.tsx
+   - Added "Groups" tab (visible to ADMIN and SUB_ADMIN)
+   - Groups tab: lists existing groups, create-group form (name + description)
+   - Solves chicken-and-egg: admin needs to create first group before anyone can join
+
+4. src/app/groups/page.tsx
+   - "Browse All Groups" section: entire card now clickable (not just "Open →" link)
+   - Admins can click into any group even without membership
+   - canOpen = myStatus === "APPROVED" || isAdmin
+
+5. src/app/groups/[id]/matches/page.tsx
+   - Added group name badge next to "All Matches" title
+   - Subtitle explicitly shows which group predictions count toward
+
+6. src/components/Navbar.tsx
+   - selectedGroupId state backed by localStorage (key: "wc2026_group")
+   - Group switcher pill always visible when user has any groups
+   - Syncs from URL on group pages; restores from localStorage on other pages
+   - Matches/Leaderboard links always shown using active group context
+   - No groups → only "Browse Groups" shown, group-specific items hidden
+   - Active link gets highlighted background
+   - Smart group switching preserves current sub-page (matches/leaderboard)
+
+7. prisma/seed.ts
+   - Complete rewrite with official FIFA WC2026 fixture data (draw: Dec 5, 2024)
+   - 72 group stage matches (1-72) sorted chronologically by UTC kickoff time
+   - Knockout rounds: R32 (73-88), R16 (89-96), QF (97-100), SF (101-102),
+     3rd place (103), Final (104)
+   - 12 groups (A-L):
+     A = Mexico, South Africa, South Korea, Czechia
+     B = Canada, Bosnia & Herzegovina, Qatar, Switzerland
+     C = Brazil, Morocco, Haiti, Scotland
+     D = USA, Paraguay, Australia, Turkey
+     E = Germany, Curaçao, Ivory Coast, Ecuador
+     F = Netherlands, Japan, Sweden, Tunisia
+     G = Belgium, Egypt, Iran, New Zealand
+     H = Spain, Cape Verde, Saudi Arabia, Uruguay
+     I = France, Senegal, Iraq, Norway
+     J = Argentina, Algeria, Austria, Jordan
+     K = Portugal, DR Congo, Uzbekistan, Colombia
+     L = England, Croatia, Ghana, Panama
+   - Match 1: Mexico vs South Africa (Jun 11, 19:00 UTC, Estadio Azteca, Mexico City)
+   - Match 2: South Korea vs Czechia (Jun 12, 02:00 UTC, SoFi Stadium, Los Angeles)
+   - Match 28: Mexico vs South Korea (Jun 19, 01:00 UTC)
+
+8. next.config.js
+   - Redirects added for / → /groups, /matches → /groups, etc.
+   - HTTP-level 307 redirects (not RSC-level redirect() calls)
+
+9. prisma/schema.prisma
+   - groupId added to Prediction model (predictions scoped per group)
+   - @@unique([userId, matchId, groupId]) — one prediction per user/match/group
+
+
+KNOWN ISSUES / GOTCHAS
+-----------------------
+- After any `prisma db push`, run `npx prisma generate` to update local client
+- After DB reset, admin role is set on SECOND sign-in (not first), because
+  updateMany() fires before user record exists on first sign-in
+- Browser cache can serve stale redirect pages — use hard refresh or incognito
+  if redirects seem wrong after config changes
+- SQLite: adding non-nullable columns via `db push` can recreate tables and
+  wipe data (use --force-reset to intentionally reset)
+
+
+HOW TO RESEED THE DATABASE LOCALLY
+------------------------------------
+git pull origin claude/fifa-prediction-app-WsAHW
+npx prisma generate
+npx prisma db push --force-reset
+npx ts-node --compiler-options '{"module":"CommonJS"}' prisma/seed.ts
+npm run dev
+
+Then sign in with ADMIN_EMAIL (set in .env) to get admin role on second sign-in.
+Go to /admin → Groups tab → create your first group.
+Users can then browse /groups and request to join.
+
+
+ENVIRONMENT VARIABLES NEEDED (.env)
+-------------------------------------
+DATABASE_URL="file:./dev.db"
+NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_SECRET="..."
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+EMAIL_SERVER_HOST="..."
+EMAIL_SERVER_PORT=587
+EMAIL_SERVER_USER="..."
+EMAIL_SERVER_PASSWORD="..."
+EMAIL_FROM="..."
+ADMIN_EMAIL="your-email@example.com"
+NEXT_PUBLIC_VAPID_PUBLIC_KEY="..."
+VAPID_PRIVATE_KEY="..."
+
+
+PENDING / FUTURE WORK
+----------------------
+- Verify all 72 group-stage matches display correctly in-app ordered by kickoff
+- Mexico vs South Africa should be Match 1 (was incorrectly Mexico vs South Korea)
+- Group admin: ability to approve/reject membership requests (UI)
+- Custom predictions resolution flow (admin sets correctOption)
+- Push notification scheduling for match reminders
+- Demo mode (isDemo users, virtualTime in DemoSettings)
+- Sub-admin role: what permissions differ from ADMIN?
+
+================================================================================
+END OF CONTEXT SUMMARY
+================================================================================
