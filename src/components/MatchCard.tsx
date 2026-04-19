@@ -31,6 +31,15 @@ interface Props {
   isLoggedIn: boolean;
 }
 
+const UNUSUAL_THRESHOLD = 7;
+
+function unrealisticWarning(h: number, a: number): string | null {
+  if (h > 20 || a > 20) return "Score over 20 — looks like a typo.";
+  if (h >= UNUSUAL_THRESHOLD || a >= UNUSUAL_THRESHOLD)
+    return "Unusually high score for international football — double-check before saving.";
+  return null;
+}
+
 export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
   const [homeInput, setHomeInput] = useState<string>(
     prediction !== undefined ? String(prediction.homeScore) : ""
@@ -46,10 +55,16 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
   const locked = isPredictionLocked(kickoff);
   const finished = match.status === "FINISHED";
 
+  // Treat empty input as 0; still reject non-numeric input
+  const parseScore = (val: string) => (val.trim() === "" ? 0 : parseInt(val, 10));
+
+  const h = parseScore(homeInput);
+  const a = parseScore(awayInput);
+  const inputsValid = !isNaN(h) && !isNaN(a) && h >= 0 && a >= 0;
+  const warning = inputsValid ? unrealisticWarning(h, a) : null;
+
   const handleSave = async () => {
-    const h = parseInt(homeInput, 10);
-    const a = parseInt(awayInput, 10);
-    if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
+    if (!inputsValid) {
       setError("Enter valid scores (0 or more)");
       return;
     }
@@ -73,8 +88,17 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
     return <span className={`badge ${color} ml-2`}>{pts > 0 ? `+${pts}` : "0"} pts</span>;
   };
 
+  const hasPred = prediction !== undefined;
+
   return (
-    <div className={`card flex flex-col gap-3 ${finished ? "opacity-90" : ""}`}>
+    <div className={`card flex flex-col gap-3 relative ${finished ? "opacity-90" : ""}`}>
+      {/* Predicted badge — shown when prediction exists and match not yet locked or finished */}
+      {hasPred && !locked && !finished && (
+        <div className="absolute top-3 right-3">
+          <span className="badge bg-green-100 text-green-700">✓ Predicted</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between text-xs text-gray-400">
         <span>
@@ -124,33 +148,40 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
               {prediction ? `${prediction.homeScore} – ${prediction.awayScore} (locked)` : "Locked — no prediction submitted"}
             </div>
           ) : (
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="number"
-                min="0"
-                max="20"
-                value={homeInput}
-                onChange={(e) => setHomeInput(e.target.value)}
-                className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                placeholder="0"
-              />
-              <span className="text-gray-400">–</span>
-              <input
-                type="number"
-                min="0"
-                max="20"
-                value={awayInput}
-                onChange={(e) => setAwayInput(e.target.value)}
-                className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                placeholder="0"
-              />
-              <button
-                onClick={handleSave}
-                disabled={saving || !onSave}
-                className="btn-primary text-xs px-3 py-1.5"
-              >
-                {saving ? "..." : saved ? "Saved ✓" : "Save"}
-              </button>
+            <div className="flex flex-col gap-1.5 mt-1">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  value={homeInput}
+                  onChange={(e) => setHomeInput(e.target.value)}
+                  className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                  placeholder="0"
+                />
+                <span className="text-gray-400">–</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="99"
+                  value={awayInput}
+                  onChange={(e) => setAwayInput(e.target.value)}
+                  className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                  placeholder="0"
+                />
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !onSave}
+                  className="btn-primary text-xs px-3 py-1.5"
+                >
+                  {saving ? "..." : saved ? "Saved ✓" : "Save"}
+                </button>
+              </div>
+              {warning && (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <span>⚠️</span> {warning}
+                </p>
+              )}
             </div>
           )}
           {error && <p className="text-xs text-red-500 mt-1">{error}</p>}

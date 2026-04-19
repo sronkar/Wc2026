@@ -43,10 +43,12 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
 
   const total = matches.length;
 
+  const parseScore = (val: string) => (val.trim() === "" ? 0 : parseInt(val, 10));
+
   const handleSave = useCallback(async (matchId: string) => {
     const inp = inputs[matchId];
-    const h = parseInt(inp?.home ?? "", 10);
-    const a = parseInt(inp?.away ?? "", 10);
+    const h = parseScore(inp?.home ?? "");
+    const a = parseScore(inp?.away ?? "");
     if (isNaN(h) || isNaN(a) || h < 0 || a < 0) {
       setErrors((e) => ({ ...e, [matchId]: "Enter valid scores" }));
       return;
@@ -78,11 +80,22 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
     );
   }
 
+  const UNUSUAL_THRESHOLD = 7;
+
   const match = matches[current];
   const kickoff = new Date(match.kickoff);
   const locked = isPredictionLocked(kickoff);
   const hasPred = !!preds[match.id];
   const inp = inputs[match.id] ?? { home: "", away: "" };
+
+  const ch = parseScore(inp.home);
+  const ca = parseScore(inp.away);
+  const carouselWarning =
+    !isNaN(ch) && !isNaN(ca) && (ch > 20 || ca > 20)
+      ? "Score over 20 — looks like a typo."
+      : !isNaN(ch) && !isNaN(ca) && (ch >= UNUSUAL_THRESHOLD || ca >= UNUSUAL_THRESHOLD)
+      ? "Unusually high score — double-check before saving."
+      : null;
 
   return (
     <div>
@@ -151,6 +164,11 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
             >
               {saving[match.id] ? "Saving…" : saved[match.id] ? "Saved ✓" : hasPred ? "Update" : "Save Prediction"}
             </button>
+            {carouselWarning && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <span>⚠️</span> {carouselWarning}
+              </p>
+            )}
             {errors[match.id] && <p className="text-xs text-red-500">{errors[match.id]}</p>}
           </div>
         )}
