@@ -34,6 +34,19 @@ interface UserRow {
   createdAt: string;
 }
 
+interface GroupAdmin {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  memberships: {
+    userId: string;
+    status: string;
+    createdAt: string;
+    user: { id: string; name: string | null; email: string | null; image: string | null };
+  }[];
+}
+
 interface CustomPredictionAdmin {
   id: string;
   question: string;
@@ -56,7 +69,7 @@ interface PredictionRow {
   points: number | null;
 }
 
-type Tab = "results" | "predictions" | "settings" | "users" | "custom";
+type Tab = "results" | "predictions" | "settings" | "users" | "custom" | "groups";
 
 const ROUNDS = [
   "Group Stage",
@@ -115,6 +128,15 @@ export default function AdminPage() {
   const [cpResolvingSaving, setCpResolvingSaving] = useState<Record<string, boolean>>({});
   const [cpDeleting, setCpDeleting] = useState<Record<string, boolean>>({});
 
+  // ── Groups tab state (admin only) ────────────────────────────────────────────
+  const [groups, setGroups] = useState<GroupAdmin[]>([]);
+  const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [groupForm, setGroupForm] = useState({ name: "", description: "" });
+  const [groupCreating, setGroupCreating] = useState(false);
+  const [groupDeleting, setGroupDeleting] = useState<Record<string, boolean>>({});
+  const [memberUpdating, setMemberUpdating] = useState<Record<string, boolean>>({});
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+
   // ── Tab state ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>("results");
 
@@ -163,6 +185,17 @@ export default function AdminPage() {
         setUsersLoaded(true);
       });
   }, [activeTab, usersLoaded, isAdmin]);
+
+  // ── Load groups when Groups tab is first opened ──────────────────────────────
+  useEffect(() => {
+    if (activeTab !== "groups" || groupsLoaded || !isAdmin) return;
+    fetch("/api/admin/groups")
+      .then((r) => r.json())
+      .then((data: GroupAdmin[]) => {
+        setGroups(data);
+        setGroupsLoaded(true);
+      });
+  }, [activeTab, groupsLoaded, isAdmin]);
 
   // ── Load custom predictions when Custom tab is first opened ──────────────────
   useEffect(() => {
@@ -296,6 +329,72 @@ export default function AdminPage() {
     );
   };
 
+  // ── Groups handlers ───────────────────────────────────────────────────────────
+
+  const handleCreateGroup = async () => {
+    if (!groupForm.name.trim()) return;
+    setGroupCreating(true);
+    const res = await fetch("/api/admin/groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: groupForm.name.trim(), description: groupForm.description.trim() || null }),
+    });
+    if (res.ok) {
+      const created: GroupAdmin = await res.json();
+      setGroups((prev) => [...prev, created]);
+      setGroupForm({ name: "", description: "" });
+    }
+    setGroupCreating(false);
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!confirm("Delete this group and all its memberships?")) return;
+    setGroupDeleting((p) => ({ ...p, [groupId]: true }));
+    const res = await fetch(`/api/admin/groups/${groupId}`, { method: "DELETE" });
+    if (res.ok) setGroups((prev) => prev.filter((g) => g.id !== groupId));
+    setGroupDeleting((p) => ({ ...p, [groupId]: false }));
+  };
+
+  const handleMemberStatus = async (groupId: string, userId: string, status: "APPROVED" | "REJECTED") => {
+    const key = `${groupId}:${userId}`;
+    setMemberUpdating((p) => ({ ...p, [key]: true }));
+    const res = await fetch(`/api/admin/groups/${groupId}/members/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (res.ok) {
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id !== groupId ? g : {
+            ...g,
+            memberships: g.memberships.map((m) =>
+              m.userId === userId ? { ...m, status } : m
+            ),
+          }
+        )
+      );
+    }
+    setMemberUpdating((p) => ({ ...p, [key]: false }));
+  };
+
+  const handleRemoveMember = async (groupId: string, userId: string) => {
+    const key = `${groupId}:${userId}`;
+    setMemberUpdating((p) => ({ ...p, [key]: true }));
+    const res = await fetch(`/api/admin/groups/${groupId}/members/${userId}`, { method: "DELETE" });
+    if (res.ok) {
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id !== groupId ? g : {
+            ...g,
+            memberships: g.memberships.filter((m) => m.userId !== userId),
+          }
+        )
+      );
+    }
+    setMemberUpdating((p) => ({ ...p, [key]: false }));
+  };
+
   // ── Custom prediction handlers ────────────────────────────────────────────────
 
   const handleCreateCustomPrediction = async () => {
@@ -362,6 +461,7 @@ export default function AdminPage() {
       { key: "settings" as Tab, label: "Settings" },
       { key: "users" as Tab, label: "Users" },
       { key: "custom" as Tab, label: "Custom Predictions" },
+      { key: "groups" as Tab, label: "Groups" },
     ] : []),
   ];
 
@@ -947,6 +1047,229 @@ export default function AdminPage() {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {/* ── Groups tab (admin only) ───────────────────────────────────────────── */}
+      {activeTab === "groups" && isAdmin && (
+        <div className="space-y-6">
+          {/* Create form */}
+          <div className="card">
+            <h2 className="font-bold text-gray-800 mb-4">Create Group</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Group name</label>
+                <input
+                  type="text"
+                  value={groupForm.name}
+                  onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Office League"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Description (optional)</label>
+                <input
+                  type="text"
+                  value={groupForm.description}
+                  onChange={(e) => setGroupForm((f) => ({ ...f, description: e.target.value }))}
+                  placeholder="Short description…"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              <button
+                onClick={handleCreateGroup}
+                disabled={groupCreating || !groupForm.name.trim()}
+                className="btn-primary disabled:opacity-50"
+              >
+                {groupCreating ? "Creating…" : "Create Group"}
+              </button>
+            </div>
+          </div>
+
+          {/* Group list */}
+          {!groupsLoaded ? (
+            <div className="card text-center text-gray-400 text-sm py-8">Loading…</div>
+          ) : groups.length === 0 ? (
+            <div className="card text-center text-gray-400 text-sm py-8">No groups yet.</div>
+          ) : (
+            <div className="space-y-4">
+              {groups.map((group) => {
+                const approved = group.memberships.filter((m) => m.status === "APPROVED");
+                const pending = group.memberships.filter((m) => m.status === "PENDING");
+                const rejected = group.memberships.filter((m) => m.status === "REJECTED");
+                const isExpanded = expandedGroup === group.id;
+
+                return (
+                  <div key={group.id} className="card">
+                    {/* Group header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-gray-800">{group.name}</h3>
+                        {group.description && (
+                          <p className="text-xs text-gray-400 mt-0.5">{group.description}</p>
+                        )}
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-xs text-gray-500">
+                            {approved.length} {approved.length === 1 ? "member" : "members"}
+                          </span>
+                          {pending.length > 0 && (
+                            <span className="badge bg-yellow-100 text-yellow-700">
+                              {pending.length} pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => setExpandedGroup(isExpanded ? null : group.id)}
+                          className="text-xs text-fifa-blue hover:underline"
+                        >
+                          {isExpanded ? "Hide" : "Manage"}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteGroup(group.id)}
+                          disabled={groupDeleting[group.id]}
+                          className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
+                        >
+                          {groupDeleting[group.id] ? "…" : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expanded member management */}
+                    {isExpanded && (
+                      <div className="mt-4 border-t border-gray-100 pt-4 space-y-4">
+                        {/* Pending requests */}
+                        {pending.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">
+                              Pending Requests ({pending.length})
+                            </p>
+                            <div className="space-y-2">
+                              {pending.map((m) => {
+                                const key = `${group.id}:${m.userId}`;
+                                return (
+                                  <div key={m.userId} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-yellow-50 border border-yellow-100">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {m.user.image ? (
+                                        <Image src={m.user.image} alt="" width={24} height={24} className="rounded-full shrink-0" />
+                                      ) : (
+                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500 shrink-0">
+                                          {(m.user.name ?? m.user.email ?? "?").charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-medium text-gray-800 truncate">{m.user.name ?? "—"}</p>
+                                        <p className="text-xs text-gray-400 truncate">{m.user.email}</p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <button
+                                        onClick={() => handleMemberStatus(group.id, m.userId, "APPROVED")}
+                                        disabled={memberUpdating[key]}
+                                        className="text-xs px-3 py-1.5 rounded-lg font-semibold border bg-green-50 text-green-700 border-green-200 hover:bg-green-100 disabled:opacity-40"
+                                      >
+                                        {memberUpdating[key] ? "…" : "Approve"}
+                                      </button>
+                                      <button
+                                        onClick={() => handleMemberStatus(group.id, m.userId, "REJECTED")}
+                                        disabled={memberUpdating[key]}
+                                        className="text-xs px-3 py-1.5 rounded-lg font-semibold border bg-red-50 text-red-700 border-red-200 hover:bg-red-100 disabled:opacity-40"
+                                      >
+                                        {memberUpdating[key] ? "…" : "Reject"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Approved members */}
+                        {approved.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">
+                              Members ({approved.length})
+                            </p>
+                            <div className="space-y-2">
+                              {approved.map((m) => {
+                                const key = `${group.id}:${m.userId}`;
+                                return (
+                                  <div key={m.userId} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-100">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {m.user.image ? (
+                                        <Image src={m.user.image} alt="" width={24} height={24} className="rounded-full shrink-0" />
+                                      ) : (
+                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500 shrink-0">
+                                          {(m.user.name ?? m.user.email ?? "?").charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-medium text-gray-800 truncate">{m.user.name ?? "—"}</p>
+                                        <p className="text-xs text-gray-400 truncate">{m.user.email}</p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      onClick={() => handleRemoveMember(group.id, m.userId)}
+                                      disabled={memberUpdating[key]}
+                                      className="text-xs text-gray-400 hover:text-red-500 disabled:opacity-40 shrink-0"
+                                    >
+                                      {memberUpdating[key] ? "…" : "Remove"}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Rejected */}
+                        {rejected.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                              Rejected ({rejected.length})
+                            </p>
+                            <div className="space-y-2">
+                              {rejected.map((m) => {
+                                const key = `${group.id}:${m.userId}`;
+                                return (
+                                  <div key={m.userId} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-100 opacity-60">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {m.user.image ? (
+                                        <Image src={m.user.image} alt="" width={24} height={24} className="rounded-full shrink-0" />
+                                      ) : (
+                                        <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500 shrink-0">
+                                          {(m.user.name ?? m.user.email ?? "?").charAt(0).toUpperCase()}
+                                        </div>
+                                      )}
+                                      <p className="text-sm text-gray-600 truncate">{m.user.name ?? m.user.email ?? "—"}</p>
+                                    </div>
+                                    <button
+                                      onClick={() => handleMemberStatus(group.id, m.userId, "APPROVED")}
+                                      disabled={memberUpdating[key]}
+                                      className="text-xs text-fifa-blue hover:underline disabled:opacity-40 shrink-0"
+                                    >
+                                      {memberUpdating[key] ? "…" : "Re-approve"}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {approved.length === 0 && pending.length === 0 && rejected.length === 0 && (
+                          <p className="text-xs text-gray-400 text-center py-2">No join requests yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}

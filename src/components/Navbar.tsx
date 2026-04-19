@@ -30,6 +30,11 @@ export function Navbar() {
               Dashboard
             </Link>
           )}
+          {session && (
+            <Link href="/groups" className="text-blue-200 hover:text-white transition">
+              Groups
+            </Link>
+          )}
           {session?.user?.role === "ADMIN" && (
             <Link href="/admin" className="text-fifa-gold hover:brightness-110 transition font-semibold">
               Admin
@@ -83,6 +88,9 @@ export function Navbar() {
           <Link href="/leaderboard" className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Leaderboard</Link>
           {session && (
             <Link href="/dashboard" className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Dashboard</Link>
+          )}
+          {session && (
+            <Link href="/groups" className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Groups</Link>
           )}
           {session?.user?.role === "ADMIN" && (
             <Link href="/admin" className="block py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>Admin</Link>
