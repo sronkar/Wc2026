@@ -9,7 +9,7 @@ type Ctx = { params: { id: string } };
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -76,7 +76,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

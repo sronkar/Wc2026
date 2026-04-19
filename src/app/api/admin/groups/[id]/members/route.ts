@@ -5,6 +5,32 @@ import { prisma } from "@/lib/prisma";
 
 type Ctx = { params: { id: string } };
 
+// GET: return all memberships for a group (admin or sub-admin)
+export async function GET(_req: NextRequest, { params }: Ctx) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const group = await prisma.group.findUnique({
+    where: { id: params.id },
+    include: {
+      memberships: {
+        include: { user: { select: { id: true, name: true, email: true, image: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+  if (!group) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(
+    group.memberships.map((m) => ({
+      userId: m.userId,
+      status: m.status,
+      createdAt: m.createdAt.toISOString(),
+      user: m.user,
+    }))
+  );
+}
+
 // POST: add a user directly as an approved member (admin or sub-admin)
 export async function POST(req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
