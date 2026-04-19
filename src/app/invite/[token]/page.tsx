@@ -1,0 +1,126 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSession, signIn } from "next-auth/react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+
+interface InviteDetails {
+  groupId: string;
+  groupName: string;
+  email: string;
+  memberRole: string;
+  expiresAt: string;
+}
+
+export default function InvitePage() {
+  const { token } = useParams<{ token: string }>();
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [invite, setInvite] = useState<InviteDetails | null>(null);
+  const [error, setError] = useState("");
+  const [accepting, setAccepting] = useState(false);
+  const [accepted, setAccepted] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/invite/${token}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) setError(data.error);
+        else setInvite(data);
+      })
+      .catch(() => setError("Failed to load invite"));
+  }, [token]);
+
+  const handleAccept = async () => {
+    setAccepting(true);
+    const res = await fetch(`/api/invite/${token}`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? "Failed to accept invite");
+      setAccepting(false);
+    } else {
+      setAccepted(true);
+      setTimeout(() => router.push(`/groups/${data.groupId}`), 1500);
+    }
+  };
+
+  const roleLabel =
+    invite?.memberRole === "VISITOR_ADMIN" ? "Visitor Admin (no predictions)" : "Member";
+
+  if (!invite && !error) {
+    return <div className="flex items-center justify-center h-64 text-gray-400">Loading…</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <div className="card">
+          <p className="text-4xl mb-4">⚠️</p>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Invite unavailable</h1>
+          <p className="text-gray-500 text-sm mb-6">{error}</p>
+          <Link href="/groups" className="btn-primary">Browse Groups</Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-md mx-auto px-4 py-16">
+      <div className="card text-center">
+        <div className="w-16 h-16 rounded-full bg-fifa-blue text-white font-extrabold text-2xl flex items-center justify-center mx-auto mb-4">
+          {invite!.groupName.charAt(0).toUpperCase()}
+        </div>
+
+        <h1 className="text-xl font-bold text-gray-900 mb-1">You&apos;re invited!</h1>
+        <p className="text-gray-500 text-sm mb-1">
+          Join <strong className="text-gray-800">{invite!.groupName}</strong>
+        </p>
+        <p className="text-xs text-gray-400 mb-6">
+          Role: <span className="font-semibold text-gray-600">{roleLabel}</span>
+        </p>
+
+        {accepted ? (
+          <p className="text-green-600 font-semibold py-4">✓ Joined! Redirecting…</p>
+        ) : status === "loading" ? null : !session ? (
+          <>
+            <p className="text-sm text-gray-500 mb-4">
+              Sign in with <strong>{invite!.email}</strong> to accept this invite.
+            </p>
+            <button
+              onClick={() => signIn(undefined, { callbackUrl: `/invite/${token}` })}
+              className="btn-primary w-full"
+            >
+              Sign in to Accept
+            </button>
+          </>
+        ) : session.user?.email?.toLowerCase() !== invite!.email ? (
+          <>
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+              This invite was sent to <strong>{invite!.email}</strong>, but you&apos;re signed in as{" "}
+              <strong>{session.user?.email}</strong>.
+            </p>
+            <button
+              onClick={() => signIn(undefined, { callbackUrl: `/invite/${token}` })}
+              className="btn-primary w-full"
+            >
+              Sign in with the correct account
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={handleAccept}
+            disabled={accepting}
+            className="btn-primary w-full disabled:opacity-50"
+          >
+            {accepting ? "Joining…" : "Accept & Join Group"}
+          </button>
+        )}
+
+        <p className="text-xs text-gray-400 mt-5">
+          Expires {new Date(invite!.expiresAt).toLocaleDateString()}
+        </p>
+      </div>
+    </div>
+  );
+}

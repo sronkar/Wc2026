@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { name, description, avatar } = await req.json();
+  const { name, description, avatar, joinAsVisitor } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
   const group = await prisma.group.create({
@@ -21,7 +21,11 @@ export async function POST(req: NextRequest) {
       avatar: avatar?.trim() || null,
       createdBy: session.user.id,
       memberships: {
-        create: { userId: session.user.id, status: "APPROVED" },
+        create: {
+          userId: session.user.id,
+          status: "APPROVED",
+          memberRole: joinAsVisitor ? "VISITOR_ADMIN" : "MEMBER",
+        },
       },
     },
   });

@@ -6,8 +6,17 @@ import Image from "next/image";
 interface Membership {
   userId: string;
   status: string;
+  memberRole: string;
   createdAt: string;
   user: { id: string; name: string | null; email: string | null; image: string | null };
+}
+
+interface PendingInvite {
+  id: string;
+  email: string;
+  memberRole: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
 interface UserRow {
@@ -79,8 +88,16 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [addMemberInput, setAddMemberInput] = useState("");
+  const [addMemberRole, setAddMemberRole] = useState("MEMBER");
   const [addMemberSaving, setAddMemberSaving] = useState(false);
   const [addMemberMessage, setAddMemberMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // ── Invite state ──────────────────────────────────────────────────────────────
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("MEMBER");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteMessage, setInviteMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
   // ── Settings state ────────────────────────────────────────────────────────────
   const [settings, setSettings] = useState<GroupSettings>({ exactMatchPoints: 5, directionMatchPoints: 1 });
@@ -153,6 +170,11 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         setMatches(data);
         setMatchesLoaded(true);
       });
+
+    // Load pending invites
+    fetch(`/api/groups/${groupId}/invite`)
+      .then((r) => r.json())
+      .then((data: PendingInvite[]) => { if (Array.isArray(data)) setPendingInvites(data); });
   }, [groupId]);
 
   // ── Derived ───────────────────────────────────────────────────────────────────
@@ -187,6 +209,35 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     setMemberUpdating((p) => ({ ...p, [userId]: false }));
   };
 
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviteSending(true);
+    const res = await fetch(`/api/groups/${groupId}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: inviteEmail.trim(), memberRole: inviteRole }),
+    });
+    if (res.ok) {
+      setPendingInvites((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          email: inviteEmail.trim().toLowerCase(),
+          memberRole: inviteRole,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+      ]);
+      setInviteEmail("");
+      setInviteMessage({ ok: true, text: `Invite sent to ${inviteEmail.trim()}` });
+    } else {
+      const err = await res.json().catch(() => ({}));
+      setInviteMessage({ ok: false, text: (err as { error?: string }).error ?? "Failed to send invite" });
+    }
+    setInviteSending(false);
+    setTimeout(() => setInviteMessage(null), 4000);
+  };
+
   const handleAddMember = async () => {
     const userId = addMemberInput.trim();
     if (!userId) return;
@@ -194,7 +245,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     const res = await fetch(`/api/admin/groups/${groupId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ userId, memberRole: addMemberRole }),
     });
     if (res.ok) {
       const result = await res.json();
@@ -413,31 +464,83 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       <div className="card">
         <h3 className="font-bold text-gray-800 mb-4">Members</h3>
 
-        {/* Add member */}
+        {/* Invite by email */}
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Invite by Email
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="user@example.com"
+              className="flex-1 min-w-40 border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            />
+            <select
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value)}
+              className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            >
+              <option value="MEMBER">Member</option>
+              <option value="VISITOR_ADMIN">Visitor Admin</option>
+            </select>
+            <button
+              onClick={handleInvite}
+              disabled={inviteSending || !inviteEmail.trim()}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 disabled:opacity-40 shrink-0"
+            >
+              {inviteSending ? "Sending…" : "Send Invite"}
+            </button>
+          </div>
+          {inviteMessage && (
+            <p className={`text-xs mt-1 ${inviteMessage.ok ? "text-green-600" : "text-red-500"}`}>
+              {inviteMessage.text}
+            </p>
+          )}
+          {pendingInvites.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-gray-400 font-medium">Pending invites:</p>
+              {pendingInvites.map((inv) => (
+                <div key={inv.id} className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                  <span>{inv.email}</span>
+                  <span className="text-gray-300">·</span>
+                  <span>{inv.memberRole === "VISITOR_ADMIN" ? "Visitor Admin" : "Member"}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Add existing user directly */}
         <div className="mb-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Add Member Directly
+            Add Existing User Directly
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <select
               value={addMemberInput}
               onChange={(e) => setAddMemberInput(e.target.value)}
-              className="flex-1 border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+              className="flex-1 min-w-32 border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
             >
               <option value="">— select user —</option>
               {usersLoaded &&
                 users
-                  .filter(
-                    (u) =>
-                      !memberships.some(
-                        (m) => m.userId === u.id && m.status === "APPROVED"
-                      )
-                  )
+                  .filter((u) => !memberships.some((m) => m.userId === u.id && m.status === "APPROVED"))
                   .map((u) => (
                     <option key={u.id} value={u.id}>
                       {u.name ?? u.email}
                     </option>
                   ))}
+            </select>
+            <select
+              value={addMemberRole}
+              onChange={(e) => setAddMemberRole(e.target.value)}
+              className="border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            >
+              <option value="MEMBER">Member</option>
+              <option value="VISITOR_ADMIN">Visitor Admin</option>
             </select>
             <button
               onClick={handleAddMember}
@@ -448,9 +551,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
             </button>
           </div>
           {addMemberMessage && (
-            <p
-              className={`text-xs mt-1 ${addMemberMessage.ok ? "text-green-600" : "text-red-500"}`}
-            >
+            <p className={`text-xs mt-1 ${addMemberMessage.ok ? "text-green-600" : "text-red-500"}`}>
               {addMemberMessage.text}
             </p>
           )}
@@ -486,9 +587,16 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">
-                      {m.user.name ?? "—"}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {m.user.name ?? "—"}
+                      </p>
+                      {m.memberRole === "VISITOR_ADMIN" && (
+                        <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                          Visitor
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400 truncate">{m.user.email}</p>
                   </div>
                 </div>

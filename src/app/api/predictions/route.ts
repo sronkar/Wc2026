@@ -23,12 +23,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid scores" }, { status: 400 });
   }
 
-  // Verify user is an approved member of this group
+  // Verify user is an approved member of this group (not a visitor admin)
   const membership = await prisma.groupMembership.findUnique({
     where: { userId_groupId: { userId: session.user.id, groupId } },
   });
   if (membership?.status !== "APPROVED") {
     return NextResponse.json({ error: "Not a member of this group" }, { status: 403 });
+  }
+  if (membership.memberRole === "VISITOR_ADMIN") {
+    return NextResponse.json({ error: "Visitor admins cannot submit predictions" }, { status: 403 });
   }
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });

@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   }
 
   const memberships = await prisma.groupMembership.findMany({
-    where: { groupId, status: "APPROVED" },
+    where: { groupId, status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
     include: {
       user: {
         select: {

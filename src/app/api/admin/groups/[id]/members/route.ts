@@ -25,6 +25,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     group.memberships.map((m) => ({
       userId: m.userId,
       status: m.status,
+      memberRole: m.memberRole,
       createdAt: m.createdAt.toISOString(),
       user: m.user,
     }))
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { userId } = await req.json();
+  const { userId, memberRole = "MEMBER" } = await req.json();
   if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
 
   const group = await prisma.group.findUnique({ where: { id: params.id } });
@@ -49,8 +50,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const membership = await prisma.groupMembership.upsert({
     where: { userId_groupId: { userId, groupId: params.id } },
-    update: { status: "APPROVED" },
-    create: { userId, groupId: params.id, status: "APPROVED" },
+    update: { status: "APPROVED", memberRole },
+    create: { userId, groupId: params.id, status: "APPROVED", memberRole },
     include: { user: { select: { id: true, name: true, email: true, image: true } } },
   });
 

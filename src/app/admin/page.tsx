@@ -90,6 +90,7 @@ export default function AdminPage() {
   const [groupsLoaded, setGroupsLoaded] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
+  const [newGroupVisitor, setNewGroupVisitor] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   // ── Tab state ────────────────────────────────────────────────────────────────
@@ -237,13 +238,14 @@ export default function AdminPage() {
     const res = await fetch("/api/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newGroupName, description: newGroupDesc }),
+      body: JSON.stringify({ name: newGroupName, description: newGroupDesc, joinAsVisitor: newGroupVisitor }),
     });
     if (res.ok) {
       const g = await res.json();
       setGroups((prev) => [...prev, { ...g, memberCount: 1, myStatus: "APPROVED" }]);
       setNewGroupName("");
       setNewGroupDesc("");
+      setNewGroupVisitor(false);
     }
     setCreatingGroup(false);
   };
@@ -508,6 +510,15 @@ export default function AdminPage() {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                 />
               </div>
+              <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={newGroupVisitor}
+                  onChange={(e) => setNewGroupVisitor(e.target.checked)}
+                  className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
+                />
+                Join as Visitor Admin (manage only — no predictions or leaderboard)
+              </label>
               <button type="submit" disabled={creatingGroup} className="btn-primary disabled:opacity-50">
                 {creatingGroup ? "Creating…" : "Create Group"}
               </button>
