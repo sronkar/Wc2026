@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { GroupSwitcher } from "@/components/GroupSwitcher";
 
 interface Entry {
   id: string;
@@ -52,6 +53,10 @@ export default function GroupLeaderboardPage() {
       <Link href={`/groups/${groupId}`} className="text-xs text-gray-400 hover:text-fifa-blue mb-4 inline-block">
         ← {groupName}
       </Link>
+
+      <div className="mb-4">
+        <GroupSwitcher activeGroupId={groupId} subPage="leaderboard" />
+      </div>
 
       <div className="flex items-center gap-3 mb-6">
         {groupAvatar ? (

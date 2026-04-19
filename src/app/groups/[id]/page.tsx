@@ -10,6 +10,7 @@ import { MiniLeaderboard } from "@/components/dashboard/MiniLeaderboard";
 import { LockedPredictionsPanel } from "@/components/dashboard/LockedPredictionsPanel";
 import { CustomPredictionsPanel } from "@/components/dashboard/CustomPredictionsPanel";
 import { GroupAdminSection } from "@/components/dashboard/GroupAdminSection";
+import { GroupSwitcher } from "@/components/GroupSwitcher";
 
 export const revalidate = 0;
 
@@ -146,6 +147,10 @@ export default async function GroupDashboardPage({
             {userRank ? `You're ranked #${userRank} in this group` : "Start predicting to join the rankings"} · {totalPoints} pts
           </p>
         </div>
+      </div>
+
+      <div className="mb-6">
+        <GroupSwitcher activeGroupId={groupId} />
       </div>
 
       {/* Stats strip */}

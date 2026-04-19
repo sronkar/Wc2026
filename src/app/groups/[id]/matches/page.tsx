@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { MatchCard } from "@/components/MatchCard";
+import { GroupSwitcher } from "@/components/GroupSwitcher";
 
 interface Match {
   id: string;
@@ -141,6 +142,9 @@ export default function GroupMatchesPage() {
         <p className="text-gray-400 text-sm mt-0.5">
           104 games · predictions count toward <strong className="text-gray-600">{groupName || "this group"}</strong> only
         </p>
+        <div className="mt-3">
+          <GroupSwitcher activeGroupId={groupId} subPage="matches" />
+        </div>
       </div>
 
       {/* Filters */}
