@@ -36,6 +36,39 @@ interface GroupSettings {
   directionMatchPoints: number;
 }
 
+interface Match {
+  id: string;
+  matchNumber: number;
+  homeTeam: string;
+  awayTeam: string;
+  round: string;
+  city: string;
+  kickoff: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: string;
+}
+
+interface PredictionRow {
+  id: string;
+  userId: string;
+  userName: string;
+  userImage: string | null;
+  homeScore: number;
+  awayScore: number;
+  points: number | null;
+}
+
+const ROUNDS = [
+  "Group Stage",
+  "Round of 32",
+  "Round of 16",
+  "Quarter-final",
+  "Semi-final",
+  "Third Place Play-off",
+  "Final",
+];
+
 export function GroupAdminSection({ groupId }: { groupId: string }) {
   // ── Members state ─────────────────────────────────────────────────────────────
   const [memberships, setMemberships] = useState<Membership[]>([]);
@@ -63,6 +96,16 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [cpResolving, setCpResolving] = useState<Record<string, string>>({});
   const [cpResolvingSaving, setCpResolvingSaving] = useState<Record<string, boolean>>({});
   const [cpDeleting, setCpDeleting] = useState<Record<string, boolean>>({});
+
+  // ── Edit predictions state ────────────────────────────────────────────────────
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [matchesLoaded, setMatchesLoaded] = useState(false);
+  const [epMatchId, setEpMatchId] = useState("");
+  const [epPredictions, setEpPredictions] = useState<PredictionRow[]>([]);
+  const [epInputs, setEpInputs] = useState<Record<string, { home: string; away: string }>>({});
+  const [epLoading, setEpLoading] = useState(false);
+  const [epSaving, setEpSaving] = useState<Record<string, boolean>>({});
+  const [epSaved, setEpSaved] = useState<Set<string>>(new Set());
 
   // ── Load data on mount ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -101,6 +144,14 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       .then((data: CustomPredictionAdmin[]) => {
         setCustomPredictions(data);
         setCustomLoaded(true);
+      });
+
+    // Load matches for edit-predictions selector
+    fetch("/api/matches")
+      .then((r) => r.json())
+      .then((data: Match[]) => {
+        setMatches(data);
+        setMatchesLoaded(true);
       });
   }, [groupId]);
 
@@ -248,6 +299,50 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       setCustomPredictions((prev) => prev.filter((cp) => cp.id !== cpId));
     }
     setCpDeleting((p) => ({ ...p, [cpId]: false }));
+  };
+
+  // ── Edit predictions: load when match selected ───────────────────────────────
+  useEffect(() => {
+    if (!epMatchId) {
+      setEpPredictions([]);
+      setEpInputs({});
+      return;
+    }
+    setEpLoading(true);
+    fetch(`/api/admin/matches/${epMatchId}/predictions?groupId=${groupId}`)
+      .then((r) => r.json())
+      .then((data: PredictionRow[]) => {
+        setEpPredictions(data);
+        const inputs: Record<string, { home: string; away: string }> = {};
+        data.forEach((p) => {
+          inputs[p.userId] = { home: String(p.homeScore), away: String(p.awayScore) };
+        });
+        setEpInputs(inputs);
+      })
+      .finally(() => setEpLoading(false));
+  }, [epMatchId, groupId]);
+
+  const handleSavePrediction = async (userId: string) => {
+    const input = epInputs[userId];
+    if (!input || !epMatchId) return;
+    const home = parseInt(input.home, 10);
+    const away = parseInt(input.away, 10);
+    if (isNaN(home) || isNaN(away)) return;
+    setEpSaving((p) => ({ ...p, [userId]: true }));
+    await fetch("/api/admin/predictions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, matchId: epMatchId, groupId, homeScore: home, awayScore: away }),
+    });
+    setEpSaving((p) => ({ ...p, [userId]: false }));
+    setEpSaved((p) => new Set(Array.from(p).concat(userId)));
+    setTimeout(
+      () => setEpSaved((p) => { const s = new Set(Array.from(p)); s.delete(userId); return s; }),
+      2000
+    );
+    setEpPredictions((prev) =>
+      prev.map((p) => (p.userId === userId ? { ...p, homeScore: home, awayScore: away } : p))
+    );
   };
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -501,7 +596,135 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         )}
       </div>
 
-      {/* ── C. Custom Predictions ────────────────────────────────────────────── */}
+      {/* ── C. Edit Predictions ─────────────────────────────────────────────── */}
+      <div className="space-y-4">
+        <h3 className="font-bold text-gray-800">Edit Member Predictions</h3>
+        <div className="card">
+          <label className="block text-xs text-gray-500 mb-1">Select Match</label>
+          <select
+            value={epMatchId}
+            onChange={(e) => setEpMatchId(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            disabled={!matchesLoaded}
+          >
+            <option value="">— choose a match —</option>
+            {ROUNDS.map((round) => {
+              const roundMatches = matches.filter((m) => m.round === round);
+              if (roundMatches.length === 0) return null;
+              return (
+                <optgroup key={round} label={round}>
+                  {roundMatches.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      #{m.matchNumber} {m.homeTeam} vs {m.awayTeam}
+                      {m.status === "FINISHED" ? ` (${m.homeScore}–${m.awayScore})` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+        </div>
+
+        {epMatchId && (() => {
+          const selectedMatch = matches.find((m) => m.id === epMatchId);
+          const isLocked = selectedMatch
+            ? Date.now() >= new Date(selectedMatch.kickoff).getTime() - 60 * 60 * 1000
+            : false;
+          return (
+            <>
+              {isLocked && (
+                <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center gap-2">
+                  🔒 <strong>Predictions locked.</strong> This match is within 1 hour of kickoff or has finished.
+                </div>
+              )}
+              <div className="card overflow-hidden p-0">
+                {epLoading ? (
+                  <div className="p-8 text-center text-gray-400 text-sm">Loading predictions…</div>
+                ) : epPredictions.length === 0 ? (
+                  <div className="p-8 text-center text-gray-400 text-sm">No predictions for this match yet.</div>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200">
+                        <th className="px-4 py-3">User</th>
+                        <th className="px-4 py-3">Prediction</th>
+                        <th className="px-4 py-3">Points</th>
+                        <th className="px-4 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {epPredictions.map((pred, i) => {
+                        const input = epInputs[pred.userId] ?? { home: String(pred.homeScore), away: String(pred.awayScore) };
+                        return (
+                          <tr key={pred.userId} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                {pred.userImage ? (
+                                  <Image src={pred.userImage} alt="" width={28} height={28} className="rounded-full" />
+                                ) : (
+                                  <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+                                    {pred.userName.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <span className="font-medium text-gray-800">{pred.userName}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {isLocked ? (
+                                <span className="font-semibold text-gray-700">{pred.homeScore} – {pred.awayScore}</span>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number" min="0" max="20" value={input.home}
+                                    onChange={(e) =>
+                                      setEpInputs((prev) => ({ ...prev, [pred.userId]: { ...prev[pred.userId], home: e.target.value } }))
+                                    }
+                                    className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                                  />
+                                  <span className="text-gray-400">–</span>
+                                  <input
+                                    type="number" min="0" max="20" value={input.away}
+                                    onChange={(e) =>
+                                      setEpInputs((prev) => ({ ...prev, [pred.userId]: { ...prev[pred.userId], away: e.target.value } }))
+                                    }
+                                    className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                                  />
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {pred.points !== null ? (
+                                <span className="font-semibold text-fifa-blue">{pred.points} pts</span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {isLocked ? (
+                                <span className="text-xs text-gray-400">🔒</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleSavePrediction(pred.userId)}
+                                  disabled={epSaving[pred.userId]}
+                                  className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50 bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
+                                >
+                                  {epSaving[pred.userId] ? "…" : epSaved.has(pred.userId) ? "Saved ✓" : "✎ Edit"}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </>
+          );
+        })()}
+      </div>
+
+      {/* ── D. Custom Predictions ────────────────────────────────────────────── */}
       <div className="space-y-4">
         <h3 className="font-bold text-gray-800">Custom Predictions</h3>
 
