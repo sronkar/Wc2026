@@ -107,46 +107,55 @@ export default function GroupsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((g) => (
-            <div key={g.id} className="card flex items-center gap-3">
-              {g.avatar ? (
-                <Image src={g.avatar} alt="" width={40} height={40} className="rounded-full object-cover shrink-0" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-500 font-bold flex items-center justify-center shrink-0 text-sm">
-                  {g.name.charAt(0).toUpperCase()}
+          {filtered.map((g) => {
+            const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN";
+            const canOpen = g.myStatus === "APPROVED" || isAdmin;
+            const Inner = (
+              <>
+                {g.avatar ? (
+                  <Image src={g.avatar} alt="" width={40} height={40} className="rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className={`w-10 h-10 rounded-full font-bold flex items-center justify-center shrink-0 text-sm ${canOpen ? "bg-fifa-blue text-white" : "bg-gray-200 text-gray-500"}`}>
+                    {g.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-800 truncate">{g.name}</p>
+                  {g.description && <p className="text-xs text-gray-400 truncate">{g.description}</p>}
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
+                  </p>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-800 truncate">{g.name}</p>
-                {g.description && <p className="text-xs text-gray-400 truncate">{g.description}</p>}
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
-                </p>
+                <div className="shrink-0">
+                  {canOpen && <span className="text-gray-300 group-hover:text-fifa-blue">›</span>}
+                  {!canOpen && g.myStatus === "PENDING" && (
+                    <span className="badge bg-yellow-100 text-yellow-700 text-xs">Pending</span>
+                  )}
+                  {!canOpen && g.myStatus === "REJECTED" && (
+                    <span className="badge bg-red-100 text-red-700 text-xs">Rejected</span>
+                  )}
+                  {!canOpen && g.myStatus === null && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); handleJoin(g.id); }}
+                      disabled={joining[g.id]}
+                      className="btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
+                    >
+                      {joining[g.id] ? "…" : "Request to join"}
+                    </button>
+                  )}
+                </div>
+              </>
+            );
+            return canOpen ? (
+              <Link key={g.id} href={`/groups/${g.id}`} className="card flex items-center gap-3 hover:border-fifa-blue transition group">
+                {Inner}
+              </Link>
+            ) : (
+              <div key={g.id} className="card flex items-center gap-3">
+                {Inner}
               </div>
-              <div className="shrink-0">
-                {g.myStatus === "APPROVED" && (
-                  <Link href={`/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">
-                    Open →
-                  </Link>
-                )}
-                {g.myStatus === "PENDING" && (
-                  <span className="badge bg-yellow-100 text-yellow-700 text-xs">Pending</span>
-                )}
-                {g.myStatus === "REJECTED" && (
-                  <span className="badge bg-red-100 text-red-700 text-xs">Rejected</span>
-                )}
-                {g.myStatus === null && (
-                  <button
-                    onClick={() => handleJoin(g.id)}
-                    disabled={joining[g.id]}
-                    className="btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
-                  >
-                    {joining[g.id] ? "…" : "Request to join"}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
