@@ -71,6 +71,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     name: group.name,
     description: group.description,
     avatar: group.avatar,
+    exactMatchPoints: group.exactMatchPoints,
+    directionMatchPoints: group.directionMatchPoints,
     memberCount: group.memberships.length,
     myStatus: myMembership?.status ?? (isAdminRole ? "ADMIN" : null),
     leaderboard,
