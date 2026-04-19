@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async redirects() {
+    return [
+      { source: "/leaderboard", destination: "/groups", permanent: false },
+      { source: "/matches", destination: "/groups", permanent: false },
+      { source: "/dashboard", destination: "/groups", permanent: false },
+    ];
+  },
   experimental: {
     instrumentationHook: true,
   },
