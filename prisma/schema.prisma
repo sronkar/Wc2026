@@ -34,20 +34,21 @@ model Session {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  name              String?
-  email             String?            @unique
-  emailVerified     DateTime?
-  image             String?
-  role              String             @default("USER")
-  isDemo            Boolean            @default(false)
-  predictions       Prediction[]
-  accounts          Account[]
-  sessions          Session[]
-  pushSubscriptions PushSubscription[]
-  matchReminders    MatchReminder[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                      String                   @id @default(cuid())
+  name                    String?
+  email                   String?                  @unique
+  emailVerified           DateTime?
+  image                   String?
+  role                    String                   @default("USER")
+  isDemo                  Boolean                  @default(false)
+  predictions             Prediction[]
+  customPredictionAnswers CustomPredictionAnswer[]
+  accounts                Account[]
+  sessions                Session[]
+  pushSubscriptions       PushSubscription[]
+  matchReminders          MatchReminder[]
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
 }
 
 model VerificationToken {
@@ -124,4 +125,31 @@ model MatchReminder {
 model DemoSettings {
   id          String   @id @default("demo")
   virtualTime DateTime @default(now())
+}
+
+model CustomPrediction {
+  id            String                   @id @default(cuid())
+  question      String
+  options       String                   // JSON-encoded string[]
+  points        Int                      @default(3)
+  lockTime      DateTime
+  correctOption String?
+  status        String                   @default("OPEN")  // OPEN | RESOLVED
+  answers       CustomPredictionAnswer[]
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+}
+
+model CustomPredictionAnswer {
+  id                 String           @id @default(cuid())
+  userId             String
+  customPredictionId String
+  option             String
+  points             Int?
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customPrediction   CustomPrediction @relation(fields: [customPredictionId], references: [id], onDelete: Cascade)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([userId, customPredictionId])
 }

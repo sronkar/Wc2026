@@ -8,6 +8,7 @@ import { MatchCarousel } from "@/components/dashboard/MatchCarousel";
 import { MiniLeaderboard } from "@/components/dashboard/MiniLeaderboard";
 import { LockedPredictionsPanel } from "@/components/dashboard/LockedPredictionsPanel";
 import { PushSubscribeButton } from "@/components/PushSubscribeButton";
+import { CustomPredictionsPanel } from "@/components/dashboard/CustomPredictionsPanel";
 
 export const revalidate = 0;
 
@@ -139,6 +140,9 @@ export default async function DashboardPage() {
             </div>
             <MiniLeaderboard entries={leaderboard} currentUserId={userId} />
           </div>
+
+          {/* Custom predictions */}
+          <CustomPredictionsPanel />
 
           {/* Quick links */}
           <div className="card">

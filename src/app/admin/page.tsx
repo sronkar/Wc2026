@@ -34,6 +34,18 @@ interface UserRow {
   createdAt: string;
 }
 
+interface CustomPredictionAdmin {
+  id: string;
+  question: string;
+  options: string[];
+  points: number;
+  lockTime: string;
+  correctOption: string | null;
+  status: string;
+  answerCount: number;
+  answers: { userName: string; option: string; points: number | null }[];
+}
+
 interface PredictionRow {
   id: string;
   userId: string;
@@ -44,7 +56,7 @@ interface PredictionRow {
   points: number | null;
 }
 
-type Tab = "results" | "predictions" | "settings" | "users";
+type Tab = "results" | "predictions" | "settings" | "users" | "custom";
 
 const ROUNDS = [
   "Group Stage",
@@ -94,6 +106,15 @@ export default function AdminPage() {
   const [savingPred, setSavingPred] = useState<Record<string, boolean>>({});
   const [savedPreds, setSavedPreds] = useState<Set<string>>(new Set());
 
+  // ── Custom predictions tab state (admin only) ────────────────────────────────
+  const [customPredictions, setCustomPredictions] = useState<CustomPredictionAdmin[]>([]);
+  const [customLoaded, setCustomLoaded] = useState(false);
+  const [cpForm, setCpForm] = useState({ question: "", options: ["", ""], points: 3, lockTime: "" });
+  const [cpCreating, setCpCreating] = useState(false);
+  const [cpResolving, setcpResolving] = useState<Record<string, string>>({});
+  const [cpResolvingSaving, setCpResolvingSaving] = useState<Record<string, boolean>>({});
+  const [cpDeleting, setCpDeleting] = useState<Record<string, boolean>>({});
+
   // ── Tab state ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>("results");
 
@@ -142,6 +163,17 @@ export default function AdminPage() {
         setUsersLoaded(true);
       });
   }, [activeTab, usersLoaded, isAdmin]);
+
+  // ── Load custom predictions when Custom tab is first opened ──────────────────
+  useEffect(() => {
+    if (activeTab !== "custom" || customLoaded || !isAdmin) return;
+    fetch("/api/admin/custom-predictions")
+      .then((r) => r.json())
+      .then((data: CustomPredictionAdmin[]) => {
+        setCustomPredictions(data);
+        setCustomLoaded(true);
+      });
+  }, [activeTab, customLoaded, isAdmin]);
 
   // ── Load predictions when a match is selected ────────────────────────────────
   useEffect(() => {
@@ -264,6 +296,56 @@ export default function AdminPage() {
     );
   };
 
+  // ── Custom prediction handlers ────────────────────────────────────────────────
+
+  const handleCreateCustomPrediction = async () => {
+    const cleanOptions = cpForm.options.map((o) => o.trim()).filter(Boolean);
+    if (!cpForm.question.trim() || cleanOptions.length < 2 || !cpForm.lockTime) return;
+    setCpCreating(true);
+    const res = await fetch("/api/admin/custom-predictions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: cpForm.question.trim(),
+        options: cleanOptions,
+        points: cpForm.points,
+        lockTime: new Date(cpForm.lockTime).toISOString(),
+      }),
+    });
+    if (res.ok) {
+      setCpForm({ question: "", options: ["", ""], points: 3, lockTime: "" });
+      setCustomLoaded(false);
+    }
+    setCpCreating(false);
+  };
+
+  const handleResolvePrediction = async (cpId: string) => {
+    const correctOption = cpResolving[cpId];
+    if (!correctOption) return;
+    setCpResolvingSaving((p) => ({ ...p, [cpId]: true }));
+    const res = await fetch(`/api/admin/custom-predictions/${cpId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "resolve", correctOption }),
+    });
+    if (res.ok) {
+      setCustomPredictions((prev) =>
+        prev.map((cp) => cp.id === cpId ? { ...cp, status: "RESOLVED", correctOption } : cp)
+      );
+    }
+    setCpResolvingSaving((p) => ({ ...p, [cpId]: false }));
+  };
+
+  const handleDeleteCustomPrediction = async (cpId: string) => {
+    if (!confirm("Delete this prediction and all its answers?")) return;
+    setCpDeleting((p) => ({ ...p, [cpId]: true }));
+    const res = await fetch(`/api/admin/custom-predictions/${cpId}`, { method: "DELETE" });
+    if (res.ok) {
+      setCustomPredictions((prev) => prev.filter((cp) => cp.id !== cpId));
+    }
+    setCpDeleting((p) => ({ ...p, [cpId]: false }));
+  };
+
   // ── Render guards ─────────────────────────────────────────────────────────────
   if (status === "loading" || !session) {
     return <div className="flex items-center justify-center h-64 text-gray-400">Loading...</div>;
@@ -279,6 +361,7 @@ export default function AdminPage() {
     ...(isAdmin ? [
       { key: "settings" as Tab, label: "Settings" },
       { key: "users" as Tab, label: "Users" },
+      { key: "custom" as Tab, label: "Custom Predictions" },
     ] : []),
   ];
 
@@ -635,6 +718,170 @@ export default function AdminPage() {
             )}
           </div>
         </>
+      )}
+
+      {/* ── Custom Predictions tab (admin only) ──────────────────────────────── */}
+      {activeTab === "custom" && isAdmin && (
+        <div className="space-y-6">
+          {/* Create form */}
+          <div className="card">
+            <h2 className="font-bold text-gray-800 mb-4">Create Custom Prediction</h2>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Question</label>
+                <input
+                  type="text"
+                  value={cpForm.question}
+                  onChange={(e) => setCpForm((f) => ({ ...f, question: e.target.value }))}
+                  placeholder="e.g. Who will be top scorer?"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Options (min 2)</label>
+                <div className="space-y-2">
+                  {cpForm.options.map((opt, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={opt}
+                        onChange={(e) => setCpForm((f) => {
+                          const opts = [...f.options];
+                          opts[idx] = e.target.value;
+                          return { ...f, options: opts };
+                        })}
+                        placeholder={`Option ${idx + 1}`}
+                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                      />
+                      {cpForm.options.length > 2 && (
+                        <button
+                          onClick={() => setCpForm((f) => ({ ...f, options: f.options.filter((_, i) => i !== idx) }))}
+                          className="text-red-400 hover:text-red-600 text-sm px-2"
+                        >✕</button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setCpForm((f) => ({ ...f, options: [...f.options, ""] }))}
+                    className="text-xs text-fifa-blue hover:underline"
+                  >+ Add option</button>
+                </div>
+              </div>
+              <div className="flex gap-4 flex-wrap">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Points</label>
+                  <input
+                    type="number" min="1" value={cpForm.points}
+                    onChange={(e) => setCpForm((f) => ({ ...f, points: Number(e.target.value) }))}
+                    className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                  />
+                </div>
+                <div className="flex-1 min-w-48">
+                  <label className="block text-xs text-gray-500 mb-1">Lock Time</label>
+                  <input
+                    type="datetime-local"
+                    value={cpForm.lockTime}
+                    onChange={(e) => setCpForm((f) => ({ ...f, lockTime: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleCreateCustomPrediction}
+                disabled={cpCreating}
+                className="btn-primary disabled:opacity-50"
+              >
+                {cpCreating ? "Creating…" : "Create Prediction"}
+              </button>
+            </div>
+          </div>
+
+          {/* List */}
+          {!customLoaded ? (
+            <div className="card text-center text-gray-400 text-sm py-8">Loading…</div>
+          ) : customPredictions.length === 0 ? (
+            <div className="card text-center text-gray-400 text-sm py-8">No custom predictions yet.</div>
+          ) : (
+            <div className="space-y-4">
+              {customPredictions.map((cp) => {
+                const isLocked = new Date(cp.lockTime).getTime() <= Date.now();
+                return (
+                  <div key={cp.id} className="card">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm">{cp.question}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {cp.points} pts · Lock: {new Date(cp.lockTime).toLocaleString()} ·{" "}
+                          {cp.answerCount} {cp.answerCount === 1 ? "answer" : "answers"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`badge ${
+                          cp.status === "RESOLVED" ? "bg-green-100 text-green-700" :
+                          isLocked ? "bg-red-100 text-red-700" :
+                          "bg-blue-100 text-blue-700"
+                        }`}>
+                          {cp.status === "RESOLVED" ? "Resolved" : isLocked ? "Locked" : "Open"}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteCustomPrediction(cp.id)}
+                          disabled={cpDeleting[cp.id]}
+                          className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
+                        >
+                          {cpDeleting[cp.id] ? "…" : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Options summary */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {cp.options.map((opt) => {
+                        const count = cp.answers.filter((a) => a.option === opt).length;
+                        return (
+                          <span key={opt} className={`text-xs px-2 py-1 rounded-full border ${
+                            cp.correctOption === opt ? "bg-green-50 border-green-300 text-green-700 font-semibold" : "bg-gray-50 border-gray-200 text-gray-600"
+                          }`}>
+                            {cp.correctOption === opt && "✓ "}{opt} ({count})
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    {/* Resolve form */}
+                    {cp.status === "OPEN" && isLocked && (
+                      <div className="flex items-center gap-2 flex-wrap border-t border-gray-100 pt-3">
+                        <label className="text-xs text-gray-500">Correct answer:</label>
+                        <select
+                          value={cpResolving[cp.id] ?? ""}
+                          onChange={(e) => setcpResolving((p) => ({ ...p, [cp.id]: e.target.value }))}
+                          className="flex-1 min-w-32 border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                        >
+                          <option value="">— select —</option>
+                          {cp.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleResolvePrediction(cp.id)}
+                          disabled={!cpResolving[cp.id] || cpResolvingSaving[cp.id]}
+                          className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
+                        >
+                          {cpResolvingSaving[cp.id] ? "Saving…" : "Resolve & Award Points"}
+                        </button>
+                      </div>
+                    )}
+
+                    {cp.status === "RESOLVED" && cp.correctOption && (
+                      <p className="text-xs text-green-600 border-t border-gray-100 pt-2">
+                        ✓ Resolved · Correct answer: <strong>{cp.correctOption}</strong>
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Users tab (admin only) ────────────────────────────────────────────── */}
