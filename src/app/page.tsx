@@ -1,9 +1,28 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
+
+  // Signed-in users go straight to their group dashboard
+  if (session?.user?.id) {
+    const first = await prisma.groupMembership.findFirst({
+      where: { userId: session.user.id, status: "APPROVED" },
+      orderBy: { createdAt: "asc" },
+      select: { groupId: true },
+    });
+    if (first) redirect(`/groups/${first.groupId}`);
+
+    const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUB_ADMIN";
+    if (isAdmin) {
+      const anyGroup = await prisma.group.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } });
+      if (anyGroup) redirect(`/groups/${anyGroup.id}`);
+    }
+    redirect("/groups");
+  }
 
   return (
     <div className="flex flex-col">
@@ -21,20 +40,9 @@ export default async function Home() {
             Predict all 104 match results, earn points, and climb the leaderboard.
             USA · Canada · Mexico — June 11 to July 26, 2026.
           </p>
-          {session ? (
-            <div className="flex gap-4 justify-center flex-wrap">
-              <Link href="/matches" className="bg-fifa-gold text-gray-900 px-8 py-3 rounded-lg font-bold text-lg hover:brightness-110 transition">
-                Make Predictions
-              </Link>
-              <Link href="/dashboard" className="bg-white/10 text-white border border-white/30 px-8 py-3 rounded-lg font-bold text-lg hover:bg-white/20 transition">
-                My Dashboard
-              </Link>
-            </div>
-          ) : (
-            <Link href="/login" className="bg-fifa-gold text-gray-900 px-10 py-4 rounded-lg font-bold text-lg hover:brightness-110 transition inline-block">
-              Join the Challenge
-            </Link>
-          )}
+          <Link href="/login" className="bg-fifa-gold text-gray-900 px-10 py-4 rounded-lg font-bold text-lg hover:brightness-110 transition inline-block">
+            Join the Challenge
+          </Link>
         </div>
       </section>
 
