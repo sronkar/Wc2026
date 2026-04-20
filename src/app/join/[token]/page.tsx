@@ -12,92 +12,155 @@ interface GroupInfo {
   memberCount: number;
 }
 
-type State = "loading" | "confirm" | "joining" | "joined" | "already" | "invalid" | "error";
-
 export default function JoinByLinkPage() {
   const { data: session, status } = useSession();
   const { token } = useParams<{ token: string }>();
   const router = useRouter();
 
-  const [state, setState] = useState<State>("loading");
   const [group, setGroup] = useState<GroupInfo | null>(null);
+  const [loadError, setLoadError] = useState("");
+
+  // Form fields (unauthenticated join)
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState("");
+
+  // Authenticated join state
+  const [autoJoining, setAutoJoining] = useState(false);
+  const [done, setDone] = useState(false);
+  const [alreadyMember, setAlreadyMember] = useState(false);
 
   // Load group info (no auth required)
   useEffect(() => {
     fetch(`/api/join/${token}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.error) { setState("invalid"); return; }
+        if (d.error) { setLoadError("This join link is invalid or expired."); return; }
         setGroup(d);
       })
-      .catch(() => setState("invalid"));
+      .catch(() => setLoadError("Could not load group info."));
   }, [token]);
 
-  // Once we have group info and know auth state, decide what to do
+  // Signed-in users: auto-join immediately
   useEffect(() => {
-    if (!group || status === "loading") return;
-
-    if (!session) {
-      // Redirect to standard sign-in; join happens after they return
-      router.replace(`/login?callbackUrl=/join/${token}`);
-      return;
-    }
-
-    // Signed in — auto-join immediately
-    setState("joining");
+    if (!group || status === "loading" || !session) return;
+    setAutoJoining(true);
     fetch(`/api/join/${token}`, { method: "POST" })
       .then((r) => r.json())
       .then((d) => {
-        if (d.error === "invalid") { setState("invalid"); return; }
-        if (d.error) { setState("error"); return; }
-        setState(d.alreadyMember ? "already" : "joined");
+        if (d.error === "invalid") { setLoadError("This join link is invalid or expired."); return; }
+        if (d.error) { setJoinError("Something went wrong."); return; }
+        setAlreadyMember(!!d.alreadyMember);
+        setDone(true);
       })
-      .catch(() => setState("error"));
-  }, [group, session, status, token, router]);
+      .catch(() => setJoinError("Something went wrong."))
+      .finally(() => setAutoJoining(false));
+  }, [group, session, status, token]);
 
-  if (state === "loading" || state === "joining") {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
-        <span className="inline-block w-6 h-6 border-2 border-gray-300 border-t-fifa-blue rounded-full animate-spin" />
-        {state === "joining" ? "Joining group…" : "Loading…"}
-      </div>
-    );
-  }
+  // Instant join for unauthenticated users: email + name → session cookie → redirect
+  const handleInstantJoin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setJoining(true);
+    setJoinError("");
+    const res = await fetch(`/api/join/${token}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim(), name: name.trim() }),
+      credentials: "same-origin",
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setJoinError(data.error ?? "Something went wrong");
+      setJoining(false);
+      return;
+    }
+    router.push(`/groups/${data.groupId}`);
+  };
 
-  if (state === "invalid") {
+  if (loadError) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center">
         <p className="text-4xl mb-4">🔗</p>
         <h1 className="text-xl font-bold text-gray-900 mb-2">Invalid or expired link</h1>
-        <p className="text-gray-400 text-sm mb-6">This join link is no longer active. Ask the group admin for a new one.</p>
+        <p className="text-gray-400 text-sm mb-6">{loadError}</p>
         <Link href="/groups" className="btn-primary">Browse Groups</Link>
       </div>
     );
   }
 
-  if (state === "error") {
+  if (!group || status === "loading" || autoJoining) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400">
+        <span className="inline-block w-6 h-6 border-2 border-gray-300 border-t-fifa-blue rounded-full animate-spin" />
+        {autoJoining ? "Joining group…" : "Loading…"}
+      </div>
+    );
+  }
+
+  // Authenticated + done
+  if (done) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center">
-        <p className="text-4xl mb-4">⚠️</p>
-        <h1 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h1>
-        <p className="text-gray-400 text-sm mb-6">Could not process your request. Please try again.</p>
-        <Link href="/groups" className="btn-primary">Browse Groups</Link>
+        <p className="text-5xl mb-4">⚽</p>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">
+          {alreadyMember ? `You're already in ${group.groupName}!` : `You've joined ${group.groupName}!`}
+        </h1>
+        <p className="text-gray-400 text-sm mb-6">
+          {alreadyMember ? "You're already an approved member." : "You're in! Start predicting now."}
+        </p>
+        <Link href={`/groups/${group.groupId}`} className="btn-primary">Go to Group Dashboard</Link>
       </div>
     );
   }
 
+  // Unauthenticated: show join form
   return (
-    <div className="max-w-md mx-auto px-4 py-16 text-center">
-      <p className="text-5xl mb-4">⚽</p>
-      <h1 className="text-xl font-bold text-gray-900 mb-2">
-        {state === "already" ? `You're already in ${group?.groupName}!` : `You've joined ${group?.groupName}!`}
-      </h1>
-      <p className="text-gray-400 text-sm mb-6">
-        {state === "already" ? "You're already an approved member." : "You're in! Start predicting now."}
-      </p>
-      {group?.groupId && (
-        <Link href={`/groups/${group.groupId}`} className="btn-primary">Go to Group Dashboard</Link>
-      )}
+    <div className="max-w-md mx-auto px-4 py-16">
+      <div className="card text-center">
+        <div className="w-16 h-16 rounded-full bg-fifa-blue text-white font-extrabold text-2xl flex items-center justify-center mx-auto mb-4">
+          {group.groupName.charAt(0).toUpperCase()}
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-1">Join {group.groupName}</h1>
+        {group.description && (
+          <p className="text-gray-500 text-sm mb-1">{group.description}</p>
+        )}
+        <p className="text-xs text-gray-400 mb-6">{group.memberCount} member{group.memberCount !== 1 ? "s" : ""}</p>
+
+        <form onSubmit={handleInstantJoin} className="text-left space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              required
+              autoFocus
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Your name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter your name"
+              required
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            />
+          </div>
+          {joinError && <p className="text-sm text-red-600">{joinError}</p>}
+          <button
+            type="submit"
+            disabled={joining || !email.trim() || !name.trim()}
+            className="btn-primary w-full disabled:opacity-50"
+          >
+            {joining ? "Joining…" : "Join Group"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

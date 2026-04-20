@@ -248,19 +248,29 @@ export function Navbar() {
           )}
 
           {(session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN") && (
-            <Link
-              href="/admin"
-              className={`relative px-3 py-1.5 rounded-md transition font-semibold ${
-                pathname.startsWith("/admin") ? "text-fifa-gold bg-white/10" : "text-fifa-gold hover:brightness-110"
-              }`}
-            >
-              Admin
-              {pendingCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
-                  {pendingCount > 99 ? "99+" : pendingCount}
-                </span>
-              )}
-            </Link>
+            <>
+              <Link
+                href="/admin?tab=groups"
+                className={`px-3 py-1.5 rounded-md transition font-semibold ${
+                  pathname.startsWith("/admin") ? "text-fifa-gold bg-white/10" : "text-fifa-gold hover:brightness-110"
+                }`}
+              >
+                Manage Groups
+              </Link>
+              <Link
+                href="/admin"
+                className={`relative px-3 py-1.5 rounded-md transition font-semibold ${
+                  pathname.startsWith("/admin") ? "text-fifa-gold bg-white/10" : "text-fifa-gold hover:brightness-110"
+                }`}
+              >
+                Admin
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {pendingCount > 99 ? "99+" : pendingCount}
+                  </span>
+                )}
+              </Link>
+            </>
           )}
         </div>
 
@@ -351,14 +361,17 @@ export function Navbar() {
           )}
 
           {(session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN") && (
-            <Link href="/admin" className="flex items-center gap-2 py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>
-              Admin
-              {pendingCount > 0 && (
-                <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {pendingCount > 99 ? "99+" : pendingCount}
-                </span>
-              )}
-            </Link>
+            <>
+              <Link href="/admin?tab=groups" className="block py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>Manage Groups</Link>
+              <Link href="/admin" className="flex items-center gap-2 py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>
+                Admin
+                {pendingCount > 0 && (
+                  <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {pendingCount > 99 ? "99+" : pendingCount}
+                  </span>
+                )}
+              </Link>
+            </>
           )}
           {session ? (
             <button onClick={() => signOut({ callbackUrl: "/" })} className="block py-2 text-red-300 hover:text-red-100 w-full text-left">Sign Out</button>

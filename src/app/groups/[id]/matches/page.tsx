@@ -123,6 +123,7 @@ export default function GroupMatchesPage() {
 
   const showGeneral = roundFilter === "All" || roundFilter === "General";
   const showMatches = roundFilter !== "General";
+  const showSidebar = !loading && showMatches && (roundFilter === "All" || roundFilter === "Group Stage");
 
   const filtered = matches.filter((m) => {
     if (!showMatches) return false;
@@ -139,7 +140,8 @@ export default function GroupMatchesPage() {
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Header */}
       <div className="mb-6">
         <Link href={`/groups/${groupId}`} className="text-xs text-gray-400 hover:text-fifa-blue">
           ← Back to group
@@ -187,7 +189,6 @@ export default function GroupMatchesPage() {
         {showMatches && (
           <span className="text-xs text-gray-400">{filtered.length} matches</span>
         )}
-        {/* Hide resolved toggle */}
         <button
           onClick={() => setHideResolved((v) => !v)}
           className={`ml-auto text-xs px-3 py-1.5 rounded-full border transition-colors ${
@@ -203,46 +204,56 @@ export default function GroupMatchesPage() {
       {loading ? (
         <div className="text-center text-gray-400 py-20">Loading matches…</div>
       ) : (
-        <div className="space-y-8">
-          {/* General: custom predictions — always first */}
-          {showGeneral && (
-            <div>
-              <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                General
-              </h2>
-              <CustomPredictionsPanel groupId={groupId} hideResolved={hideResolved} />
-            </div>
-          )}
+        /* Two-column layout on large screens: matches left, standings sidebar right */
+        <div className={showSidebar ? "lg:flex lg:gap-6 lg:items-start" : undefined}>
 
-          {/* Match rounds */}
-          {showMatches && (roundFilter === "All" || roundFilter === "Group Stage") && (
-            <GroupStandingsPanel
-              matches={matches}
-              predictions={predictions}
-              groupFilter={groupFilter}
-            />
-          )}
+          {/* Main column */}
+          <div className="min-w-0 flex-1 space-y-8">
 
-          {showMatches && ROUND_ORDER.filter((r) => grouped[r]).map((round) => (
-            <div key={round}>
-              <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-fifa-blue inline-block" />
-                {round}
-              </h2>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {grouped[round].map((match) => (
-                  <MatchCard
-                    key={match.id}
-                    match={match}
-                    prediction={predictions[match.id]}
-                    onSave={session ? handleSave : undefined}
-                    isLoggedIn={!!session}
-                  />
-                ))}
+            {/* General: custom predictions first */}
+            {showGeneral && (
+              <div>
+                <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                  General
+                </h2>
+                <CustomPredictionsPanel groupId={groupId} hideResolved={hideResolved} />
               </div>
+            )}
+
+            {/* Match rounds */}
+            {showMatches && ROUND_ORDER.filter((r) => grouped[r]).map((round) => (
+              <div key={round}>
+                <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-fifa-blue inline-block" />
+                  {round}
+                </h2>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {grouped[round].map((match) => (
+                    <MatchCard
+                      key={match.id}
+                      match={match}
+                      prediction={predictions[match.id]}
+                      onSave={session ? handleSave : undefined}
+                      isLoggedIn={!!session}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Sidebar: standings (desktop only, Group Stage visible) */}
+          {showSidebar && (
+            <div className="hidden lg:block w-64 shrink-0 sticky top-20">
+              <GroupStandingsPanel
+                matches={matches}
+                predictions={predictions}
+                groupFilter={groupFilter}
+                sidebar
+              />
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

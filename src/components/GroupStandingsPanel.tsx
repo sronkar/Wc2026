@@ -127,10 +127,12 @@ export function GroupStandingsPanel({
   matches,
   predictions,
   groupFilter,
+  sidebar = false,
 }: {
   matches: Match[];
   predictions: Record<string, Prediction>;
   groupFilter: string;
+  sidebar?: boolean;
 }) {
   const standings = computeStandings(matches, predictions);
   const groupNames = Object.keys(standings).sort();
@@ -141,6 +143,24 @@ export function GroupStandingsPanel({
     : groupNames;
 
   if (visible.length === 0) return null;
+
+  if (sidebar) {
+    return (
+      <div className="space-y-3">
+        <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+          Standings
+        </h2>
+        {visible.map((g) => (
+          <GroupTable key={g} name={g} rows={standings[g]} />
+        ))}
+        <p className="text-xs text-gray-400">
+          <span className="inline-block w-2 h-2 rounded-sm bg-green-100 border border-green-300 mr-1" />
+          Top 2 advance
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-8">

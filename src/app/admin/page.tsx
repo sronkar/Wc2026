@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getFlag } from "@/lib/flags";
 import Image from "next/image";
 import Link from "next/link";
@@ -66,7 +66,7 @@ const ROUNDS = [
   "Final",
 ];
 
-export default function AdminPage() {
+function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const role = session?.user?.role;
@@ -108,7 +108,11 @@ export default function AdminPage() {
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   // ── Tab state ────────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<Tab>("results");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const t = searchParams.get("tab");
+    return (t === "groups" || t === "settings" || t === "users" || t === "results") ? t as Tab : "results";
+  });
 
   // ── Auth guard ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -273,7 +277,7 @@ export default function AdminPage() {
       setNewGroupName("");
       setNewGroupDesc("");
       setNewGroupVisitor(false);
-      setNewGroupPublic(true);
+      setNewGroupPublic(false);
       window.dispatchEvent(new Event("wc2026:groups-updated"));
     }
     setCreatingGroup(false);
@@ -737,5 +741,14 @@ export default function AdminPage() {
         </div>
       )}
     </div>
+  );
+}
+
+
+export default function AdminPageWrapper() {
+  return (
+    <Suspense>
+      <AdminPage />
+    </Suspense>
   );
 }
