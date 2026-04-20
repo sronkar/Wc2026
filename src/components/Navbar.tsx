@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 interface GroupItem {
   id: string;
@@ -16,6 +16,7 @@ interface GroupItem {
 export function Navbar() {
   const { data: session } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [myGroups, setMyGroups] = useState<GroupItem[]>([]);
   const [groupDropOpen, setGroupDropOpen] = useState(false);
@@ -90,6 +91,13 @@ export function Navbar() {
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
+
+  // Redirect to profile setup if logged in but has no name
+  useEffect(() => {
+    if (session && !session.user?.name && pathname !== "/profile" && pathname !== "/login") {
+      router.replace("/profile?setup=1");
+    }
+  }, [session, pathname, router]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -260,18 +268,24 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {session ? (
             <div className="flex items-center gap-3">
-              {session.user?.image && (
-                <Image
-                  src={session.user.image}
-                  alt={session.user.name ?? "User"}
-                  width={32}
-                  height={32}
-                  className="rounded-full border-2 border-white/30"
-                />
-              )}
-              <span className="text-sm text-blue-200 max-w-[120px] truncate">
-                {session.user?.name ?? session.user?.email}
-              </span>
+              <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition">
+                {session.user?.image ? (
+                  <Image
+                    src={session.user.image}
+                    alt={session.user.name ?? "User"}
+                    width={32}
+                    height={32}
+                    className="rounded-full border-2 border-white/30"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-white/20 border-2 border-white/30 flex items-center justify-center text-sm font-bold">
+                    {(session.user?.name ?? session.user?.email ?? "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-sm text-blue-200 max-w-[120px] truncate">
+                  {session.user?.name ?? session.user?.email}
+                </span>
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="text-sm text-blue-300 hover:text-white transition"

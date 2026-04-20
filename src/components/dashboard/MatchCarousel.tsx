@@ -142,7 +142,7 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
           <div className="flex flex-col items-center gap-2">
             <div className="flex items-center gap-3">
               <input
-                type="number" min="0" max="20"
+                type="text" inputMode="numeric" pattern="[0-9]*"
                 value={inp.home}
                 onChange={(e) => setInputs((i) => ({ ...i, [match.id]: { ...i[match.id], home: e.target.value } }))}
                 className="w-14 border-2 border-gray-200 rounded-lg px-2 py-2 text-center text-lg font-bold focus:outline-none focus:border-fifa-blue"
@@ -150,7 +150,7 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
               />
               <span className="text-gray-300 text-2xl font-thin">–</span>
               <input
-                type="number" min="0" max="20"
+                type="text" inputMode="numeric" pattern="[0-9]*"
                 value={inp.away}
                 onChange={(e) => setInputs((i) => ({ ...i, [match.id]: { ...i[match.id], away: e.target.value } }))}
                 className="w-14 border-2 border-gray-200 rounded-lg px-2 py-2 text-center text-lg font-bold focus:outline-none focus:border-fifa-blue"
