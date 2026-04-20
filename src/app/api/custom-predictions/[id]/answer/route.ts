@@ -16,10 +16,13 @@ export async function POST(
   const cp = await prisma.customPrediction.findUnique({ where: { id: params.id } });
   if (!cp) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // For group-specific predictions, verify membership
-  if (!cp.isGlobal && cp.groupId) {
+  const { option, groupId } = await req.json();
+  const effectiveGroupId: string | null = cp.groupId ?? groupId ?? null;
+
+  // Verify membership in the group context
+  if (effectiveGroupId) {
     const membership = await prisma.groupMembership.findUnique({
-      where: { userId_groupId: { userId: session.user.id, groupId: cp.groupId } },
+      where: { userId_groupId: { userId: session.user.id, groupId: effectiveGroupId } },
     });
     if (membership?.status !== "APPROVED") {
       return NextResponse.json({ error: "Not a member of this group" }, { status: 403 });
@@ -34,8 +37,6 @@ export async function POST(
     return NextResponse.json({ error: "This prediction has already been resolved" }, { status: 409 });
   }
 
-  const { option } = await req.json();
-
   // For PLAYER type, any non-empty string is valid; for others validate against options
   if (cp.optionType !== "PLAYER") {
     const options: string[] = JSON.parse(cp.options);
@@ -47,9 +48,9 @@ export async function POST(
   }
 
   const answer = await prisma.customPredictionAnswer.upsert({
-    where: { userId_customPredictionId: { userId: session.user.id, customPredictionId: params.id } },
+    where: { userId_customPredictionId_groupId: { userId: session.user.id, customPredictionId: params.id, groupId: effectiveGroupId ?? "" } },
     update: { option: option.trim() },
-    create: { userId: session.user.id, customPredictionId: params.id, option: option.trim() },
+    create: { userId: session.user.id, customPredictionId: params.id, groupId: effectiveGroupId, option: option.trim() },
   });
 
   return NextResponse.json(answer);

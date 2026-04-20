@@ -114,7 +114,7 @@ export function CustomPredictionsPanel({ groupId }: { groupId: string }) {
     await fetch(`/api/custom-predictions/${cpId}/answer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ option: option.trim() }),
+      body: JSON.stringify({ option: option.trim(), groupId }),
     });
     setSaving((p) => ({ ...p, [cpId]: false }));
     setSaved((p) => ({ ...p, [cpId]: true }));

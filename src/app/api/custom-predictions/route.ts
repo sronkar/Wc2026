@@ -19,9 +19,10 @@ export async function GET(req: NextRequest) {
 
   const preds = await prisma.customPrediction.findMany({
     where: { OR: [{ groupId }, { isGlobal: true }] },
-    orderBy: { lockTime: "asc" },
+    orderBy: [{ isGlobal: "asc" }, { lockTime: "asc" }],
     include: {
       answers: {
+        where: { OR: [{ groupId }, { groupId: null }] },
         include: { user: { select: { id: true, name: true, image: true } } },
       },
     },
@@ -31,11 +32,17 @@ export async function GET(req: NextRequest) {
     preds.map((cp) => {
       const options: string[] = JSON.parse(cp.options);
       const isLocked = now >= cp.lockTime.getTime();
-      const userAnswer = cp.answers.find((a) => a.userId === userId);
 
-      // Only reveal all answers once locked
+      // For global predictions, answers are scoped to this group
+      // For group-specific predictions, all answers belong to the group already
+      const groupAnswers = cp.isGlobal
+        ? cp.answers.filter((a) => a.groupId === groupId)
+        : cp.answers;
+
+      const userAnswer = groupAnswers.find((a) => a.userId === userId);
+
       const publicAnswers = isLocked
-        ? cp.answers.map((a) => ({
+        ? groupAnswers.map((a) => ({
             userId: a.userId,
             userName: a.user.name ?? "Anonymous",
             userImage: a.user.image,
@@ -45,7 +52,7 @@ export async function GET(req: NextRequest) {
         : null;
 
       const answerCounts = isLocked
-        ? Object.fromEntries(options.map((o) => [o, cp.answers.filter((a) => a.option === o).length]))
+        ? Object.fromEntries(options.map((o) => [o, groupAnswers.filter((a) => a.option === o).length]))
         : null;
 
       return {
@@ -61,7 +68,7 @@ export async function GET(req: NextRequest) {
         correctOption: cp.status === "RESOLVED" ? cp.correctOption : null,
         userAnswer: userAnswer?.option ?? null,
         userPoints: userAnswer?.points ?? null,
-        totalAnswers: cp.answers.length,
+        totalAnswers: groupAnswers.length,
         answerCounts,
         answers: publicAnswers,
       };

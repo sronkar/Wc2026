@@ -40,7 +40,6 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       where: { customPredictionId: params.id },
     });
 
-    // PLAYER type: case-insensitive match
     const isMatch = (answer: string) =>
       cp.optionType === "PLAYER"
         ? answer.trim().toLowerCase() === correctOption.trim().toLowerCase()
@@ -55,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       )
     );
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, awarded: answers.filter((a) => isMatch(a.option)).length });
   }
 
   // ── Edit metadata (only allowed before lock time) ──

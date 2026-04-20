@@ -196,6 +196,7 @@ model CustomPredictionAnswer {
   id                 String           @id @default(cuid())
   userId             String
   customPredictionId String
+  groupId            String?          // always set; null only for legacy rows
   option             String
   points             Int?
   user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -203,5 +204,5 @@ model CustomPredictionAnswer {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  @@unique([userId, customPredictionId])
+  @@unique([userId, customPredictionId, groupId])
 }

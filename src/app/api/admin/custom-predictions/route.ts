@@ -15,31 +15,39 @@ export async function GET(req: NextRequest) {
 
   const preds = await prisma.customPrediction.findMany({
     where: groupId ? { OR: [{ groupId }, { isGlobal: true }] } : { isGlobal: true },
-    orderBy: { lockTime: "asc" },
+    orderBy: [{ isGlobal: "asc" }, { lockTime: "asc" }],
     include: {
-      answers: { include: { user: { select: { name: true } } } },
+      answers: {
+        where: groupId ? { OR: [{ groupId }, { groupId: null }] } : {},
+        include: { user: { select: { name: true } } },
+      },
     },
   });
 
   return NextResponse.json(
-    preds.map((cp) => ({
-      id: cp.id,
-      groupId: cp.groupId,
-      isGlobal: cp.isGlobal,
-      question: cp.question,
-      optionType: cp.optionType,
-      options: JSON.parse(cp.options) as string[],
-      points: cp.points,
-      lockTime: cp.lockTime.toISOString(),
-      correctOption: cp.correctOption,
-      status: cp.status,
-      answerCount: cp.answers.length,
-      answers: cp.answers.map((a) => ({
-        userName: a.user.name ?? "Anonymous",
-        option: a.option,
-        points: a.points,
-      })),
-    }))
+    preds.map((cp) => {
+      const groupAnswers = (groupId && cp.isGlobal)
+        ? cp.answers.filter((a) => a.groupId === groupId)
+        : cp.answers;
+      return {
+        id: cp.id,
+        groupId: cp.groupId,
+        isGlobal: cp.isGlobal,
+        question: cp.question,
+        optionType: cp.optionType,
+        options: JSON.parse(cp.options) as string[],
+        points: cp.points,
+        lockTime: cp.lockTime.toISOString(),
+        correctOption: cp.correctOption,
+        status: cp.status,
+        answerCount: groupAnswers.length,
+        answers: groupAnswers.map((a) => ({
+          userName: a.user.name ?? "Anonymous",
+          option: a.option,
+          points: a.points,
+        })),
+      };
+    })
   );
 }
 
