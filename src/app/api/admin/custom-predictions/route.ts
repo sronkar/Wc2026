@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const groupId = searchParams.get("groupId");
 
   const preds = await prisma.customPrediction.findMany({
-    where: groupId ? { groupId } : undefined,
+    where: groupId ? { OR: [{ groupId }, { isGlobal: true }] } : { isGlobal: true },
     orderBy: { lockTime: "asc" },
     include: {
       answers: { include: { user: { select: { name: true } } } },
@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     preds.map((cp) => ({
       id: cp.id,
       groupId: cp.groupId,
+      isGlobal: cp.isGlobal,
       question: cp.question,
       optionType: cp.optionType,
       options: JSON.parse(cp.options) as string[],
@@ -52,8 +53,8 @@ export async function POST(req: NextRequest) {
 
   // ── Batch import ─────────────────────────────────────────────────────────────
   if (body.batch === true && Array.isArray(body.predictions)) {
-    const { groupId, predictions } = body;
-    if (!groupId) return NextResponse.json({ error: "groupId required" }, { status: 400 });
+    const { groupId, isGlobal, predictions } = body;
+    if (!groupId && !isGlobal) return NextResponse.json({ error: "groupId or isGlobal required" }, { status: 400 });
 
     const created = [];
     for (const p of predictions) {
@@ -70,7 +71,8 @@ export async function POST(req: NextRequest) {
 
       const cp = await prisma.customPrediction.create({
         data: {
-          groupId,
+          groupId: isGlobal ? null : groupId,
+          isGlobal: Boolean(isGlobal),
           question: String(p.question).trim(),
           optionType,
           options: JSON.stringify(options),
@@ -84,11 +86,14 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Single create ─────────────────────────────────────────────────────────────
-  const { groupId, question, optionType: rawType, options: rawOptions, points, lockTime } = body;
+  const { groupId, isGlobal, question, optionType: rawType, options: rawOptions, points, lockTime } = body;
   const optionType: string = (rawType ?? "FIXED").toUpperCase();
 
-  if (!groupId || !question || !lockTime) {
-    return NextResponse.json({ error: "groupId, question, and lockTime are required" }, { status: 400 });
+  if (!groupId && !isGlobal) {
+    return NextResponse.json({ error: "groupId or isGlobal required" }, { status: 400 });
+  }
+  if (!question || !lockTime) {
+    return NextResponse.json({ error: "question and lockTime are required" }, { status: 400 });
   }
 
   let options: string[];
@@ -106,7 +111,8 @@ export async function POST(req: NextRequest) {
 
   const cp = await prisma.customPrediction.create({
     data: {
-      groupId,
+      groupId: isGlobal ? null : groupId,
+      isGlobal: Boolean(isGlobal),
       question: String(question).trim(),
       optionType,
       options: JSON.stringify(options),

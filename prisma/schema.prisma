@@ -177,7 +177,8 @@ model GroupInvite {
 
 model CustomPrediction {
   id            String                   @id @default(cuid())
-  groupId       String
+  groupId       String?
+  isGlobal      Boolean                  @default(false)
   question      String
   optionType    String                   @default("FIXED")  // FIXED | TEAM | PLAYER
   options       String                   // JSON-encoded string[]
@@ -185,7 +186,7 @@ model CustomPrediction {
   lockTime      DateTime
   correctOption String?
   status        String                   @default("OPEN")  // OPEN | RESOLVED
-  group         Group                    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group         Group?                   @relation(fields: [groupId], references: [id], onDelete: Cascade)
   answers       CustomPredictionAnswer[]
   createdAt     DateTime                 @default(now())
   updatedAt     DateTime                 @updatedAt

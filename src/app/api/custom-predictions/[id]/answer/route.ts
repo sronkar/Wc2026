@@ -16,11 +16,14 @@ export async function POST(
   const cp = await prisma.customPrediction.findUnique({ where: { id: params.id } });
   if (!cp) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const membership = await prisma.groupMembership.findUnique({
-    where: { userId_groupId: { userId: session.user.id, groupId: cp.groupId } },
-  });
-  if (membership?.status !== "APPROVED") {
-    return NextResponse.json({ error: "Not a member of this group" }, { status: 403 });
+  // For group-specific predictions, verify membership
+  if (!cp.isGlobal && cp.groupId) {
+    const membership = await prisma.groupMembership.findUnique({
+      where: { userId_groupId: { userId: session.user.id, groupId: cp.groupId } },
+    });
+    if (membership?.status !== "APPROVED") {
+      return NextResponse.json({ error: "Not a member of this group" }, { status: 403 });
+    }
   }
 
   if (getNowMs() >= cp.lockTime.getTime()) {
@@ -32,16 +35,21 @@ export async function POST(
   }
 
   const { option } = await req.json();
-  const options: string[] = JSON.parse(cp.options);
 
-  if (!options.includes(option)) {
-    return NextResponse.json({ error: "Invalid option" }, { status: 400 });
+  // For PLAYER type, any non-empty string is valid; for others validate against options
+  if (cp.optionType !== "PLAYER") {
+    const options: string[] = JSON.parse(cp.options);
+    if (!options.includes(option)) {
+      return NextResponse.json({ error: "Invalid option" }, { status: 400 });
+    }
+  } else if (!option?.trim()) {
+    return NextResponse.json({ error: "Option is required" }, { status: 400 });
   }
 
   const answer = await prisma.customPredictionAnswer.upsert({
     where: { userId_customPredictionId: { userId: session.user.id, customPredictionId: params.id } },
-    update: { option },
-    create: { userId: session.user.id, customPredictionId: params.id, option },
+    update: { option: option.trim() },
+    create: { userId: session.user.id, customPredictionId: params.id, option: option.trim() },
   });
 
   return NextResponse.json(answer);

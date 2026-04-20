@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const now = getNowMs();
 
   const preds = await prisma.customPrediction.findMany({
-    where: { groupId },
+    where: { OR: [{ groupId }, { isGlobal: true }] },
     orderBy: { lockTime: "asc" },
     include: {
       answers: {
@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
         id: cp.id,
         question: cp.question,
         optionType: cp.optionType,
+        isGlobal: cp.isGlobal,
         options,
         points: cp.points,
         lockTime: cp.lockTime.toISOString(),

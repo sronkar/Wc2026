@@ -44,6 +44,16 @@ interface GroupRow {
   myStatus: string | null;
 }
 
+interface GlobalPrediction {
+  id: string;
+  question: string;
+  optionType: string;
+  points: number;
+  lockTime: string;
+  status: string;
+  answerCount: number;
+}
+
 type Tab = "results" | "settings" | "users" | "groups";
 
 const ROUNDS = [
@@ -89,6 +99,8 @@ export default function AdminPage() {
   // ── Groups tab state ──────────────────────────────────────────────────────────
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [globalPreds, setGlobalPreds] = useState<GlobalPrediction[]>([]);
+  const [deletingGlobalPred, setDeletingGlobalPred] = useState<Record<string, boolean>>({});
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupVisitor, setNewGroupVisitor] = useState(false);
@@ -141,12 +153,17 @@ export default function AdminPage() {
       .then((data: UserRow[]) => { setUsers(data); setUsersLoaded(true); });
   }, [activeTab, usersLoaded, isAdmin]);
 
-  // ── Load groups when Groups tab is opened ────────────────────────────────────
+  // ── Load groups + global predictions when Groups tab is opened ───────────────
   useEffect(() => {
     if (activeTab !== "groups" || groupsLoaded) return;
-    fetch("/api/groups")
-      .then((r) => r.json())
-      .then((data: GroupRow[]) => { if (Array.isArray(data)) { setGroups(data); setGroupsLoaded(true); } });
+    Promise.all([
+      fetch("/api/groups").then((r) => r.json()),
+      fetch("/api/admin/custom-predictions").then((r) => r.json()),
+    ]).then(([groupData, predData]) => {
+      if (Array.isArray(groupData)) setGroups(groupData);
+      if (Array.isArray(predData)) setGlobalPreds(predData);
+      setGroupsLoaded(true);
+    });
   }, [activeTab, groupsLoaded]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -232,6 +249,14 @@ export default function AdminPage() {
   if (role !== "ADMIN" && role !== "SUB_ADMIN") return null;
 
   const filtered = matches.filter((m) => m.round === roundFilter);
+
+  const handleDeleteGlobalPred = async (id: string) => {
+    if (!confirm("Delete this global prediction and all answers?")) return;
+    setDeletingGlobalPred((p) => ({ ...p, [id]: true }));
+    const res = await fetch(`/api/admin/custom-predictions/${id}`, { method: "DELETE" });
+    if (res.ok) setGlobalPreds((prev) => prev.filter((p) => p.id !== id));
+    setDeletingGlobalPred((p) => ({ ...p, [id]: false }));
+  };
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -546,6 +571,60 @@ export default function AdminPage() {
                 {creatingGroup ? "Creating…" : "Create Group"}
               </button>
             </form>
+          </div>
+
+          {/* Global predictions */}
+          <div className="card overflow-hidden p-0">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h2 className="font-bold text-gray-800 text-sm">Global Custom Predictions ({globalPreds.length})</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Shown in every group automatically.</p>
+              </div>
+            </div>
+            {globalPreds.length === 0 ? (
+              <p className="px-4 py-6 text-center text-gray-400 text-sm">No global predictions yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
+                    <th className="px-4 py-2">Question</th>
+                    <th className="px-4 py-2">Type</th>
+                    <th className="px-4 py-2">Pts</th>
+                    <th className="px-4 py-2">Answers</th>
+                    <th className="px-4 py-2">Status</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {globalPreds.map((pred, i) => (
+                    <tr key={pred.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                      <td className="px-4 py-3 font-medium text-gray-800 max-w-xs">
+                        <p className="truncate">{pred.question}</p>
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {pred.optionType === "TEAM" ? "⚽ Team" : pred.optionType === "PLAYER" ? "🧑 Player" : "Custom"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">{pred.points}</td>
+                      <td className="px-4 py-3 text-gray-500">{pred.answerCount}</td>
+                      <td className="px-4 py-3">
+                        <span className={`badge ${pred.status === "RESOLVED" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+                          {pred.status === "RESOLVED" ? "Resolved" : "Open"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleDeleteGlobalPred(pred.id)}
+                          disabled={deletingGlobalPred[pred.id]}
+                          className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
+                        >
+                          {deletingGlobalPred[pred.id] ? "…" : "Delete"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {/* Existing groups */}
