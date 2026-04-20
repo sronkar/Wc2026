@@ -7,7 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { MatchCarousel } from "@/components/dashboard/MatchCarousel";
 import { MiniLeaderboard } from "@/components/dashboard/MiniLeaderboard";
-import { LockedPredictionsPanel } from "@/components/dashboard/LockedPredictionsPanel";
+import { MatchCard } from "@/components/MatchCard";
 import { CustomPredictionsPanel } from "@/components/dashboard/CustomPredictionsPanel";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
 export const revalidate = 0;
@@ -59,7 +59,44 @@ export default async function GroupDashboardPage({
     predMap[p.matchId] = { homeScore: p.homeScore, awayScore: p.awayScore };
   });
 
-  const lockedMatch = upcomingMatches.find((m) => isPredictionLocked(m.kickoff)) ?? null;
+  // Live match: most recently locked (past 24h or locking within next 1h), any status
+  const recentCandidates = await prisma.match.findMany({
+    where: {
+      isDemo: false,
+      kickoff: {
+        gte: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+        lte: new Date(now.getTime() + 60 * 60 * 1000),
+      },
+    },
+    orderBy: { kickoff: "desc" },
+    take: 1,
+  });
+  const candidateLiveMatch = recentCandidates[0] ?? null;
+
+  // Find the next upcoming match to determine when the live window ends
+  const nextMatchAfterCandidate = candidateLiveMatch
+    ? await prisma.match.findFirst({
+        where: { isDemo: false, kickoff: { gt: candidateLiveMatch.kickoff } },
+        orderBy: { kickoff: "asc" },
+      })
+    : null;
+
+  const liveWindowEnd = nextMatchAfterCandidate
+    ? new Date(nextMatchAfterCandidate.kickoff.getTime() - 60 * 60 * 1000)
+    : null;
+
+  const liveMatch =
+    candidateLiveMatch &&
+    isPredictionLocked(candidateLiveMatch.kickoff) &&
+    (liveWindowEnd === null || now < liveWindowEnd)
+      ? candidateLiveMatch
+      : null;
+
+  const livePrediction = liveMatch
+    ? await prisma.prediction.findUnique({
+        where: { userId_matchId_groupId: { userId, matchId: liveMatch.id, groupId } },
+      })
+    : null;
 
   const groupPredictions = await prisma.prediction.findMany({
     where: { userId, groupId },
@@ -121,12 +158,20 @@ export default async function GroupDashboardPage({
     updatedAt: undefined,
   }));
 
-  const lockedMatchSerialized = lockedMatch
+  const liveMatchSerialized = liveMatch
     ? {
-        ...lockedMatch,
-        kickoff: lockedMatch.kickoff.toISOString(),
-        createdAt: undefined,
-        updatedAt: undefined,
+        id: liveMatch.id,
+        matchNumber: liveMatch.matchNumber,
+        homeTeam: liveMatch.homeTeam,
+        awayTeam: liveMatch.awayTeam,
+        group: liveMatch.group,
+        round: liveMatch.round,
+        venue: liveMatch.venue,
+        city: liveMatch.city,
+        kickoff: liveMatch.kickoff.toISOString(),
+        homeScore: liveMatch.homeScore,
+        awayScore: liveMatch.awayScore,
+        status: liveMatch.status,
       }
     : null;
 
@@ -197,10 +242,25 @@ export default async function GroupDashboardPage({
               You are a Visitor Admin — predictions are disabled for your account in this group.
             </div>
           )}
-          <LockedPredictionsPanel
-            groupId={groupId}
-            lockedMatch={lockedMatchSerialized as Parameters<typeof LockedPredictionsPanel>[0]["lockedMatch"]}
-          />
+
+          {/* Live match card */}
+          {liveMatchSerialized && (
+            <div>
+              <h2 className="font-bold text-gray-800 mb-3">
+                {liveMatchSerialized.status === "FINISHED" ? "Last Match" : "Live Now"}
+              </h2>
+              <MatchCard
+                match={liveMatchSerialized}
+                prediction={
+                  livePrediction
+                    ? { homeScore: livePrediction.homeScore, awayScore: livePrediction.awayScore, points: livePrediction.points }
+                    : undefined
+                }
+                isLoggedIn={true}
+                groupId={groupId}
+              />
+            </div>
+          )}
         </div>
 
         {/* Right column */}

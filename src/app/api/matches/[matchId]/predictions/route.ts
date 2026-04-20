@@ -29,15 +29,19 @@ export async function GET(
     orderBy: { user: { name: "asc" } },
   });
 
-  return NextResponse.json(
-    predictions.map((p) => ({
-      userId: p.userId,
-      userName: p.user.name ?? "Anonymous",
-      userImage: p.user.image,
-      homeScore: p.homeScore,
-      awayScore: p.awayScore,
-      points: p.points,
-      isCurrentUser: p.userId === session.user.id,
-    }))
-  );
+  const result = predictions.map((p) => ({
+    userId: p.userId,
+    userName: p.user.name ?? "Anonymous",
+    userImage: p.user.image,
+    homeScore: p.homeScore,
+    awayScore: p.awayScore,
+    points: p.points,
+    isCurrentUser: p.userId === session.user.id,
+  }));
+
+  if (match.status === "FINISHED") {
+    result.sort((a, b) => (b.points ?? -1) - (a.points ?? -1) || a.userName.localeCompare(b.userName));
+  }
+
+  return NextResponse.json(result);
 }

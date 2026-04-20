@@ -255,6 +255,7 @@ export default function GroupMatchesPage() {
                       onSave={session ? handleSave : undefined}
                       onCancel={session ? handleCancel : undefined}
                       isLoggedIn={!!session}
+                      groupId={groupId}
                     />
                   ))}
                 </div>

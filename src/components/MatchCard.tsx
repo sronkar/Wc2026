@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Image from "next/image";
 import { isPredictionLocked } from "@/lib/scoring";
 import { getFlag } from "@/lib/flags";
 
@@ -25,12 +26,23 @@ interface Prediction {
   points: number | null;
 }
 
+interface GroupPredictionEntry {
+  userId: string;
+  userName: string;
+  userImage: string | null;
+  homeScore: number;
+  awayScore: number;
+  points: number | null;
+  isCurrentUser: boolean;
+}
+
 interface Props {
   match: Match;
   prediction?: Prediction;
   onSave?: (matchId: string, home: number, away: number) => Promise<void>;
   onCancel?: (matchId: string) => Promise<void>;
   isLoggedIn: boolean;
+  groupId?: string;
 }
 
 const UNUSUAL_THRESHOLD = 7;
@@ -42,7 +54,7 @@ function unrealisticWarning(h: number, a: number): string | null {
   return null;
 }
 
-export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn }: Props) {
+export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, groupId }: Props) {
   const [homeInput, setHomeInput] = useState<string>(
     prediction !== undefined ? String(prediction.homeScore) : ""
   );
@@ -53,10 +65,24 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn }: P
   const [saved, setSaved] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
+  const [groupPredictions, setGroupPredictions] = useState<GroupPredictionEntry[]>([]);
+  const [loadingGroup, setLoadingGroup] = useState(false);
 
   const kickoff = new Date(match.kickoff);
   const locked = isPredictionLocked(kickoff);
   const finished = match.status === "FINISHED";
+
+  useEffect(() => {
+    if (!groupId || (!locked && !finished)) return;
+    setLoadingGroup(true);
+    fetch(`/api/matches/${match.id}/predictions?groupId=${groupId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setGroupPredictions(Array.isArray(data) ? data : []);
+        setLoadingGroup(false);
+      })
+      .catch(() => setLoadingGroup(false));
+  }, [groupId, match.id]);
 
   // Treat empty input as 0; still reject non-numeric input
   const parseScore = (val: string) => (val.trim() === "" ? 0 : parseInt(val, 10));
@@ -226,6 +252,54 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn }: P
             </div>
           )}
           {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        </div>
+      )}
+
+      {/* Everyone's picks — shown when locked or finished and groupId provided */}
+      {groupId && (locked || finished) && (
+        <div className="border-t border-gray-100 pt-2">
+          <p className="text-xs text-gray-400 mb-2">
+            {finished ? "Everyone's picks" : "Everyone's picks (locked)"}
+          </p>
+          {loadingGroup ? (
+            <div className="text-xs text-gray-400 py-1 text-center">Loading…</div>
+          ) : groupPredictions.length === 0 ? (
+            <div className="text-xs text-gray-400 italic text-center py-1">No predictions submitted.</div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {groupPredictions.map((e) => (
+                <div
+                  key={e.userId}
+                  className={`rounded-md p-1.5 flex flex-col items-center gap-0.5 text-center ${
+                    e.isCurrentUser ? "bg-blue-50 ring-1 ring-fifa-blue" : "bg-gray-50"
+                  }`}
+                >
+                  {e.userImage ? (
+                    <Image src={e.userImage} alt={e.userName} width={20} height={20} className="rounded-full" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-fifa-blue text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                      {e.userName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-[10px] text-gray-600 truncate max-w-full leading-tight">
+                    {e.isCurrentUser ? "You" : e.userName}
+                  </span>
+                  <span className="text-xs font-bold text-gray-800 tabular-nums">
+                    {e.homeScore}–{e.awayScore}
+                  </span>
+                  {finished && e.points !== null && (
+                    <span className={`text-[9px] font-semibold rounded px-1 ${
+                      e.points >= 5 ? "bg-green-100 text-green-700" :
+                      e.points > 0  ? "bg-yellow-100 text-yellow-700" :
+                                      "bg-gray-100 text-gray-400"
+                    }`}>
+                      {e.points > 0 ? `+${e.points}` : "0"} pts
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
