@@ -117,26 +117,32 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
       </div>
 
       {/* Teams & Score */}
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold text-gray-800 flex-1 text-sm">{getFlag(match.homeTeam)} {match.homeTeam}</span>
-        <div className="flex items-center gap-2 text-center shrink-0">
+      <div className="flex items-start justify-between gap-2">
+        {/* Home */}
+        <div className="flex-1 text-right">
+          <p className="font-semibold text-gray-800 text-sm leading-snug">{match.homeTeam}</p>
+          <p className="text-base leading-tight">{getFlag(match.homeTeam) || "　"}</p>
+        </div>
+        {/* Score / date */}
+        <div className="shrink-0 text-center pt-0.5">
           {finished ? (
-            <span className="text-lg font-bold text-fifa-blue">
+            <span className="text-lg font-bold text-fifa-blue whitespace-nowrap">
               {match.homeScore} – {match.awayScore}
             </span>
           ) : (
-            <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
+            <span className="text-xs text-gray-400 font-medium">
               {kickoff.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                timeZoneName: "short",
+                month: "short", day: "numeric",
+                hour: "2-digit", minute: "2-digit", timeZoneName: "short",
               })}
             </span>
           )}
         </div>
-        <span className="font-semibold text-gray-800 flex-1 text-right text-sm">{match.awayTeam} {getFlag(match.awayTeam)}</span>
+        {/* Away */}
+        <div className="flex-1">
+          <p className="font-semibold text-gray-800 text-sm leading-snug">{match.awayTeam}</p>
+          <p className="text-base leading-tight">{getFlag(match.awayTeam) || "　"}</p>
+        </div>
       </div>
 
       {/* Prediction row */}

@@ -43,6 +43,7 @@ interface CustomPredictionAdmin {
 interface GroupSettings {
   exactMatchPoints: number;
   directionMatchPoints: number;
+  isPublic: boolean;
 }
 
 interface Match {
@@ -105,7 +106,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [joinLinkLoading, setJoinLinkLoading] = useState(false);
 
   // ── Settings state ────────────────────────────────────────────────────────────
-  const [settings, setSettings] = useState<GroupSettings>({ exactMatchPoints: 5, directionMatchPoints: 1 });
+  const [settings, setSettings] = useState<GroupSettings>({ exactMatchPoints: 5, directionMatchPoints: 1, isPublic: true });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -142,11 +143,12 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     // Load group settings
     fetch(`/api/groups/${groupId}`)
       .then((r) => r.json())
-      .then((data: { exactMatchPoints?: number; directionMatchPoints?: number }) => {
+      .then((data: { exactMatchPoints?: number; directionMatchPoints?: number; isPublic?: boolean }) => {
         if (data.exactMatchPoints !== undefined && data.directionMatchPoints !== undefined) {
           setSettings({
             exactMatchPoints: data.exactMatchPoints,
             directionMatchPoints: data.directionMatchPoints,
+            isPublic: data.isPublic ?? true,
           });
         }
         setSettingsLoaded(true);
@@ -333,6 +335,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       body: JSON.stringify({
         exactMatchPoints: settings.exactMatchPoints,
         directionMatchPoints: settings.directionMatchPoints,
+        isPublic: settings.isPublic,
       }),
     });
     setSettingsSaving(false);
@@ -768,36 +771,47 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         {!settingsLoaded ? (
           <div className="text-sm text-gray-400 py-2">Loading…</div>
         ) : (
-          <div className="flex flex-wrap gap-6 items-end">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Exact Score (pts)</label>
-              <input
-                type="number"
-                min="0"
-                value={settings.exactMatchPoints}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, exactMatchPoints: Number(e.target.value) }))
-                }
-                className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-              />
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-6 items-end">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Exact Score (pts)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={settings.exactMatchPoints}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, exactMatchPoints: Number(e.target.value) }))
+                  }
+                  className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Correct Winner/Draw (pts)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={settings.directionMatchPoints}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      directionMatchPoints: Number(e.target.value),
+                    }))
+                  }
+                  className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">
-                Correct Winner/Draw (pts)
-              </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
               <input
-                type="number"
-                min="0"
-                value={settings.directionMatchPoints}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    directionMatchPoints: Number(e.target.value),
-                  }))
-                }
-                className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                type="checkbox"
+                checked={settings.isPublic}
+                onChange={(e) => setSettings((s) => ({ ...s, isPublic: e.target.checked }))}
+                className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
               />
-            </div>
+              Public group (anyone can find it by searching)
+            </label>
             <button
               onClick={handleSaveSettings}
               disabled={settingsSaving}

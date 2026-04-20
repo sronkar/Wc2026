@@ -139,6 +139,7 @@ model Group {
   exactMatchPoints     Int                 @default(5)
   directionMatchPoints Int                 @default(1)
   joinToken            String?             @unique
+  isPublic             Boolean             @default(true)
   memberships          GroupMembership[]
   predictions          Prediction[]
   customPredictions    CustomPrediction[]

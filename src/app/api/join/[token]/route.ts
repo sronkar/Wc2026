@@ -5,6 +5,20 @@ import { prisma } from "@/lib/prisma";
 
 type Ctx = { params: { token: string } };
 
+export async function GET(_req: NextRequest, { params }: Ctx) {
+  const group = await prisma.group.findUnique({
+    where: { joinToken: params.token },
+    select: { id: true, name: true, description: true, memberships: { select: { status: true } } },
+  });
+  if (!group) return NextResponse.json({ error: "invalid" }, { status: 404 });
+  return NextResponse.json({
+    groupId: group.id,
+    groupName: group.name,
+    description: group.description,
+    memberCount: group.memberships.filter((m) => m.status === "APPROVED").length,
+  });
+}
+
 export async function POST(_req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

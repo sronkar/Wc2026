@@ -83,8 +83,8 @@ export default function GroupLeaderboardPage() {
                 <th className="px-4 py-3 w-10">#</th>
                 <th className="px-4 py-3">Player</th>
                 <th className="px-4 py-3 text-right hidden sm:table-cell">Preds</th>
-                <th className="px-4 py-3 text-right" title="Correct outcome (win/draw) predictions — used as tiebreaker">W/D</th>
-                <th className="px-4 py-3 text-right">Pts</th>
+                <th className="px-4 py-3 text-right" title="Correct outcome (win/draw) — used as tiebreaker">Raw</th>
+                <th className="px-4 py-3 text-right">Points</th>
               </tr>
             </thead>
             <tbody>

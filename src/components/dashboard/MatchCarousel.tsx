@@ -111,14 +111,16 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
         </div>
 
         {/* Teams */}
-        <div className="flex items-center justify-center gap-4 mb-3">
-          <span className="text-base font-extrabold text-gray-800 flex-1 text-right leading-tight">
-            {match.homeTeam} {getFlag(match.homeTeam)}
-          </span>
-          <span className="text-gray-300 font-light text-xl shrink-0">vs</span>
-          <span className="text-base font-extrabold text-gray-800 flex-1 text-left leading-tight">
-            {getFlag(match.awayTeam)} {match.awayTeam}
-          </span>
+        <div className="flex items-start justify-center gap-4 mb-3">
+          <div className="flex-1 text-right">
+            <p className="text-base font-extrabold text-gray-800 leading-snug">{match.homeTeam}</p>
+            <p className="text-xl leading-tight">{getFlag(match.homeTeam) || "　"}</p>
+          </div>
+          <span className="text-gray-300 font-light text-xl shrink-0 mt-0.5">vs</span>
+          <div className="flex-1">
+            <p className="text-base font-extrabold text-gray-800 leading-snug">{match.awayTeam}</p>
+            <p className="text-xl leading-tight">{getFlag(match.awayTeam) || "　"}</p>
+          </div>
         </div>
 
         {/* Kickoff */}

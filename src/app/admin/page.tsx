@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { getFlag } from "@/lib/flags";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -91,6 +92,7 @@ export default function AdminPage() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupVisitor, setNewGroupVisitor] = useState(false);
+  const [newGroupPublic, setNewGroupPublic] = useState(true);
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   // ── Tab state ────────────────────────────────────────────────────────────────
@@ -238,7 +240,7 @@ export default function AdminPage() {
     const res = await fetch("/api/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newGroupName, description: newGroupDesc, joinAsVisitor: newGroupVisitor }),
+      body: JSON.stringify({ name: newGroupName, description: newGroupDesc, joinAsVisitor: newGroupVisitor, isPublic: newGroupPublic }),
     });
     if (res.ok) {
       const g = await res.json();
@@ -246,6 +248,7 @@ export default function AdminPage() {
       setNewGroupName("");
       setNewGroupDesc("");
       setNewGroupVisitor(false);
+      setNewGroupPublic(true);
       window.dispatchEvent(new Event("wc2026:groups-updated"));
     }
     setCreatingGroup(false);
@@ -325,7 +328,7 @@ export default function AdminPage() {
                     <tr key={match.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                       <td className="px-4 py-3 text-gray-400">{match.matchNumber}</td>
                       <td className="px-4 py-3 font-medium">
-                        <div>{match.homeTeam} vs {match.awayTeam}</div>
+                        <div>{getFlag(match.homeTeam)} {match.homeTeam} vs {match.awayTeam} {getFlag(match.awayTeam)}</div>
                         <div className="text-xs text-gray-400">{match.city}</div>
                       </td>
                       <td className="px-4 py-3 text-gray-500 text-xs">
@@ -519,6 +522,15 @@ export default function AdminPage() {
                   className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
                 />
                 Join as Visitor Admin (manage only — no predictions or leaderboard)
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={newGroupPublic}
+                  onChange={(e) => setNewGroupPublic(e.target.checked)}
+                  className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
+                />
+                Public group (anyone can find it by searching)
               </label>
               <button type="submit" disabled={creatingGroup} className="btn-primary disabled:opacity-50">
                 {creatingGroup ? "Creating…" : "Create Group"}
