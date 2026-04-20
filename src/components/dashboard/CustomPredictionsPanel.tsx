@@ -86,7 +86,7 @@ function PlayerInput({ value, onChange }: { value: string; onChange: (v: string)
   );
 }
 
-export function CustomPredictionsPanel({ groupId }: { groupId: string }) {
+export function CustomPredictionsPanel({ groupId, hideResolved = false }: { groupId: string; hideResolved?: boolean }) {
   const [predictions, setPredictions] = useState<CustomPrediction[]>([]);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<Record<string, string>>({});
@@ -122,11 +122,13 @@ export function CustomPredictionsPanel({ groupId }: { groupId: string }) {
     setTimeout(() => setSaved((p) => ({ ...p, [cpId]: false })), 2000);
   };
 
-  const visible = predictions.filter(
-    (cp) =>
+  const visible = predictions.filter((cp) => {
+    if (hideResolved && cp.status === "RESOLVED") return false;
+    return (
       cp.status === "OPEN" ||
       (cp.status === "RESOLVED" && new Date(cp.lockTime).getTime() > Date.now() - 7 * 86_400_000)
-  );
+    );
+  });
 
   if (visible.length === 0) return null;
 

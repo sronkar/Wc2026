@@ -7,6 +7,7 @@ import Link from "next/link";
 import { MatchCard } from "@/components/MatchCard";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
 import { GroupStandingsPanel } from "@/components/GroupStandingsPanel";
+import { CustomPredictionsPanel } from "@/components/dashboard/CustomPredictionsPanel";
 
 interface Match {
   id: string;
@@ -32,6 +33,7 @@ interface Prediction {
 
 const ROUNDS = [
   "All",
+  "General",
   "Group Stage",
   "Round of 32",
   "Round of 16",
@@ -63,6 +65,7 @@ export default function GroupMatchesPage() {
   const [loading, setLoading] = useState(true);
   const [roundFilter, setRoundFilter] = useState("All");
   const [groupFilter, setGroupFilter] = useState("All");
+  const [hideResolved, setHideResolved] = useState(false);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -118,9 +121,14 @@ export default function GroupMatchesPage() {
     [groupId]
   );
 
+  const showGeneral = roundFilter === "All" || roundFilter === "General";
+  const showMatches = roundFilter !== "General";
+
   const filtered = matches.filter((m) => {
+    if (!showMatches) return false;
     if (roundFilter !== "All" && m.round !== roundFilter) return false;
     if (groupFilter !== "All" && m.group !== groupFilter) return false;
+    if (hideResolved && m.homeScore !== null && m.awayScore !== null) return false;
     return true;
   });
 
@@ -153,7 +161,7 @@ export default function GroupMatchesPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap items-end gap-3 mb-6">
         <div>
           <label className="text-xs text-gray-500 mr-1">Round:</label>
           <select
@@ -176,22 +184,47 @@ export default function GroupMatchesPage() {
             </select>
           </div>
         )}
-        <span className="text-xs text-gray-400 self-end pb-1">{filtered.length} matches</span>
+        {showMatches && (
+          <span className="text-xs text-gray-400">{filtered.length} matches</span>
+        )}
+        {/* Hide resolved toggle */}
+        <button
+          onClick={() => setHideResolved((v) => !v)}
+          className={`ml-auto text-xs px-3 py-1.5 rounded-full border transition-colors ${
+            hideResolved
+              ? "bg-gray-800 text-white border-gray-800"
+              : "border-gray-300 text-gray-500 hover:border-gray-400 hover:text-gray-700"
+          }`}
+        >
+          {hideResolved ? "✓ Hiding resolved" : "Hide resolved"}
+        </button>
       </div>
-
-      {!loading && (roundFilter === "All" || roundFilter === "Group Stage") && (
-        <GroupStandingsPanel
-          matches={matches}
-          predictions={predictions}
-          groupFilter={groupFilter}
-        />
-      )}
 
       {loading ? (
         <div className="text-center text-gray-400 py-20">Loading matches…</div>
       ) : (
         <div className="space-y-8">
-          {ROUND_ORDER.filter((r) => grouped[r]).map((round) => (
+          {/* General: custom predictions — always first */}
+          {showGeneral && (
+            <div>
+              <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                General
+              </h2>
+              <CustomPredictionsPanel groupId={groupId} hideResolved={hideResolved} />
+            </div>
+          )}
+
+          {/* Match rounds */}
+          {showMatches && (roundFilter === "All" || roundFilter === "Group Stage") && (
+            <GroupStandingsPanel
+              matches={matches}
+              predictions={predictions}
+              groupFilter={groupFilter}
+            />
+          )}
+
+          {showMatches && ROUND_ORDER.filter((r) => grouped[r]).map((round) => (
             <div key={round}>
               <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-fifa-blue inline-block" />
