@@ -22,7 +22,7 @@ const FLAGS: Record<string, string> = {
   "Ukraine": "🇺🇦", "Slovenia": "🇸🇮", "Poland": "🇵🇱",
   "Greece": "🇬🇷", "Iceland": "🇮🇸", "Finland": "🇫🇮",
   "Russia": "🇷🇺", "Ireland": "🇮🇪", "Northern Ireland": "🇬🇧",
-  "Bosnia and Herzegovina": "🇧🇦", "Bosnia & Herzegovina": "🇧🇦",
+  "Bosnia and Herzegovina": "🇧🇦", "Bosnia & Herzegovina": "🇧🇦", "Bosnia-Herzegovina": "🇧🇦",
   "Montenegro": "🇲🇪",
   "North Macedonia": "🇲🇰", "Kosovo": "🇽🇰", "Luxembourg": "🇱🇺",
   "Belarus": "🇧🇾", "Bulgaria": "🇧🇬", "Estonia": "🇪🇪",

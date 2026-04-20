@@ -21,10 +21,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   // ── Resolve: set correct answer and award points ──
   if (body.action === "resolve") {
     const { correctOption } = body;
-    const options: string[] = JSON.parse(cp.options);
+    if (!correctOption) return NextResponse.json({ error: "correctOption is required" }, { status: 400 });
 
-    if (!options.includes(correctOption)) {
-      return NextResponse.json({ error: "correctOption must be one of the defined options" }, { status: 400 });
+    // For FIXED/TEAM types validate against options; PLAYER allows free text
+    if (cp.optionType !== "PLAYER") {
+      const options: string[] = JSON.parse(cp.options);
+      if (!options.includes(correctOption)) {
+        return NextResponse.json({ error: "correctOption must be one of the defined options" }, { status: 400 });
+      }
     }
 
     await prisma.customPrediction.update({
@@ -32,16 +36,21 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       data: { correctOption, status: "RESOLVED" },
     });
 
-    // Award points to users who picked the correct option
     const answers = await prisma.customPredictionAnswer.findMany({
       where: { customPredictionId: params.id },
     });
+
+    // PLAYER type: case-insensitive match
+    const isMatch = (answer: string) =>
+      cp.optionType === "PLAYER"
+        ? answer.trim().toLowerCase() === correctOption.trim().toLowerCase()
+        : answer === correctOption;
 
     await Promise.all(
       answers.map((a) =>
         prisma.customPredictionAnswer.update({
           where: { id: a.id },
-          data: { points: a.option === correctOption ? cp.points : 0 },
+          data: { points: isMatch(a.option) ? cp.points : 0 },
         })
       )
     );

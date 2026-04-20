@@ -31,6 +31,7 @@ interface UserRow {
 interface CustomPredictionAdmin {
   id: string;
   question: string;
+  optionType: string;
   options: string[];
   points: number;
   lockTime: string;
@@ -114,8 +115,14 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   // ── Custom predictions state ──────────────────────────────────────────────────
   const [customPredictions, setCustomPredictions] = useState<CustomPredictionAdmin[]>([]);
   const [customLoaded, setCustomLoaded] = useState(false);
-  const [cpForm, setCpForm] = useState({ question: "", options: ["", ""], points: 3, lockTime: "" });
+  const [cpForm, setCpForm] = useState({ question: "", optionType: "FIXED", options: ["", ""], points: 3, lockTime: "" });
   const [cpCreating, setCpCreating] = useState(false);
+
+  // ── Batch import state ────────────────────────────────────────────────────────
+  const [importJson, setImportJson] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importShowHelp, setImportShowHelp] = useState(false);
   const [cpResolving, setCpResolving] = useState<Record<string, string>>({});
   const [cpResolvingSaving, setCpResolvingSaving] = useState<Record<string, boolean>>({});
   const [cpDeleting, setCpDeleting] = useState<Record<string, boolean>>({});
@@ -345,27 +352,57 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
 
   // ── Custom prediction handlers ────────────────────────────────────────────────
   const handleCreateCustomPrediction = async () => {
+    if (!cpForm.question.trim() || !cpForm.lockTime) return;
     const cleanOptions = cpForm.options.map((o) => o.trim()).filter(Boolean);
-    if (!cpForm.question.trim() || cleanOptions.length < 2 || !cpForm.lockTime) return;
+    if (cpForm.optionType === "FIXED" && cleanOptions.length < 2) return;
     setCpCreating(true);
+    const body: Record<string, unknown> = {
+      question: cpForm.question.trim(),
+      optionType: cpForm.optionType,
+      points: cpForm.points,
+      lockTime: new Date(cpForm.lockTime).toISOString(),
+      groupId,
+    };
+    if (cpForm.optionType === "FIXED") body.options = cleanOptions;
     const res = await fetch("/api/admin/custom-predictions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        question: cpForm.question.trim(),
-        options: cleanOptions,
-        points: cpForm.points,
-        lockTime: new Date(cpForm.lockTime).toISOString(),
-        groupId,
-      }),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
-      setCpForm({ question: "", options: ["", ""], points: 3, lockTime: "" });
-      // Reload predictions list
+      setCpForm({ question: "", optionType: "FIXED", options: ["", ""], points: 3, lockTime: "" });
       const updated = await fetch(`/api/admin/custom-predictions?groupId=${groupId}`).then((r) => r.json());
       setCustomPredictions(updated);
     }
     setCpCreating(false);
+  };
+
+  const handleBatchImport = async () => {
+    setImportError("");
+    let parsed: unknown[];
+    try {
+      parsed = JSON.parse(importJson);
+      if (!Array.isArray(parsed)) throw new Error("Must be a JSON array");
+    } catch (e) {
+      setImportError(e instanceof Error ? e.message : "Invalid JSON");
+      return;
+    }
+    setImporting(true);
+    const res = await fetch("/api/admin/custom-predictions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ batch: true, groupId, predictions: parsed }),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      setImportJson("");
+      const updated = await fetch(`/api/admin/custom-predictions?groupId=${groupId}`).then((r) => r.json());
+      setCustomPredictions(updated);
+      setImportError(`✓ Imported ${d.created} prediction${d.created !== 1 ? "s" : ""}`);
+    } else {
+      setImportError("Import failed");
+    }
+    setImporting(false);
   };
 
   const handleResolvePrediction = async (cpId: string) => {
@@ -803,15 +840,25 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                 />
               </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={settings.isPublic}
-                onChange={(e) => setSettings((s) => ({ ...s, isPublic: e.target.checked }))}
-                className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
-              />
-              Public group (anyone can find it by searching)
-            </label>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">Visibility</label>
+              <div className="relative group inline-flex">
+                <div className="flex rounded-lg border border-gray-300 text-sm overflow-hidden">
+                  <button type="button" onClick={() => setSettings((s) => ({ ...s, isPublic: false }))}
+                    className={`px-3 py-2 flex items-center gap-1.5 transition ${!settings.isPublic ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                    🔒 Private
+                  </button>
+                  <button type="button" onClick={() => setSettings((s) => ({ ...s, isPublic: true }))}
+                    className={`px-3 py-2 flex items-center gap-1.5 transition border-l border-gray-300 ${settings.isPublic ? "bg-fifa-blue text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                    🌐 Public
+                  </button>
+                </div>
+                <div className="absolute top-full left-0 mt-1 hidden group-hover:block z-10 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg pointer-events-none">
+                  <p><strong className="text-white">🔒 Private</strong> — Only users with a join link or email invite can access.</p>
+                  <p className="mt-1.5"><strong className="text-white">🌐 Public</strong> — Anyone can find and request to join via the Groups search page.</p>
+                </div>
+              </div>
+            </div>
             <button
               onClick={handleSaveSettings}
               disabled={settingsSaving}
@@ -970,48 +1017,60 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Options (min 2)</label>
-              <div className="space-y-2">
-                {cpForm.options.map((opt, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={opt}
-                      onChange={(e) =>
-                        setCpForm((f) => {
-                          const opts = [...f.options];
-                          opts[idx] = e.target.value;
-                          return { ...f, options: opts };
-                        })
-                      }
-                      placeholder={`Option ${idx + 1}`}
-                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                    />
-                    {cpForm.options.length > 2 && (
-                      <button
-                        onClick={() =>
-                          setCpForm((f) => ({
-                            ...f,
-                            options: f.options.filter((_, i) => i !== idx),
-                          }))
-                        }
-                        className="text-red-400 hover:text-red-600 text-sm px-2"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
+              <label className="block text-xs text-gray-500 mb-1">Answer type</label>
+              <div className="flex gap-2 flex-wrap">
+                {(["FIXED", "TEAM", "PLAYER"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setCpForm((f) => ({ ...f, optionType: t }))}
+                    className={`px-3 py-1.5 text-xs rounded-lg border font-medium transition ${cpForm.optionType === t ? "bg-fifa-blue text-white border-fifa-blue" : "border-gray-300 text-gray-600 hover:border-fifa-blue"}`}
+                  >
+                    {t === "FIXED" ? "Custom options" : t === "TEAM" ? "⚽ Team" : "🧑 Player"}
+                  </button>
                 ))}
-                <button
-                  onClick={() =>
-                    setCpForm((f) => ({ ...f, options: [...f.options, ""] }))
-                  }
-                  className="text-xs text-fifa-blue hover:underline"
-                >
-                  + Add option
-                </button>
               </div>
+              {cpForm.optionType === "TEAM" && <p className="text-xs text-gray-400 mt-1">Users will pick from the list of all 48 WC2026 teams.</p>}
+              {cpForm.optionType === "PLAYER" && <p className="text-xs text-gray-400 mt-1">Users will type a player name (free text).</p>}
             </div>
+            {cpForm.optionType === "FIXED" && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Options (min 2)</label>
+                <div className="space-y-2">
+                  {cpForm.options.map((opt, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={opt}
+                        onChange={(e) =>
+                          setCpForm((f) => {
+                            const opts = [...f.options];
+                            opts[idx] = e.target.value;
+                            return { ...f, options: opts };
+                          })
+                        }
+                        placeholder={`Option ${idx + 1}`}
+                        className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                      />
+                      {cpForm.options.length > 2 && (
+                        <button
+                          onClick={() => setCpForm((f) => ({ ...f, options: f.options.filter((_, i) => i !== idx) }))}
+                          className="text-red-400 hover:text-red-600 text-sm px-2"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setCpForm((f) => ({ ...f, options: [...f.options, ""] }))}
+                    className="text-xs text-fifa-blue hover:underline"
+                  >
+                    + Add option
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex gap-4 flex-wrap">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Points</label>
@@ -1043,6 +1102,36 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
               {cpCreating ? "Creating…" : "Create Prediction"}
             </button>
           </div>
+        </div>
+
+        {/* Batch import */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-semibold text-gray-700 text-sm">Batch Import</h4>
+            <button onClick={() => setImportShowHelp((p) => !p)} className="text-xs text-fifa-blue hover:underline">
+              {importShowHelp ? "Hide format" : "Show format"}
+            </button>
+          </div>
+          {importShowHelp && (
+            <pre className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600 overflow-x-auto mb-3 leading-relaxed">{`[\n  { "question": "Who wins?", "optionType": "TEAM", "points": 5, "lockTime": "2026-06-11T18:00:00Z" },\n  { "question": "Top scorer?", "optionType": "PLAYER", "points": 8, "lockTime": "2026-06-11T18:00:00Z" },\n  { "question": "Total goals?", "optionType": "FIXED", "options": ["<100","100-149","150+"], "points": 3, "lockTime": "2026-07-19T00:00:00Z" }\n]`}</pre>
+          )}
+          <textarea
+            value={importJson}
+            onChange={(e) => { setImportJson(e.target.value); setImportError(""); }}
+            placeholder="Paste JSON array of predictions…"
+            rows={4}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-fifa-blue resize-none"
+          />
+          {importError && (
+            <p className={`text-xs mt-1 ${importError.startsWith("✓") ? "text-green-600" : "text-red-500"}`}>{importError}</p>
+          )}
+          <button
+            onClick={handleBatchImport}
+            disabled={importing || !importJson.trim()}
+            className="mt-2 text-xs px-3 py-1.5 rounded-lg font-semibold border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 disabled:opacity-40"
+          >
+            {importing ? "Importing…" : "Import Predictions"}
+          </button>
         </div>
 
         {/* Predictions list */}
@@ -1112,23 +1201,29 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                   {cp.status === "OPEN" && isLocked && (
                     <div className="flex items-center gap-2 flex-wrap border-t border-gray-100 pt-3">
                       <label className="text-xs text-gray-500">Correct answer:</label>
-                      <select
-                        value={cpResolving[cp.id] ?? ""}
-                        onChange={(e) =>
-                          setCpResolving((p) => ({ ...p, [cp.id]: e.target.value }))
-                        }
-                        className="flex-1 min-w-32 border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                      >
-                        <option value="">— select —</option>
-                        {cp.options.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
+                      {cp.optionType === "PLAYER" ? (
+                        <input
+                          type="text"
+                          value={cpResolving[cp.id] ?? ""}
+                          onChange={(e) => setCpResolving((p) => ({ ...p, [cp.id]: e.target.value }))}
+                          placeholder="Enter correct player name…"
+                          className="flex-1 min-w-40 border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                        />
+                      ) : (
+                        <select
+                          value={cpResolving[cp.id] ?? ""}
+                          onChange={(e) => setCpResolving((p) => ({ ...p, [cp.id]: e.target.value }))}
+                          className="flex-1 min-w-32 border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                        >
+                          <option value="">— select —</option>
+                          {cp.options.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                        </select>
+                      )}
                       <button
                         onClick={() => handleResolvePrediction(cp.id)}
-                        disabled={!cpResolving[cp.id] || cpResolvingSaving[cp.id]}
+                        disabled={!cpResolving[cp.id]?.trim() || cpResolvingSaving[cp.id]}
                         className="btn-primary text-xs px-3 py-1.5 disabled:opacity-40"
                       >
                         {cpResolvingSaving[cp.id] ? "Saving…" : "Resolve & Award Points"}

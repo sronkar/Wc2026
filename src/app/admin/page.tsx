@@ -92,7 +92,7 @@ export default function AdminPage() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupVisitor, setNewGroupVisitor] = useState(false);
-  const [newGroupPublic, setNewGroupPublic] = useState(true);
+  const [newGroupPublic, setNewGroupPublic] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
 
   // ── Tab state ────────────────────────────────────────────────────────────────
@@ -523,15 +523,25 @@ export default function AdminPage() {
                 />
                 Join as Visitor Admin (manage only — no predictions or leaderboard)
               </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={newGroupPublic}
-                  onChange={(e) => setNewGroupPublic(e.target.checked)}
-                  className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
-                />
-                Public group (anyone can find it by searching)
-              </label>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Visibility</label>
+                <div className="relative group inline-flex">
+                  <div className="flex rounded-lg border border-gray-300 text-sm overflow-hidden">
+                    <button type="button" onClick={() => setNewGroupPublic(false)}
+                      className={`px-3 py-2 flex items-center gap-1.5 transition ${!newGroupPublic ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                      🔒 Private
+                    </button>
+                    <button type="button" onClick={() => setNewGroupPublic(true)}
+                      className={`px-3 py-2 flex items-center gap-1.5 transition border-l border-gray-300 ${newGroupPublic ? "bg-fifa-blue text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                      🌐 Public
+                    </button>
+                  </div>
+                  <div className="absolute top-full left-0 mt-1 hidden group-hover:block z-10 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg pointer-events-none">
+                    <p><strong className="text-white">🔒 Private</strong> — Only users with a join link or email invite can access.</p>
+                    <p className="mt-1.5"><strong className="text-white">🌐 Public</strong> — Anyone can find and request to join via the Groups search page.</p>
+                  </div>
+                </div>
+              </div>
               <button type="submit" disabled={creatingGroup} className="btn-primary disabled:opacity-50">
                 {creatingGroup ? "Creating…" : "Create Group"}
               </button>

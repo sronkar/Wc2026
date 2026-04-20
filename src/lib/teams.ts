@@ -1,0 +1,12 @@
+export const WC2026_TEAMS = [
+  "Algeria", "Argentina", "Australia", "Austria", "Belgium",
+  "Bosnia-Herzegovina", "Brazil", "Canada", "Cape Verde", "Colombia",
+  "Croatia", "Curaçao", "Czechia", "DR Congo", "Ecuador",
+  "Egypt", "England", "France", "Germany", "Ghana",
+  "Haiti", "Iran", "Iraq", "Ivory Coast", "Japan",
+  "Jordan", "Mexico", "Morocco", "Netherlands", "New Zealand",
+  "Norway", "Panama", "Paraguay", "Portugal", "Qatar",
+  "Saudi Arabia", "Scotland", "Senegal", "South Africa", "South Korea",
+  "Spain", "Sweden", "Switzerland", "Tunisia", "Turkey",
+  "United States", "Uruguay", "Uzbekistan",
+];

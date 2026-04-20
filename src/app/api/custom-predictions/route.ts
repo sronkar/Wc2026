@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
       return {
         id: cp.id,
         question: cp.question,
+        optionType: cp.optionType,
         options,
         points: cp.points,
         lockTime: cp.lockTime.toISOString(),
