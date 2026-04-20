@@ -578,9 +578,8 @@ Winner\t\tTeam\t10`;
       )}
 
       {/* ── Groups tab ───────────────────────────────────────────────────────── */}
-      {activeTab === "groups" && (
-        <div className="space-y-6">
-          {/* Existing groups — top */}
+      {activeTab === "groups" && (() => {
+        const allGroupsCard = (
           <div className="card overflow-hidden p-0">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
               <h2 className="font-bold text-gray-800 text-sm">All Groups ({groups.length})</h2>
@@ -606,12 +605,8 @@ Winner\t\tTeam\t10`;
                       <td className="px-4 py-3 text-gray-500">{g.memberCount}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">
-                            View
-                          </Link>
-                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">
-                            Manage →
-                          </Link>
+                          <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">View</Link>
+                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">Manage →</Link>
                         </div>
                       </td>
                     </tr>
@@ -620,8 +615,9 @@ Winner\t\tTeam\t10`;
               </table>
             )}
           </div>
+        );
 
-          {/* Create group form */}
+        const createGroupCard = (
           <div className="card">
             <h2 className="font-bold text-gray-800 mb-4">Create New Group</h2>
             <form onSubmit={handleCreateGroup} className="space-y-3">
@@ -679,6 +675,15 @@ Winner\t\tTeam\t10`;
               </button>
             </form>
           </div>
+        );
+
+        return (
+          <div className="space-y-6">
+            {groupsLoaded && groups.length > 0 ? (
+              <>{allGroupsCard}{createGroupCard}</>
+            ) : (
+              <>{createGroupCard}{allGroupsCard}</>
+            )}
 
           {/* Global predictions */}
           <div className="card overflow-hidden p-0">
@@ -772,8 +777,9 @@ Winner\t\tTeam\t10`;
             </button>
           </div>
 
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* ── Users tab (admin only) ────────────────────────────────────────────── */}
       {activeTab === "users" && isAdmin && (

@@ -105,9 +105,11 @@ function GroupTable({ name, rows }: { name: string; rows: Row[] }) {
         <tbody>
           {rows.map((row, i) => (
             <tr key={row.team} className={`border-b border-gray-50 last:border-0 ${i < 2 ? "bg-green-50" : ""}`}>
-              <td className="px-3 py-1.5 flex items-center gap-1.5 min-w-0">
-                <span className="text-sm leading-none">{getFlag(row.team)}</span>
-                <span className={`truncate ${i < 2 ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.team}</span>
+              <td className="px-2 py-1.5 max-w-0 w-full">
+                <div className="flex items-center gap-1">
+                  <span className="text-sm leading-none shrink-0">{getFlag(row.team)}</span>
+                  <span className={`truncate text-[11px] leading-tight ${i < 2 ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.team}</span>
+                </div>
               </td>
               <td className="px-1 py-1.5 text-center text-gray-500">{row.P}</td>
               <td className="px-1 py-1.5 text-center text-gray-500">{row.W}</td>

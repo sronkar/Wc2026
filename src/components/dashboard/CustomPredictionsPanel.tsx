@@ -92,6 +92,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const [cancelling, setCancelling] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch(`/api/custom-predictions?groupId=${groupId}`)
@@ -107,6 +108,14 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
         }
       });
   }, [groupId]);
+
+  const handleCancel = async (cpId: string) => {
+    setCancelling((p) => ({ ...p, [cpId]: true }));
+    await fetch(`/api/custom-predictions/${cpId}/answer?groupId=${groupId}`, { method: "DELETE" });
+    setCancelling((p) => ({ ...p, [cpId]: false }));
+    setSelected((p) => { const n = { ...p }; delete n[cpId]; return n; });
+    setPredictions((prev) => prev.map((cp) => cp.id === cpId ? { ...cp, userAnswer: null } : cp));
+  };
 
   const handleSubmit = async (cpId: string) => {
     const option = selected[cpId];
@@ -215,13 +224,25 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                       />
                     )}
                   </div>
-                  <button
-                    onClick={() => handleSubmit(cp.id)}
-                    disabled={saving[cp.id] || !selected[cp.id]?.trim()}
-                    className="btn-primary text-xs w-full disabled:opacity-40"
-                  >
-                    {saving[cp.id] ? "Saving…" : saved[cp.id] ? "Saved ✓" : cp.userAnswer ? "Update Answer" : "Submit Answer"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleSubmit(cp.id)}
+                      disabled={saving[cp.id] || !selected[cp.id]?.trim()}
+                      className="btn-primary text-xs flex-1 disabled:opacity-40"
+                    >
+                      {saving[cp.id] ? "Saving…" : saved[cp.id] ? "Saved ✓" : cp.userAnswer ? "Update Answer" : "Submit Answer"}
+                    </button>
+                    {cp.userAnswer && (
+                      <button
+                        onClick={() => handleCancel(cp.id)}
+                        disabled={cancelling[cp.id]}
+                        className="text-xs text-gray-400 hover:text-red-500 transition disabled:opacity-40 px-1"
+                        title="Withdraw answer"
+                      >
+                        {cancelling[cp.id] ? "…" : "×"}
+                      </button>
+                    )}
+                  </div>
                 </>
               )}
 

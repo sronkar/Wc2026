@@ -29,6 +29,7 @@ interface Props {
   match: Match;
   prediction?: Prediction;
   onSave?: (matchId: string, home: number, away: number) => Promise<void>;
+  onCancel?: (matchId: string) => Promise<void>;
   isLoggedIn: boolean;
 }
 
@@ -41,7 +42,7 @@ function unrealisticWarning(h: number, a: number): string | null {
   return null;
 }
 
-export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
+export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn }: Props) {
   const [homeInput, setHomeInput] = useState<string>(
     prediction !== undefined ? String(prediction.homeScore) : ""
   );
@@ -50,6 +51,7 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
 
   const kickoff = new Date(match.kickoff);
@@ -63,6 +65,20 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
   const a = parseScore(awayInput);
   const inputsValid = !isNaN(h) && !isNaN(a) && h >= 0 && a >= 0;
   const warning = inputsValid ? unrealisticWarning(h, a) : null;
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    setError("");
+    try {
+      await onCancel!(match.id);
+      setHomeInput("");
+      setAwayInput("");
+    } catch {
+      setError("Failed to withdraw. Try again.");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!inputsValid) {
@@ -191,6 +207,16 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
                 >
                   {saving ? "..." : saved ? "Saved ✓" : "Save"}
                 </button>
+                {hasPred && onCancel && (
+                  <button
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="text-xs text-gray-400 hover:text-red-500 transition disabled:opacity-40 ml-1"
+                    title="Withdraw prediction"
+                  >
+                    {cancelling ? "…" : "×"}
+                  </button>
+                )}
               </div>
               {warning && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">

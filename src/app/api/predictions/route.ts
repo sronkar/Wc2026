@@ -53,6 +53,33 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(prediction);
 }
 
+export async function DELETE(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const matchId = searchParams.get("matchId");
+  const groupId = searchParams.get("groupId");
+  if (!matchId || !groupId) {
+    return NextResponse.json({ error: "matchId and groupId are required" }, { status: 400 });
+  }
+
+  const match = await prisma.match.findUnique({ where: { id: matchId } });
+  if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
+
+  if (isPredictionLocked(match.kickoff)) {
+    return NextResponse.json({ error: "Predictions are locked" }, { status: 403 });
+  }
+
+  await prisma.prediction.deleteMany({
+    where: { userId: session.user.id, matchId, groupId },
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {

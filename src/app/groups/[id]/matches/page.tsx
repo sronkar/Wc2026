@@ -104,6 +104,24 @@ export default function GroupMatchesPage() {
     load();
   }, [session, status, groupId, router]);
 
+  const handleCancel = useCallback(
+    async (matchId: string) => {
+      const res = await fetch(`/api/predictions?matchId=${matchId}&groupId=${groupId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to withdraw");
+      }
+      setPredictions((prev) => {
+        const next = { ...prev };
+        delete next[matchId];
+        return next;
+      });
+    },
+    [groupId]
+  );
+
   const handleSave = useCallback(
     async (matchId: string, homeScore: number, awayScore: number) => {
       const res = await fetch("/api/predictions", {
@@ -123,7 +141,7 @@ export default function GroupMatchesPage() {
 
   const showGeneral = roundFilter === "All" || roundFilter === "General";
   const showMatches = roundFilter !== "General";
-  const showSidebar = !loading && showMatches && (roundFilter === "All" || roundFilter === "Group Stage");
+  const showSidebar = !loading && (roundFilter === "All" || roundFilter === "Group Stage" || roundFilter === "General");
 
   const filtered = matches.filter((m) => {
     if (!showMatches) return false;
@@ -235,6 +253,7 @@ export default function GroupMatchesPage() {
                       match={match}
                       prediction={predictions[match.id]}
                       onSave={session ? handleSave : undefined}
+                      onCancel={session ? handleCancel : undefined}
                       isLoggedIn={!!session}
                     />
                   ))}

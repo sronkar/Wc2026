@@ -55,3 +55,34 @@ export async function POST(
 
   return NextResponse.json(answer);
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const cp = await prisma.customPrediction.findUnique({ where: { id: params.id } });
+  if (!cp) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { searchParams } = new URL(req.url);
+  const groupId = searchParams.get("groupId");
+  const effectiveGroupId: string | null = cp.groupId ?? groupId ?? null;
+
+  if (getNowMs() >= cp.lockTime.getTime()) {
+    return NextResponse.json({ error: "Prediction is locked" }, { status: 409 });
+  }
+
+  await prisma.customPredictionAnswer.deleteMany({
+    where: {
+      userId: session.user.id,
+      customPredictionId: params.id,
+      groupId: effectiveGroupId,
+    },
+  });
+
+  return NextResponse.json({ ok: true });
+}
