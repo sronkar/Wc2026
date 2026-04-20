@@ -28,5 +28,11 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     data: { userId, groupId: params.id, status: "PENDING" },
   });
 
+  console.log("\n========================================");
+  console.log(`[JOIN REQUEST] ${session.user.name ?? session.user.email} wants to join "${group.name}"`);
+  console.log(`[JOIN REQUEST] Group ID: ${params.id} · User ID: ${userId}`);
+  console.log(`[JOIN REQUEST] Approve at: /admin/groups/${params.id}`);
+  console.log("========================================\n");
+
   return NextResponse.json({ status: membership.status }, { status: 201 });
 }

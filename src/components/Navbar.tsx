@@ -20,6 +20,7 @@ export function Navbar() {
   const [myGroups, setMyGroups] = useState<GroupItem[]>([]);
   const [groupDropOpen, setGroupDropOpen] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
   const dropRef = useRef<HTMLDivElement>(null);
 
   // Group ID from the current URL (only set when on a group page)
@@ -60,6 +61,15 @@ export function Navbar() {
       .catch(() => {});
   };
 
+  const fetchPendingCount = () => {
+    const role = session?.user?.role;
+    if (role !== "ADMIN" && role !== "SUB_ADMIN") return;
+    fetch("/api/admin/pending-count")
+      .then((r) => r.json())
+      .then((d) => { if (typeof d?.count === "number") setPendingCount(d.count); })
+      .catch(() => {});
+  };
+
   useEffect(() => {
     fetchGroups();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -70,6 +80,14 @@ export function Navbar() {
     const handler = () => fetchGroups();
     window.addEventListener("wc2026:groups-updated", handler);
     return () => window.removeEventListener("wc2026:groups-updated", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
+
+  // Fetch + poll pending join request count for admins
+  useEffect(() => {
+    fetchPendingCount();
+    const id = setInterval(fetchPendingCount, 30_000);
+    return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
 
@@ -91,9 +109,14 @@ export function Navbar() {
 
   const hasGroups = myGroups.length > 0;
 
-  // When switching groups, stay on the same sub-page if possible
-  const groupLink = (groupId: string) =>
-    subPage ? `/groups/${groupId}/${subPage}` : `/groups/${groupId}`;
+  // When switching groups, preserve the current page type
+  const groupLink = (newGroupId: string) => {
+    // On /admin/groups/[id] → switch to the same page for the new group
+    if (pathname.match(/^\/admin\/groups\/[^/]+/)) return `/admin/groups/${newGroupId}`;
+    // On a group sub-page (matches/leaderboard) → preserve it
+    if (subPage) return `/groups/${newGroupId}/${subPage}`;
+    return `/groups/${newGroupId}`;
+  };
 
   return (
     <nav className="bg-fifa-blue text-white shadow-md sticky top-0 z-50">
@@ -219,11 +242,16 @@ export function Navbar() {
           {(session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN") && (
             <Link
               href="/admin"
-              className={`px-3 py-1.5 rounded-md transition font-semibold ${
+              className={`relative px-3 py-1.5 rounded-md transition font-semibold ${
                 pathname.startsWith("/admin") ? "text-fifa-gold bg-white/10" : "text-fifa-gold hover:brightness-110"
               }`}
             >
               Admin
+              {pendingCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                  {pendingCount > 99 ? "99+" : pendingCount}
+                </span>
+              )}
             </Link>
           )}
         </div>
@@ -309,7 +337,14 @@ export function Navbar() {
           )}
 
           {(session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN") && (
-            <Link href="/admin" className="block py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>Admin</Link>
+            <Link href="/admin" className="flex items-center gap-2 py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>
+              Admin
+              {pendingCount > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {pendingCount > 99 ? "99+" : pendingCount}
+                </span>
+              )}
+            </Link>
           )}
           {session ? (
             <button onClick={() => signOut({ callbackUrl: "/" })} className="block py-2 text-red-300 hover:text-red-100 w-full text-left">Sign Out</button>
