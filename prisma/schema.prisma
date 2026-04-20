@@ -193,6 +193,16 @@ model CustomPrediction {
   updatedAt     DateTime                 @updatedAt
 }
 
+model Player {
+  id       String  @id @default(cuid())
+  name     String
+  country  String
+  position String?
+  number   Int?
+
+  @@index([country])
+}
+
 model CustomPredictionAnswer {
   id                 String           @id @default(cuid())
   userId             String

@@ -75,15 +75,66 @@ function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-function PlayerInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+interface PlayerResult {
+  id: string;
+  name: string;
+  country: string;
+  position: string | null;
+  number: number | null;
+}
+
+function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [query, setQuery] = useState(value);
+  const [results, setResults] = useState<PlayerResult[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    const timer = setTimeout(() => {
+      setLoading(true);
+      fetch(`/api/players?q=${encodeURIComponent(query)}`)
+        .then((r) => r.json())
+        .then((data) => { setResults(Array.isArray(data) ? data : []); setLoading(false); })
+        .catch(() => setLoading(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   return (
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Enter player name…"
-      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-    />
+    <div className="space-y-2">
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); if (!e.target.value) onChange(""); }}
+        placeholder="Search by player name or country…"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+      />
+      {query.trim() && (
+        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+          {loading ? (
+            <p className="px-3 py-2 text-sm text-gray-400">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-gray-400">No players found</p>
+          ) : (
+            results.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => { setQuery(p.name); onChange(p.name); }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition ${
+                  value === p.name ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"
+                }`}
+              >
+                <span className="font-medium">{value === p.name ? "✓ " : ""}{p.name}</span>
+                <span className="text-xs text-gray-400 ml-2">
+                  {p.country}{p.position ? ` · ${p.position}` : ""}
+                  {p.number ? ` · #${p.number}` : ""}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -218,7 +269,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                       />
                     )}
                     {isPlayer && (
-                      <PlayerInput
+                      <PlayerPicker
                         value={selected[cp.id] ?? ""}
                         onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
                       />
