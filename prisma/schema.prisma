@@ -138,6 +138,7 @@ model Group {
   createdBy            String
   exactMatchPoints     Int                 @default(5)
   directionMatchPoints Int                 @default(1)
+  joinToken            String?             @unique
   memberships          GroupMembership[]
   predictions          Prediction[]
   customPredictions    CustomPrediction[]

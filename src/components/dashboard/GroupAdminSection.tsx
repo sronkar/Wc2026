@@ -100,6 +100,10 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
 
+  // ── Open join link state ───────────────────────────────────────────────────────
+  const [joinUrl, setJoinUrl] = useState<string | null>(null);
+  const [joinLinkLoading, setJoinLinkLoading] = useState(false);
+
   // ── Settings state ────────────────────────────────────────────────────────────
   const [settings, setSettings] = useState<GroupSettings>({ exactMatchPoints: 5, directionMatchPoints: 1 });
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -176,6 +180,15 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     fetch(`/api/groups/${groupId}/invite`)
       .then((r) => r.json())
       .then((data: PendingInvite[]) => { if (Array.isArray(data)) setPendingInvites(data); });
+
+    // Load existing open join link (stored on group)
+    fetch(`/api/groups/${groupId}`)
+      .then((r) => r.json())
+      .then((d: { joinToken?: string | null }) => {
+        if (d.joinToken) {
+          setJoinUrl(`${window.location.origin}/join/${d.joinToken}`);
+        }
+      });
   }, [groupId]);
 
   // ── Derived ───────────────────────────────────────────────────────────────────
@@ -245,6 +258,23 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       setTimeout(() => setInviteMessage(null), 4000);
     }
     setInviteSending(false);
+  };
+
+  const handleGenerateJoinLink = async () => {
+    setJoinLinkLoading(true);
+    const res = await fetch(`/api/admin/groups/${groupId}/join-link`, { method: "POST" });
+    if (res.ok) {
+      const d = await res.json();
+      setJoinUrl(d.joinUrl);
+    }
+    setJoinLinkLoading(false);
+  };
+
+  const handleRevokeJoinLink = async () => {
+    setJoinLinkLoading(true);
+    await fetch(`/api/admin/groups/${groupId}/join-link`, { method: "DELETE" });
+    setJoinUrl(null);
+    setJoinLinkLoading(false);
   };
 
   const handleAddMember = async () => {
@@ -473,6 +503,47 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       {/* ── Members + Add Member ─────────────────────────────────────────────── */}
       <div className="card">
         <h3 className="font-bold text-gray-800 mb-4">Members</h3>
+
+        {/* Open join link */}
+        <div className="mb-5">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            Shareable Join Link
+          </p>
+          <p className="text-xs text-gray-400 mb-2">Anyone with this link is approved immediately as a Member.</p>
+          {joinUrl ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  readOnly
+                  value={joinUrl}
+                  className="flex-1 text-xs border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-600 font-mono"
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  onClick={() => navigator.clipboard.writeText(joinUrl)}
+                  className="text-xs text-fifa-blue hover:underline shrink-0"
+                >
+                  Copy
+                </button>
+              </div>
+              <button
+                onClick={handleRevokeJoinLink}
+                disabled={joinLinkLoading}
+                className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
+              >
+                {joinLinkLoading ? "…" : "Revoke link"}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleGenerateJoinLink}
+              disabled={joinLinkLoading}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold border bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 disabled:opacity-40"
+            >
+              {joinLinkLoading ? "Generating…" : "Generate Join Link"}
+            </button>
+          )}
+        </div>
 
         {/* Invite by email */}
         <div className="mb-5">

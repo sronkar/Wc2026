@@ -6,6 +6,7 @@ interface Entry {
   name: string;
   image: string | null;
   totalPoints: number;
+  directHits: number;
   predictionsCount: number;
 }
 
@@ -47,7 +48,10 @@ export function MiniLeaderboard({ entries, currentUserId }: Props) {
               {entry.id === currentUserId ? "You" : entry.name}
             </span>
           </div>
-          <span className="font-bold text-fifa-blue tabular-nums">{entry.totalPoints}</span>
+          <div className="text-right">
+            <span className="font-bold text-fifa-blue tabular-nums">{entry.totalPoints}</span>
+            <span className="text-xs text-gray-400 tabular-nums ml-1">/ {entry.directHits}</span>
+          </div>
         </div>
       ))}
 
@@ -71,7 +75,10 @@ export function MiniLeaderboard({ entries, currentUserId }: Props) {
               )}
               <span className="text-sm font-medium text-gray-900 truncate">You</span>
             </div>
-            <span className="font-bold text-fifa-blue tabular-nums">{userEntry.totalPoints}</span>
+            <div className="text-right">
+              <span className="font-bold text-fifa-blue tabular-nums">{userEntry.totalPoints}</span>
+              <span className="text-xs text-gray-400 tabular-nums ml-1">/ {userEntry.directHits}</span>
+            </div>
           </div>
         </>
       )}

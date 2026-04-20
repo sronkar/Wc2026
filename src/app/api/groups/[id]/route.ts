@@ -73,6 +73,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     avatar: group.avatar,
     exactMatchPoints: group.exactMatchPoints,
     directionMatchPoints: group.directionMatchPoints,
+    joinToken: isAdminRole ? group.joinToken : null,
     memberCount: group.memberships.length,
     myStatus: myMembership?.status ?? (isAdminRole ? "ADMIN" : null),
     myMemberRole: myMembership?.memberRole ?? null,

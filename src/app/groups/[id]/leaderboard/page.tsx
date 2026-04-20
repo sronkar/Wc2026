@@ -13,6 +13,7 @@ interface Entry {
   name: string;
   image: string | null;
   totalPoints: number;
+  directHits: number;
   predictionsCount: number;
 }
 
@@ -68,7 +69,7 @@ export default function GroupLeaderboardPage() {
         )}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{groupName}</h1>
-          <p className="text-gray-400 text-sm">{entries.length} {entries.length === 1 ? "member" : "members"} · ranked by total group points</p>
+          <p className="text-gray-400 text-sm">{entries.length} {entries.length === 1 ? "member" : "members"} · ranked by points, then correct outcomes</p>
         </div>
       </div>
 
@@ -81,8 +82,9 @@ export default function GroupLeaderboardPage() {
               <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200">
                 <th className="px-4 py-3 w-10">#</th>
                 <th className="px-4 py-3">Player</th>
-                <th className="px-4 py-3 text-right">Predictions</th>
-                <th className="px-4 py-3 text-right">Points</th>
+                <th className="px-4 py-3 text-right hidden sm:table-cell">Preds</th>
+                <th className="px-4 py-3 text-right" title="Correct outcome (win/draw) predictions — used as tiebreaker">W/D</th>
+                <th className="px-4 py-3 text-right">Pts</th>
               </tr>
             </thead>
             <tbody>
@@ -113,7 +115,8 @@ export default function GroupLeaderboardPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-500">{e.predictionsCount}</td>
+                    <td className="px-4 py-3 text-right text-gray-500 hidden sm:table-cell">{e.predictionsCount}</td>
+                    <td className="px-4 py-3 text-right text-gray-500">{e.directHits}</td>
                     <td className="px-4 py-3 text-right font-bold text-fifa-blue">{e.totalPoints}</td>
                   </tr>
                 );

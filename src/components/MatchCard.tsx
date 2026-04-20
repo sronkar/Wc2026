@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { isPredictionLocked } from "@/lib/scoring";
+import { getFlag } from "@/lib/flags";
 
 interface Match {
   id: string;
@@ -90,8 +91,16 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
 
   const hasPred = prediction !== undefined;
 
+  const resultBg = (() => {
+    if (!finished || !hasPred || prediction.points === null) return "";
+    const isExact = match.homeScore === prediction.homeScore && match.awayScore === prediction.awayScore;
+    if (isExact) return "!bg-emerald-50 !border-emerald-400";
+    if (prediction.points > 0) return "!bg-green-50 !border-green-200";
+    return "!bg-red-50 !border-red-200";
+  })();
+
   return (
-    <div className={`card flex flex-col gap-3 relative ${finished ? "opacity-90" : ""}`}>
+    <div className={`card flex flex-col gap-3 relative ${resultBg}`}>
       {/* Predicted badge — shown when prediction exists and match not yet locked or finished */}
       {hasPred && !locked && !finished && (
         <div className="absolute top-3 right-3">
@@ -109,14 +118,14 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
 
       {/* Teams & Score */}
       <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold text-gray-800 flex-1 text-sm">{match.homeTeam}</span>
-        <div className="flex items-center gap-2 text-center">
+        <span className="font-semibold text-gray-800 flex-1 text-sm">{getFlag(match.homeTeam)} {match.homeTeam}</span>
+        <div className="flex items-center gap-2 text-center shrink-0">
           {finished ? (
             <span className="text-lg font-bold text-fifa-blue">
               {match.homeScore} – {match.awayScore}
             </span>
           ) : (
-            <span className="text-xs text-gray-400 font-medium">
+            <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
               {kickoff.toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
@@ -127,7 +136,7 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
             </span>
           )}
         </div>
-        <span className="font-semibold text-gray-800 flex-1 text-right text-sm">{match.awayTeam}</span>
+        <span className="font-semibold text-gray-800 flex-1 text-right text-sm">{match.awayTeam} {getFlag(match.awayTeam)}</span>
       </div>
 
       {/* Prediction row */}

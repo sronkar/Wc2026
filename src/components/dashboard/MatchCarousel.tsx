@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { isPredictionLocked } from "@/lib/scoring";
+import { getFlag } from "@/lib/flags";
 
 interface CarouselMatch {
   id: string;
@@ -111,12 +112,12 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
 
         {/* Teams */}
         <div className="flex items-center justify-center gap-4 mb-3">
-          <span className="text-lg font-extrabold text-gray-800 flex-1 text-right leading-tight">
-            {match.homeTeam}
+          <span className="text-base font-extrabold text-gray-800 flex-1 text-right leading-tight">
+            {match.homeTeam} {getFlag(match.homeTeam)}
           </span>
-          <span className="text-gray-300 font-light text-xl">vs</span>
-          <span className="text-lg font-extrabold text-gray-800 flex-1 text-left leading-tight">
-            {match.awayTeam}
+          <span className="text-gray-300 font-light text-xl shrink-0">vs</span>
+          <span className="text-base font-extrabold text-gray-800 flex-1 text-left leading-tight">
+            {getFlag(match.awayTeam)} {match.awayTeam}
           </span>
         </div>
 

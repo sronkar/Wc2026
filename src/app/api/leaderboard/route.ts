@@ -41,14 +41,23 @@ export async function GET(req: NextRequest) {
   });
 
   const leaderboard = memberships
-    .map((m) => ({
-      id: m.user.id,
-      name: m.user.name ?? "Anonymous",
-      image: m.user.image,
-      totalPoints: m.user.predictions.reduce((s, p) => s + (p.points ?? 0), 0),
-      predictionsCount: m.user.predictions.length,
-    }))
-    .sort((a, b) => b.totalPoints - a.totalPoints)
+    .map((m) => {
+      const totalPoints = m.user.predictions.reduce((s, p) => s + (p.points ?? 0), 0);
+      const directHits = m.user.predictions.filter((p) => (p.points ?? 0) > 0).length;
+      return {
+        id: m.user.id,
+        name: m.user.name ?? "Anonymous",
+        image: m.user.image,
+        totalPoints,
+        directHits,
+        predictionsCount: m.user.predictions.length,
+      };
+    })
+    .sort((a, b) =>
+      b.totalPoints !== a.totalPoints ? b.totalPoints - a.totalPoints :
+      b.directHits !== a.directHits ? b.directHits - a.directHits :
+      b.predictionsCount - a.predictionsCount
+    )
     .map((u, i) => ({ ...u, rank: i + 1 }));
 
   return NextResponse.json(leaderboard);
