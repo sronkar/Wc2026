@@ -86,7 +86,45 @@ function computeStandings(
   return result;
 }
 
-function GroupTable({ name, rows }: { name: string; rows: Row[] }) {
+function computeTop8ThirdPlace(standings: Record<string, Row[]>): Set<string> {
+  const thirds: (Row & { group: string })[] = Object.entries(standings)
+    .filter(([, rows]) => rows.length >= 3)
+    .map(([group, rows]) => ({ ...rows[2], group }));
+
+  thirds.sort((a, b) => {
+    if (b.Pts !== a.Pts) return b.Pts - a.Pts;
+    if (b.GD !== a.GD) return b.GD - a.GD;
+    if (b.GF !== a.GF) return b.GF - a.GF;
+    return a.team.localeCompare(b.team);
+  });
+
+  return new Set(thirds.slice(0, 8).map((r) => r.team));
+}
+
+function computeThirdPlaceRanking(standings: Record<string, Row[]>): (Row & { group: string })[] {
+  const thirds: (Row & { group: string })[] = Object.entries(standings)
+    .filter(([, rows]) => rows.length >= 3)
+    .map(([group, rows]) => ({ ...rows[2], group }));
+
+  thirds.sort((a, b) => {
+    if (b.Pts !== a.Pts) return b.Pts - a.Pts;
+    if (b.GD !== a.GD) return b.GD - a.GD;
+    if (b.GF !== a.GF) return b.GF - a.GF;
+    return a.team.localeCompare(b.team);
+  });
+
+  return thirds;
+}
+
+function GroupTable({
+  name,
+  rows,
+  top8ThirdPlace,
+}: {
+  name: string;
+  rows: Row[];
+  top8ThirdPlace: Set<string>;
+}) {
   return (
     <div className="card p-0 overflow-hidden">
       <div className="bg-fifa-blue text-white text-xs font-bold px-3 py-1.5">Group {name}</div>
@@ -94,33 +132,107 @@ function GroupTable({ name, rows }: { name: string; rows: Row[] }) {
         <thead>
           <tr className="border-b border-gray-100 text-gray-400">
             <th className="text-left px-3 py-1.5 font-medium w-full">Team</th>
-            <th className="px-1 py-1.5 font-medium text-center">P</th>
             <th className="px-1 py-1.5 font-medium text-center">W</th>
             <th className="px-1 py-1.5 font-medium text-center">D</th>
             <th className="px-1 py-1.5 font-medium text-center">L</th>
             <th className="px-1 py-1.5 font-medium text-center">GD</th>
-            <th className="px-2 py-1.5 font-medium text-center text-fifa-blue">Pts</th>
+            <th className="px-1 py-1.5 font-medium text-center">GF</th>
+            <th className="px-2 py-1.5 font-medium text-center text-fifa-blue">P</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
-            <tr key={row.team} className={`border-b border-gray-50 last:border-0 ${i < 2 ? "bg-green-50" : ""}`}>
-              <td className="px-2 py-1.5 max-w-0 w-full">
-                <div className="flex items-center gap-1">
-                  <span className="text-sm leading-none shrink-0">{getFlag(row.team)}</span>
-                  <span className={`truncate text-[11px] leading-tight ${i < 2 ? "font-semibold text-gray-800" : "text-gray-600"}`}>{row.team}</span>
-                </div>
-              </td>
-              <td className="px-1 py-1.5 text-center text-gray-500">{row.P}</td>
-              <td className="px-1 py-1.5 text-center text-gray-500">{row.W}</td>
-              <td className="px-1 py-1.5 text-center text-gray-500">{row.D}</td>
-              <td className="px-1 py-1.5 text-center text-gray-500">{row.L}</td>
-              <td className="px-1 py-1.5 text-center text-gray-500">{row.GD > 0 ? `+${row.GD}` : row.GD}</td>
-              <td className="px-2 py-1.5 text-center font-bold text-fifa-blue">{row.Pts}</td>
-            </tr>
-          ))}
+          {rows.map((row, i) => {
+            const isTop2 = i < 2;
+            const isQualifiedThird = i === 2 && top8ThirdPlace.has(row.team);
+            const rowBg = isTop2
+              ? "bg-green-50"
+              : isQualifiedThird
+              ? "bg-amber-50"
+              : "";
+            return (
+              <tr key={row.team} className={`border-b border-gray-50 last:border-0 ${rowBg}`}>
+                <td className="px-2 py-1.5 max-w-0 w-full">
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm leading-none shrink-0">{getFlag(row.team)}</span>
+                    <span
+                      className={`truncate text-[11px] leading-tight ${
+                        isTop2 ? "font-semibold text-gray-800" : isQualifiedThird ? "font-semibold text-amber-800" : "text-gray-600"
+                      }`}
+                    >
+                      {row.team}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.W}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.D}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.L}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.GD > 0 ? `+${row.GD}` : row.GD}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.GF}</td>
+                <td className="px-2 py-1.5 text-center font-bold text-fifa-blue">{row.Pts}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function ThirdPlaceRanking({ ranking }: { ranking: (Row & { group: string })[] }) {
+  if (ranking.length === 0) return null;
+  return (
+    <div className="card p-0 overflow-hidden">
+      <div className="bg-amber-500 text-white text-xs font-bold px-3 py-1.5">
+        3rd Place Teams Ranking
+      </div>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b border-gray-100 text-gray-400">
+            <th className="px-2 py-1.5 font-medium text-center">#</th>
+            <th className="text-left px-3 py-1.5 font-medium w-full">Team</th>
+            <th className="px-1 py-1.5 font-medium text-center">Grp</th>
+            <th className="px-1 py-1.5 font-medium text-center">W</th>
+            <th className="px-1 py-1.5 font-medium text-center">D</th>
+            <th className="px-1 py-1.5 font-medium text-center">L</th>
+            <th className="px-1 py-1.5 font-medium text-center">GD</th>
+            <th className="px-1 py-1.5 font-medium text-center">GF</th>
+            <th className="px-2 py-1.5 font-medium text-center text-fifa-blue">P</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ranking.map((row, i) => {
+            const qualified = i < 8;
+            const rowBg = qualified ? "bg-amber-50" : "";
+            return (
+              <tr key={row.team} className={`border-b border-gray-50 last:border-0 ${rowBg}`}>
+                <td className="px-2 py-1.5 text-center text-gray-400 font-medium">{i + 1}</td>
+                <td className="px-2 py-1.5 max-w-0 w-full">
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm leading-none shrink-0">{getFlag(row.team)}</span>
+                    <span
+                      className={`truncate text-[11px] leading-tight ${
+                        qualified ? "font-semibold text-amber-800" : "text-gray-600"
+                      }`}
+                    >
+                      {row.team}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.group}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.W}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.D}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.L}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.GD > 0 ? `+${row.GD}` : row.GD}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.GF}</td>
+                <td className="px-2 py-1.5 text-center font-bold text-fifa-blue">{row.Pts}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div className="px-3 py-1.5 text-xs text-gray-400 border-t border-gray-100">
+        Top 8 advance to Round of 32
+      </div>
     </div>
   );
 }
@@ -140,11 +252,16 @@ export function GroupStandingsPanel({
   const groupNames = Object.keys(standings).sort();
   if (groupNames.length === 0) return null;
 
+  const top8ThirdPlace = computeTop8ThirdPlace(standings);
+  const thirdPlaceRanking = computeThirdPlaceRanking(standings);
+
   const visible = groupFilter !== "All"
     ? groupNames.filter((g) => g === groupFilter)
     : groupNames;
 
   if (visible.length === 0) return null;
+
+  const showThirdPlace = groupFilter === "All";
 
   if (sidebar) {
     return (
@@ -154,12 +271,19 @@ export function GroupStandingsPanel({
           Standings
         </h2>
         {visible.map((g) => (
-          <GroupTable key={g} name={g} rows={standings[g]} />
+          <GroupTable key={g} name={g} rows={standings[g]} top8ThirdPlace={top8ThirdPlace} />
         ))}
-        <p className="text-xs text-gray-400">
-          <span className="inline-block w-2 h-2 rounded-sm bg-green-100 border border-green-300 mr-1" />
-          Top 2 advance
-        </p>
+        {showThirdPlace && <ThirdPlaceRanking ranking={thirdPlaceRanking} />}
+        <div className="text-xs text-gray-400 space-y-0.5">
+          <p>
+            <span className="inline-block w-2 h-2 rounded-sm bg-green-100 border border-green-300 mr-1" />
+            Top 2 advance
+          </p>
+          <p>
+            <span className="inline-block w-2 h-2 rounded-sm bg-amber-100 border border-amber-300 mr-1" />
+            Best 8 third-place advance
+          </p>
+        </div>
       </div>
     );
   }
@@ -173,12 +297,23 @@ export function GroupStandingsPanel({
       </h2>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {visible.map((g) => (
-          <GroupTable key={g} name={g} rows={standings[g]} />
+          <GroupTable key={g} name={g} rows={standings[g]} top8ThirdPlace={top8ThirdPlace} />
         ))}
       </div>
-      <p className="text-xs text-gray-400 mt-2">
-        <span className="inline-block w-2 h-2 rounded-sm bg-green-100 border border-green-300 mr-1" />
-        Top 2 advance · standings reflect your predicted scores
+      {showThirdPlace && (
+        <div className="mt-4">
+          <ThirdPlaceRanking ranking={thirdPlaceRanking} />
+        </div>
+      )}
+      <p className="text-xs text-gray-400 mt-2 space-x-3">
+        <span>
+          <span className="inline-block w-2 h-2 rounded-sm bg-green-100 border border-green-300 mr-1" />
+          Top 2 advance
+        </span>
+        <span>
+          <span className="inline-block w-2 h-2 rounded-sm bg-amber-100 border border-amber-300 mr-1" />
+          Best 8 third-place advance
+        </span>
       </p>
     </div>
   );
