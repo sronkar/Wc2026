@@ -157,12 +157,17 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
               {/* Header */}
               <div className="flex items-start justify-between gap-2 mb-3">
                 <p className="font-semibold text-gray-800 text-sm leading-snug">{cp.question}</p>
-                <span className={`badge shrink-0 ${
-                  cp.status === "RESOLVED" ? "bg-green-100 text-green-700" :
-                  cp.isLocked ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
-                }`}>
-                  {cp.status === "RESOLVED" ? `✓ ${cp.points}pts` : cp.isLocked ? "🔒 Locked" : `${cp.points}pts`}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {cp.userAnswer && cp.status !== "RESOLVED" && (
+                    <span className="badge bg-green-100 text-green-700">✓ Answered</span>
+                  )}
+                  <span className={`badge ${
+                    cp.status === "RESOLVED" ? "bg-green-100 text-green-700" :
+                    cp.isLocked ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"
+                  }`}>
+                    {cp.status === "RESOLVED" ? `✓ ${cp.points}pts` : cp.isLocked ? "🔒 Locked" : `${cp.points}pts`}
+                  </span>
+                </div>
               </div>
 
               {!cp.isLocked && cp.status === "OPEN" && (

@@ -518,6 +518,47 @@ function AdminPage() {
       {/* ── Groups tab ───────────────────────────────────────────────────────── */}
       {activeTab === "groups" && (
         <div className="space-y-6">
+          {/* Existing groups — top */}
+          <div className="card overflow-hidden p-0">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <h2 className="font-bold text-gray-800 text-sm">All Groups ({groups.length})</h2>
+            </div>
+            {groups.length === 0 ? (
+              <p className="px-4 py-8 text-center text-gray-400 text-sm">No groups yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
+                    <th className="px-4 py-2">Name</th>
+                    <th className="px-4 py-2">Members</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map((g, i) => (
+                    <tr key={g.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-800">{g.name}</p>
+                        {g.description && <p className="text-xs text-gray-400">{g.description}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500">{g.memberCount}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">
+                            View
+                          </Link>
+                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">
+                            Manage →
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
           {/* Create group form */}
           <div className="card">
             <h2 className="font-bold text-gray-800 mb-4">Create New Group</h2>
@@ -631,46 +672,6 @@ function AdminPage() {
             )}
           </div>
 
-          {/* Existing groups */}
-          <div className="card overflow-hidden p-0">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <h2 className="font-bold text-gray-800 text-sm">All Groups ({groups.length})</h2>
-            </div>
-            {groups.length === 0 ? (
-              <p className="px-4 py-8 text-center text-gray-400 text-sm">No groups yet.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
-                    <th className="px-4 py-2">Name</th>
-                    <th className="px-4 py-2">Members</th>
-                    <th className="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {groups.map((g, i) => (
-                    <tr key={g.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                      <td className="px-4 py-3">
-                        <p className="font-medium text-gray-800">{g.name}</p>
-                        {g.description && <p className="text-xs text-gray-400">{g.description}</p>}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">{g.memberCount}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">
-                            View
-                          </Link>
-                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">
-                            Manage →
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
         </div>
       )}
 
