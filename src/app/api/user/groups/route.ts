@@ -19,13 +19,13 @@ export async function GET() {
         orderBy: { createdAt: "asc" },
       });
       if (memberships.length > 0) {
-        return NextResponse.json(memberships.map((m) => ({ id: m.group.id, name: m.group.name, avatar: m.group.avatar })));
+        return NextResponse.json(memberships.map((m) => ({ id: m.group.id, name: m.group.name, avatar: m.group.avatar, memberRole: m.memberRole })));
       }
       const allGroups = await prisma.group.findMany({
         select: { id: true, name: true, avatar: true },
         orderBy: { createdAt: "asc" },
       });
-      return NextResponse.json(allGroups.map((g) => ({ id: g.id, name: g.name, avatar: g.avatar })));
+      return NextResponse.json(allGroups.map((g) => ({ id: g.id, name: g.name, avatar: g.avatar, memberRole: null })));
     }
 
     const memberships = await prisma.groupMembership.findMany({
@@ -39,6 +39,7 @@ export async function GET() {
         id: m.group.id,
         name: m.group.name,
         avatar: m.group.avatar,
+        memberRole: m.memberRole,
       }))
     );
   } catch {

@@ -75,6 +75,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     directionMatchPoints: group.directionMatchPoints,
     memberCount: group.memberships.length,
     myStatus: myMembership?.status ?? (isAdminRole ? "ADMIN" : null),
+    myMemberRole: myMembership?.memberRole ?? null,
     leaderboard,
   });
 }

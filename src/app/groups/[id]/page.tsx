@@ -174,9 +174,7 @@ export default async function GroupDashboardPage({
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-bold text-gray-800">Next Up to Predict</h2>
-                <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline">
-                  All matches →
-                </Link>
+                <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline">All matches →</Link>
               </div>
               <MatchCarousel
                 groupId={groupId}
@@ -213,13 +211,15 @@ export default async function GroupDashboardPage({
           <div className="card">
             <h2 className="font-bold text-gray-800 mb-3">Quick Links</h2>
             <div className="space-y-2">
-              <Link
-                href={`/groups/${groupId}/matches`}
-                className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition group"
-              >
-                <span className="text-sm text-gray-700 group-hover:text-fifa-blue">⚽ All 104 Matches</span>
-                <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
-              </Link>
+              {!isVisitor && (
+                <Link
+                  href={`/groups/${groupId}/matches`}
+                  className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition group"
+                >
+                  <span className="text-sm text-gray-700 group-hover:text-fifa-blue">⚽ All 104 Matches</span>
+                  <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
+                </Link>
+              )}
               <Link
                 href={`/groups/${groupId}/leaderboard`}
                 className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition group"

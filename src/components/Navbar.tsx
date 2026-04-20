@@ -10,6 +10,7 @@ interface GroupItem {
   id: string;
   name: string;
   avatar: string | null;
+  memberRole: string | null;
 }
 
 export function Navbar() {
@@ -86,6 +87,7 @@ export function Navbar() {
   // The group currently "active" in the navbar context
   const activeGroupId = urlGroupId ?? selectedGroupId ?? myGroups[0]?.id ?? null;
   const activeGroup = myGroups.find((g) => g.id === activeGroupId) ?? myGroups[0] ?? null;
+  const isVisitorAdmin = activeGroup?.memberRole === "VISITOR_ADMIN";
 
   const hasGroups = myGroups.length > 0;
 
@@ -180,16 +182,18 @@ export function Navbar() {
                   >
                     Dashboard
                   </Link>
-                  <Link
-                    href={`/groups/${activeGroupId}/matches`}
-                    className={`px-3 py-1.5 rounded-md transition ${
-                      pathname.startsWith(`/groups/${activeGroupId}/matches`) || subPage === "matches"
-                        ? "text-white bg-white/15"
-                        : "text-blue-200 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    Matches
-                  </Link>
+                  {!isVisitorAdmin && (
+                    <Link
+                      href={`/groups/${activeGroupId}/matches`}
+                      className={`px-3 py-1.5 rounded-md transition ${
+                        pathname.startsWith(`/groups/${activeGroupId}/matches`) || subPage === "matches"
+                          ? "text-white bg-white/15"
+                          : "text-blue-200 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      Matches
+                    </Link>
+                  )}
                   <Link
                     href={`/groups/${activeGroupId}/leaderboard`}
                     className={`px-3 py-1.5 rounded-md transition ${
@@ -273,7 +277,9 @@ export function Navbar() {
                 {activeGroup?.name ?? "Current Group"}
               </p>
               <Link href={`/groups/${activeGroupId}`} className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Dashboard</Link>
-              <Link href={`/groups/${activeGroupId}/matches`} className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Matches</Link>
+              {!isVisitorAdmin && (
+                <Link href={`/groups/${activeGroupId}/matches`} className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Matches</Link>
+              )}
               <Link href={`/groups/${activeGroupId}/leaderboard`} className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Leaderboard</Link>
 
               {/* Switch group */}

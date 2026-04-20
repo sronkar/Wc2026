@@ -87,6 +87,10 @@ export default function GroupMatchesPage() {
       if (groupRes.ok) {
         const g = await groupRes.json();
         setGroupName(g.name ?? "");
+        if (g.myMemberRole === "VISITOR_ADMIN") {
+          router.replace(`/groups/${groupId}`);
+          return;
+        }
         if (!g.leaderboard && g.myStatus !== "APPROVED") {
           router.replace("/groups");
         }
