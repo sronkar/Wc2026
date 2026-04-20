@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { MatchCard } from "@/components/MatchCard";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
+import { GroupStandingsPanel } from "@/components/GroupStandingsPanel";
 
 interface Match {
   id: string;
@@ -177,6 +178,14 @@ export default function GroupMatchesPage() {
         )}
         <span className="text-xs text-gray-400 self-end pb-1">{filtered.length} matches</span>
       </div>
+
+      {!loading && (roundFilter === "All" || roundFilter === "Group Stage") && (
+        <GroupStandingsPanel
+          matches={matches}
+          predictions={predictions}
+          groupFilter={groupFilter}
+        />
+      )}
 
       {loading ? (
         <div className="text-center text-gray-400 py-20">Loading matches…</div>
