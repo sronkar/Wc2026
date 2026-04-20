@@ -107,6 +107,24 @@ function AdminPage() {
   const [newGroupPublic, setNewGroupPublic] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
 
+  // ── CSV import state ──────────────────────────────────────────────────────────
+  const DEFAULT_CSV = `Prediction\tcomment\tLimitation\tpoints
+Top Scorer\tIn case of ties, all players are valid\tPlayer\t4
+Team to Receive First Red Card\tThis is globally (first red card in the tournament), not the earliest red card in a specific game.\tTeam\t4
+Most Points in Group Stage\tIn case of ties on points, all teams are valid\tTeam\t4
+Least Goals Scored in Group Stage\tIn case of ties, all teams are valid\tTeam\t4
+Most Goals Scored in Group Stage\tIn case of ties, all teams are valid\tTeam\t4
+Least Goals Conceded in Group Stage\tIn case of ties, all teams are valid\tTeam\t4
+Most Goals Conceded in Group Stage\tIn case of ties, all teams are valid\tTeam\t4
+Team to Score Fastest Goal\tBased on official goal minute (not actual clock time). In case of ties, all teams are valid.\tTeam\t4
+Finalist 1\t\tTeam\t4
+Finalist 2\t\tTeam\t4
+Winner\t\tTeam\t10`;
+  const [csvText, setCsvText] = useState(DEFAULT_CSV);
+  const [csvImporting, setCsvImporting] = useState(false);
+  const [csvResult, setCsvResult] = useState<{ created: number; skipped: number } | null>(null);
+  const [loadingDefaults, setLoadingDefaults] = useState(false);
+
   // ── Tab state ────────────────────────────────────────────────────────────────
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -253,6 +271,50 @@ function AdminPage() {
   if (role !== "ADMIN" && role !== "SUB_ADMIN") return null;
 
   const filtered = matches.filter((m) => m.round === roundFilter);
+
+  const parseCsvPredictions = (text: string) => {
+    const lines = text.trim().split("\n").slice(1); // skip header
+    return lines.map((line) => {
+      const parts = line.split("\t");
+      const limitation = parts[2]?.trim() ?? "";
+      return {
+        question: parts[0]?.trim() ?? "",
+        description: parts[1]?.trim() || null,
+        optionType: limitation === "Player" ? "PLAYER" : limitation === "Team" ? "TEAM" : "FIXED",
+        points: parseInt(parts[3]?.trim() ?? "3", 10) || 3,
+      };
+    }).filter((p) => p.question);
+  };
+
+  const handleCsvImport = async () => {
+    const predictions = parseCsvPredictions(csvText);
+    if (predictions.length === 0) return;
+    setCsvImporting(true);
+    setCsvResult(null);
+    const res = await fetch("/api/admin/custom-predictions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ batch: true, isGlobal: true, predictions, skipExisting: true }),
+    });
+    const data = await res.json();
+    setCsvResult({ created: data.created ?? 0, skipped: data.skipped ?? 0 });
+    setCsvImporting(false);
+    if ((data.created ?? 0) > 0) {
+      setGroupsLoaded(false); // trigger reload of global preds
+    }
+  };
+
+  const handleLoadDefaults = async () => {
+    setLoadingDefaults(true);
+    setCsvResult(null);
+    const res = await fetch("/api/admin/custom-predictions/defaults", { method: "POST" });
+    const data = await res.json();
+    setCsvResult({ created: data.created ?? 0, skipped: data.skipped ?? 0 });
+    setLoadingDefaults(false);
+    if ((data.created ?? 0) > 0) {
+      setGroupsLoaded(false); // trigger reload
+    }
+  };
 
   const handleDeleteGlobalPred = async (id: string) => {
     if (!confirm("Delete this global prediction and all answers?")) return;
@@ -625,6 +687,13 @@ function AdminPage() {
                 <h2 className="font-bold text-gray-800 text-sm">Global Custom Predictions ({globalPreds.length})</h2>
                 <p className="text-xs text-gray-400 mt-0.5">Shown in every group automatically.</p>
               </div>
+              <button
+                onClick={handleLoadDefaults}
+                disabled={loadingDefaults}
+                className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-50"
+              >
+                {loadingDefaults ? "Loading…" : "Load Defaults"}
+              </button>
             </div>
             {globalPreds.length === 0 ? (
               <p className="px-4 py-6 text-center text-gray-400 text-sm">No global predictions yet.</p>
@@ -670,6 +739,37 @@ function AdminPage() {
                 </tbody>
               </table>
             )}
+          </div>
+
+          {/* CSV bulk import */}
+          <div className="card space-y-3">
+            <div>
+              <h2 className="font-bold text-gray-800 text-sm mb-0.5">Bulk Import via CSV</h2>
+              <p className="text-xs text-gray-400">
+                Tab-separated: <code className="bg-gray-100 px-1 rounded">Prediction{"\t"}comment{"\t"}Limitation{"\t"}points</code>
+                {" "}· Limitation: Player, Team, or leave blank for fixed options.
+                Existing questions are skipped.
+              </p>
+            </div>
+            <textarea
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+              rows={14}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-fifa-blue resize-y"
+            />
+            {csvResult && (
+              <p className={`text-xs font-medium ${csvResult.created > 0 ? "text-green-600" : "text-gray-500"}`}>
+                {csvResult.created > 0 ? `✓ Added ${csvResult.created} prediction${csvResult.created !== 1 ? "s" : ""}` : "No new predictions added"}
+                {csvResult.skipped > 0 ? ` · ${csvResult.skipped} skipped (already exist)` : ""}
+              </p>
+            )}
+            <button
+              onClick={handleCsvImport}
+              disabled={csvImporting || !csvText.trim()}
+              className="btn-primary text-sm disabled:opacity-50"
+            >
+              {csvImporting ? "Importing…" : "Import CSV"}
+            </button>
           </div>
 
         </div>

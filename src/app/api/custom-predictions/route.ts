@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
       return {
         id: cp.id,
         question: cp.question,
+        description: cp.description ?? null,
         optionType: cp.optionType,
         isGlobal: cp.isGlobal,
         options,

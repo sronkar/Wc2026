@@ -6,6 +6,7 @@ import { WC2026_TEAMS } from "@/lib/teams";
 interface CustomPrediction {
   id: string;
   question: string;
+  description: string | null;
   optionType: string;
   options: string[];
   points: number;
@@ -169,6 +170,10 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                   </span>
                 </div>
               </div>
+
+              {cp.description && (
+                <p className="text-xs text-gray-400 italic mb-2">{cp.description}</p>
+              )}
 
               {!cp.isLocked && cp.status === "OPEN" && (
                 <p className="text-xs text-gray-400 mb-3"><Countdown lockTime={cp.lockTime} /></p>

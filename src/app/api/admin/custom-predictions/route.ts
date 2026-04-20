@@ -4,6 +4,16 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { WC2026_TEAMS } from "@/lib/teams";
 
+async function getDefaultLockTime(): Promise<Date> {
+  const first = await prisma.match.findFirst({
+    orderBy: { kickoff: "asc" },
+    select: { kickoff: true },
+  });
+  return first
+    ? new Date(first.kickoff.getTime() - 60 * 60 * 1000)
+    : new Date("2026-06-11T21:00:00.000Z");
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
@@ -34,6 +44,7 @@ export async function GET(req: NextRequest) {
         groupId: cp.groupId,
         isGlobal: cp.isGlobal,
         question: cp.question,
+        description: cp.description ?? null,
         optionType: cp.optionType,
         options: JSON.parse(cp.options) as string[],
         points: cp.points,
@@ -61,11 +72,32 @@ export async function POST(req: NextRequest) {
 
   // ── Batch import ─────────────────────────────────────────────────────────────
   if (body.batch === true && Array.isArray(body.predictions)) {
-    const { groupId, isGlobal, predictions } = body;
+    const { groupId, isGlobal, predictions, skipExisting = false } = body;
     if (!groupId && !isGlobal) return NextResponse.json({ error: "groupId or isGlobal required" }, { status: 400 });
 
+    const defaultLockTime = await getDefaultLockTime();
+
+    // When skipExisting: fetch existing question texts for dedup
+    let existingQuestions = new Set<string>();
+    if (skipExisting && isGlobal) {
+      const existing = await prisma.customPrediction.findMany({
+        where: { isGlobal: true },
+        select: { question: true },
+      });
+      existingQuestions = new Set(existing.map((e) => e.question.trim().toLowerCase()));
+    }
+
     const created = [];
+    let skipped = 0;
     for (const p of predictions) {
+      const question = String(p.question ?? "").trim();
+      if (!question) continue;
+
+      if (skipExisting && existingQuestions.has(question.toLowerCase())) {
+        skipped++;
+        continue;
+      }
+
       const optionType: string = (p.optionType ?? "FIXED").toUpperCase();
       let options: string[];
       if (optionType === "TEAM") {
@@ -81,27 +113,28 @@ export async function POST(req: NextRequest) {
         data: {
           groupId: isGlobal ? null : groupId,
           isGlobal: Boolean(isGlobal),
-          question: String(p.question).trim(),
+          question,
+          description: p.description ? String(p.description).trim() || null : null,
           optionType,
           options: JSON.stringify(options),
           points: typeof p.points === "number" ? p.points : 3,
-          lockTime: new Date(p.lockTime),
+          lockTime: p.lockTime ? new Date(p.lockTime) : defaultLockTime,
         },
       });
       created.push({ ...cp, options });
     }
-    return NextResponse.json({ created: created.length });
+    return NextResponse.json({ created: created.length, skipped });
   }
 
   // ── Single create ─────────────────────────────────────────────────────────────
-  const { groupId, isGlobal, question, optionType: rawType, options: rawOptions, points, lockTime } = body;
+  const { groupId, isGlobal, question, description, optionType: rawType, options: rawOptions, points, lockTime } = body;
   const optionType: string = (rawType ?? "FIXED").toUpperCase();
 
   if (!groupId && !isGlobal) {
     return NextResponse.json({ error: "groupId or isGlobal required" }, { status: 400 });
   }
-  if (!question || !lockTime) {
-    return NextResponse.json({ error: "question and lockTime are required" }, { status: 400 });
+  if (!question) {
+    return NextResponse.json({ error: "question is required" }, { status: 400 });
   }
 
   let options: string[];
@@ -117,15 +150,18 @@ export async function POST(req: NextRequest) {
     if (options.length < 2) return NextResponse.json({ error: "At least 2 non-empty options required" }, { status: 400 });
   }
 
+  const defaultLockTime = await getDefaultLockTime();
+
   const cp = await prisma.customPrediction.create({
     data: {
       groupId: isGlobal ? null : groupId,
       isGlobal: Boolean(isGlobal),
       question: String(question).trim(),
+      description: description ? String(description).trim() || null : null,
       optionType,
       options: JSON.stringify(options),
       points: typeof points === "number" ? points : 3,
-      lockTime: new Date(lockTime),
+      lockTime: lockTime ? new Date(lockTime) : defaultLockTime,
     },
   });
 

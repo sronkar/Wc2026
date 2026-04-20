@@ -180,6 +180,7 @@ model CustomPrediction {
   groupId       String?
   isGlobal      Boolean                  @default(false)
   question      String
+  description   String?
   optionType    String                   @default("FIXED")  // FIXED | TEAM | PLAYER
   options       String                   // JSON-encoded string[]
   points        Int                      @default(3)
