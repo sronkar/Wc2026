@@ -43,14 +43,13 @@ export function Navbar() {
     } catch {}
   }, []);
 
-  useEffect(() => {
+  const fetchGroups = () => {
     if (!session?.user?.id) return;
     fetch("/api/user/groups")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
           setMyGroups(data);
-          // If saved group is no longer in the list, fall back to first
           setSelectedGroupId((prev) => {
             if (prev && data.some((g: GroupItem) => g.id === prev)) return prev;
             return data[0]?.id ?? null;
@@ -58,6 +57,19 @@ export function Navbar() {
         }
       })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchGroups();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
+
+  // Re-fetch groups when any part of the app signals a change
+  useEffect(() => {
+    const handler = () => fetchGroups();
+    window.addEventListener("wc2026:groups-updated", handler);
+    return () => window.removeEventListener("wc2026:groups-updated", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
 
   // Close dropdown on outside click

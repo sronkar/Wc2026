@@ -246,6 +246,7 @@ export default function AdminPage() {
       setNewGroupName("");
       setNewGroupDesc("");
       setNewGroupVisitor(false);
+      window.dispatchEvent(new Event("wc2026:groups-updated"));
     }
     setCreatingGroup(false);
   };

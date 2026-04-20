@@ -151,9 +151,9 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
             <div className="flex flex-col gap-1.5 mt-1">
               <div className="flex items-center gap-2">
                 <input
-                  type="number"
-                  min="0"
-                  max="99"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={homeInput}
                   onChange={(e) => setHomeInput(e.target.value)}
                   className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
@@ -161,9 +161,9 @@ export function MatchCard({ match, prediction, onSave, isLoggedIn }: Props) {
                 />
                 <span className="text-gray-400">–</span>
                 <input
-                  type="number"
-                  min="0"
-                  max="99"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={awayInput}
                   onChange={(e) => setAwayInput(e.target.value)}
                   className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
