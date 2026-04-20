@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
+import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
@@ -21,6 +22,32 @@ export const authOptions: NextAuthOptions = {
         },
       },
       from: process.env.EMAIL_FROM,
+      sendVerificationRequest: async ({ identifier: email, url }) => {
+        // Always log so local dev works without an SMTP server
+        console.log("\n========================================");
+        console.log(`[AUTH] Magic link for: ${email}`);
+        console.log(`[AUTH] Sign-in URL:\n  ${url}`);
+        console.log("========================================\n");
+
+        // Also send real email in production if SMTP is configured
+        if (process.env.NODE_ENV === "production") {
+          const transport = nodemailer.createTransport({
+            host: process.env.EMAIL_SERVER_HOST,
+            port: Number(process.env.EMAIL_SERVER_PORT ?? 587),
+            auth: {
+              user: process.env.EMAIL_SERVER_USER,
+              pass: process.env.EMAIL_SERVER_PASSWORD,
+            },
+          });
+          await transport.sendMail({
+            to: email,
+            from: process.env.EMAIL_FROM,
+            subject: "Your WC2026 sign-in link",
+            text: `Sign in to WC2026:\n\n${url}\n\nThis link expires in 24 hours.`,
+            html: `<p>Sign in to WC2026 by clicking the link below:</p><p><a href="${url}">${url}</a></p><p>This link expires in 24 hours.</p>`,
+          });
+        }
+      },
     }),
   ],
   callbacks: {

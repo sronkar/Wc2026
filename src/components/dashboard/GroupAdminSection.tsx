@@ -270,6 +270,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
           {
             userId,
             status: "APPROVED",
+            memberRole: addMemberRole,
             createdAt: new Date().toISOString(),
             user: {
               id: userId,
