@@ -265,7 +265,7 @@ export default function GroupMatchesPage() {
 
           {/* Sidebar: standings (desktop only, Group Stage visible) */}
           {showSidebar && (
-            <div className="hidden lg:block w-64 shrink-0 sticky top-20">
+            <div className="hidden lg:block w-64 shrink-0">
               <GroupStandingsPanel
                 matches={matches}
                 predictions={predictions}
