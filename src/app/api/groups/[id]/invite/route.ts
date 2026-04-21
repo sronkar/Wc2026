@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
+import { sendGroupInviteEmail } from "@/lib/email";
 import { randomBytes } from "crypto";
 
 type Ctx = { params: { id: string } };
 
 const VALID_ROLES = ["MEMBER", "ADMIN", "SUB_ADMIN", "VISITOR_ADMIN"];
+
+const ROLE_LABELS: Record<string, string> = {
+  MEMBER: "Member",
+  ADMIN: "Admin",
+  SUB_ADMIN: "Sub Admin",
+  VISITOR_ADMIN: "Visitor Admin (no predictions)",
+};
 
 export async function POST(req: NextRequest, { params }: Ctx) {
   const session = await getServerSession(authOptions);
@@ -37,44 +44,25 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   });
 
   const inviteUrl = `${process.env.NEXTAUTH_URL}/invite/${token}`;
-  const roleLabels: Record<string, string> = {
-    MEMBER: "Member",
-    ADMIN: "Admin",
-    SUB_ADMIN: "Sub Admin",
-    VISITOR_ADMIN: "Visitor Admin (no predictions)",
-  };
-  const roleLabel = roleLabels[memberRole] ?? memberRole;
+  const inviterUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { name: true },
+  });
 
   let emailSent = true;
   try {
-    await sendEmail({
+    await sendGroupInviteEmail({
       to: email.trim(),
-      subject: `You're invited to join ${group.name} on WC2026 Predictions`,
-      html: `
-        <div style="font-family:sans-serif;max-width:500px;margin:0 auto">
-          <div style="background:#003DA5;padding:24px;text-align:center">
-            <h1 style="color:#fff;margin:0;font-size:22px">⚽ WC2026 Predictions</h1>
-          </div>
-          <div style="padding:24px">
-            <p>You've been invited to join <strong>${group.name}</strong> as a <strong>${roleLabel}</strong>.</p>
-            <p style="margin:24px 0">
-              <a href="${inviteUrl}"
-                 style="display:inline-block;background:#003DA5;color:#fff;padding:14px 28px;border-radius:8px;font-weight:bold;text-decoration:none">
-                Accept Invitation →
-              </a>
-            </p>
-            <p style="color:#888;font-size:12px">
-              This invite expires in 7 days. If you didn't expect this, you can safely ignore it.
-            </p>
-          </div>
-        </div>
-      `,
+      groupName: group.name,
+      roleLabel: ROLE_LABELS[memberRole] ?? memberRole,
+      inviteUrl,
+      requirePassword: group.requirePassword,
+      inviterName: inviterUser?.name ?? undefined,
     });
   } catch {
     emailSent = false;
   }
 
-  // Always return the invite URL so admin can share it manually when email is unavailable
   return NextResponse.json({ ok: true, inviteUrl, emailSent });
 }
 

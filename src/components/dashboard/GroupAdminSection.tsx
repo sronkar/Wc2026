@@ -45,6 +45,7 @@ interface GroupSettings {
   exactMatchPoints: number;
   directionMatchPoints: number;
   isPublic: boolean;
+  requirePassword: boolean;
 }
 
 interface Match {
@@ -107,7 +108,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [joinLinkLoading, setJoinLinkLoading] = useState(false);
 
   // ── Settings state ────────────────────────────────────────────────────────────
-  const [settings, setSettings] = useState<GroupSettings>({ exactMatchPoints: 5, directionMatchPoints: 1, isPublic: true });
+  const [settings, setSettings] = useState<GroupSettings>({ exactMatchPoints: 5, directionMatchPoints: 1, isPublic: true, requirePassword: false });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -150,12 +151,13 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     // Load group settings
     fetch(`/api/groups/${groupId}`)
       .then((r) => r.json())
-      .then((data: { exactMatchPoints?: number; directionMatchPoints?: number; isPublic?: boolean }) => {
+      .then((data: { exactMatchPoints?: number; directionMatchPoints?: number; isPublic?: boolean; requirePassword?: boolean }) => {
         if (data.exactMatchPoints !== undefined && data.directionMatchPoints !== undefined) {
           setSettings({
             exactMatchPoints: data.exactMatchPoints,
             directionMatchPoints: data.directionMatchPoints,
             isPublic: data.isPublic ?? true,
+            requirePassword: data.requirePassword ?? false,
           });
         }
         setSettingsLoaded(true);
@@ -343,6 +345,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         exactMatchPoints: settings.exactMatchPoints,
         directionMatchPoints: settings.directionMatchPoints,
         isPublic: settings.isPublic,
+        requirePassword: settings.requirePassword,
       }),
     });
     setSettingsSaving(false);
@@ -856,6 +859,25 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                 <div className="absolute top-full left-0 mt-1 hidden group-hover:block z-10 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg pointer-events-none">
                   <p><strong className="text-white">🔒 Private</strong> — Only users with a join link or email invite can access.</p>
                   <p className="mt-1.5"><strong className="text-white">🌐 Public</strong> — Anyone can find and request to join via the Groups search page.</p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1.5">Invite Sign-up</label>
+              <div className="relative group inline-flex">
+                <div className="flex rounded-lg border border-gray-300 text-sm overflow-hidden">
+                  <button type="button" onClick={() => setSettings((s) => ({ ...s, requirePassword: false }))}
+                    className={`px-3 py-2 flex items-center gap-1.5 transition ${!settings.requirePassword ? "bg-gray-800 text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                    👤 Name only
+                  </button>
+                  <button type="button" onClick={() => setSettings((s) => ({ ...s, requirePassword: true }))}
+                    className={`px-3 py-2 flex items-center gap-1.5 transition border-l border-gray-300 ${settings.requirePassword ? "bg-fifa-blue text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                    🔑 Require password
+                  </button>
+                </div>
+                <div className="absolute top-full left-0 mt-1 hidden group-hover:block z-10 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg pointer-events-none">
+                  <p><strong className="text-white">👤 Name only</strong> — Invited users join by entering just their name.</p>
+                  <p className="mt-1.5"><strong className="text-white">🔑 Require password</strong> — Invited users must set a password. They can use it to sign in later.</p>
                 </div>
               </div>
             </div>

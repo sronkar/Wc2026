@@ -20,6 +20,95 @@ interface UpcomingMatch {
   city: string;
 }
 
+export async function sendGroupInviteEmail({
+  to,
+  groupName,
+  roleLabel,
+  inviteUrl,
+  requirePassword,
+  inviterName,
+}: {
+  to: string;
+  groupName: string;
+  roleLabel: string;
+  inviteUrl: string;
+  requirePassword: boolean;
+  inviterName?: string;
+}) {
+  const joinNote = requirePassword
+    ? "You will set a password to secure your account when you join."
+    : "No password required — just enter your name and you're in.";
+
+  const inviterLine = inviterName
+    ? `<p style="color:#555;margin:0 0 20px">
+         <strong>${inviterName}</strong> has invited you to join a WC2026 prediction group.
+       </p>`
+    : `<p style="color:#555;margin:0 0 20px">You've been invited to join a WC2026 prediction group.</p>`;
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to,
+    subject: `You're invited to join "${groupName}" on WC2026 Predictions`,
+    html: `
+      <div style="font-family:sans-serif;max-width:540px;margin:0 auto;background:#fff">
+        <!-- Header -->
+        <div style="background:#003366;padding:32px 24px;text-align:center">
+          <div style="font-size:36px;margin-bottom:8px">⚽</div>
+          <h1 style="color:#fff;margin:0;font-size:24px;font-weight:900;letter-spacing:-0.5px">
+            WC2026 Predictions
+          </h1>
+          <p style="color:#C9A84C;margin:6px 0 0;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase">
+            Group Invite
+          </p>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:32px 24px">
+          ${inviterLine}
+
+          <!-- Group card -->
+          <div style="background:#f8f9fa;border:1px solid #e5e7eb;border-radius:12px;padding:20px 24px;margin-bottom:24px">
+            <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#888;font-weight:600">Group</p>
+            <p style="margin:0 0 12px;font-size:22px;font-weight:900;color:#003366">${groupName}</p>
+            <p style="margin:0;font-size:13px;color:#555">
+              Your role: <strong style="color:#003366">${roleLabel}</strong>
+            </p>
+          </div>
+
+          <!-- Join note -->
+          <p style="font-size:13px;color:#666;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:28px">
+            ℹ️ ${joinNote}
+          </p>
+
+          <!-- CTA -->
+          <div style="text-align:center;margin-bottom:28px">
+            <a href="${inviteUrl}"
+               style="display:inline-block;background:#003366;color:#fff;padding:16px 36px;border-radius:10px;font-weight:700;font-size:16px;text-decoration:none;letter-spacing:0.3px">
+              Accept Invitation →
+            </a>
+          </div>
+
+          <!-- Manual link -->
+          <p style="font-size:12px;color:#999;margin:0 0 4px">Or copy this link into your browser:</p>
+          <p style="font-size:11px;color:#6b7280;word-break:break-all;background:#f3f4f6;border-radius:6px;padding:8px 12px;margin:0">
+            ${inviteUrl}
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="background:#f8f9fa;border-top:1px solid #e5e7eb;padding:16px 24px;text-align:center">
+          <p style="margin:0;font-size:11px;color:#9ca3af">
+            This invite expires in 7 days. If you didn't expect this, you can safely ignore it.
+          </p>
+          <p style="margin:6px 0 0;font-size:11px;color:#d1d5db">
+            WC2026 Predictions · Not affiliated with FIFA
+          </p>
+        </div>
+      </div>
+    `,
+  });
+}
+
 export async function sendReminderEmail(
   to: string,
   name: string,

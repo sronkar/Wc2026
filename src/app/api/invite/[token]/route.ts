@@ -8,7 +8,7 @@ type Ctx = { params: { token: string } };
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const invite = await prisma.groupInvite.findUnique({
     where: { token: params.token },
-    include: { group: { select: { id: true, name: true } } },
+    include: { group: { select: { id: true, name: true, requirePassword: true } } },
   });
 
   if (!invite) return NextResponse.json({ error: "Invite not found" }, { status: 404 });
@@ -18,6 +18,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   return NextResponse.json({
     groupId: invite.groupId,
     groupName: invite.group.name,
+    requirePassword: invite.group.requirePassword,
     email: invite.email,
     memberRole: invite.memberRole,
     expiresAt: invite.expiresAt.toISOString(),
