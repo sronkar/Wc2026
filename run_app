@@ -1,0 +1,22 @@
+#!/bin/bash
+set -e
+
+BRANCH="claude/fifa-prediction-app-WsAHW"
+
+echo "==> Stashing local changes (if any)..."
+git stash
+
+echo "==> Pulling latest code from $BRANCH..."
+git pull origin "$BRANCH"
+
+echo "==> Restoring local changes (if any)..."
+git stash pop 2>/dev/null || true
+
+echo "==> Installing dependencies..."
+npm install
+
+echo "==> Syncing database schema..."
+npx prisma db push
+
+echo "==> Starting dev server..."
+npm run dev
