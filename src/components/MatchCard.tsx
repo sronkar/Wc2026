@@ -161,8 +161,8 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
       {/* Teams & Score */}
       <div className="flex items-start justify-between gap-2">
         {/* Home */}
-        <div className="flex-1 text-right">
-          <p className="font-semibold text-gray-800 text-sm leading-snug">{match.homeTeam}</p>
+        <div className="flex-1 min-w-0 text-right">
+          <p className="font-semibold text-gray-800 text-sm leading-snug break-words">{match.homeTeam}</p>
           <p className="text-base leading-tight">{getFlag(match.homeTeam) || "　"}</p>
         </div>
         {/* Score / date */}
@@ -181,8 +181,8 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
           )}
         </div>
         {/* Away */}
-        <div className="flex-1">
-          <p className="font-semibold text-gray-800 text-sm leading-snug">{match.awayTeam}</p>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-800 text-sm leading-snug break-words">{match.awayTeam}</p>
           <p className="text-base leading-tight">{getFlag(match.awayTeam) || "　"}</p>
         </div>
       </div>
@@ -237,10 +237,10 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
                   <button
                     onClick={handleCancel}
                     disabled={cancelling}
-                    className="text-xs text-gray-400 hover:text-red-500 transition disabled:opacity-40 ml-1"
+                    className="w-7 h-7 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition disabled:opacity-40 ml-1 shrink-0"
                     title="Withdraw prediction"
                   >
-                    {cancelling ? "…" : "×"}
+                    {cancelling ? "…" : "✕"}
                   </button>
                 )}
               </div>
