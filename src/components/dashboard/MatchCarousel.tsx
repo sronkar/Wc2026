@@ -40,11 +40,27 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
   });
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
+  const [cancelling, setCancelling] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const total = matches.length;
 
   const parseScore = (val: string) => (val.trim() === "" ? 0 : parseInt(val, 10));
+
+  const handleCancel = useCallback(async (matchId: string) => {
+    setCancelling((c) => ({ ...c, [matchId]: true }));
+    setErrors((e) => ({ ...e, [matchId]: "" }));
+    try {
+      const res = await fetch(`/api/predictions?matchId=${matchId}&groupId=${groupId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json()).error);
+      setPreds((p) => { const n = { ...p }; delete n[matchId]; return n; });
+      setInputs((i) => ({ ...i, [matchId]: { home: "", away: "" } }));
+    } catch (err: unknown) {
+      setErrors((e) => ({ ...e, [matchId]: (err as Error).message ?? "Failed" }));
+    } finally {
+      setCancelling((c) => ({ ...c, [matchId]: false }));
+    }
+  }, [groupId]);
 
   const handleSave = useCallback(async (matchId: string) => {
     const inp = inputs[matchId];
@@ -160,13 +176,25 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
                 placeholder="0"
               />
             </div>
-            <button
-              onClick={() => handleSave(match.id)}
-              disabled={saving[match.id]}
-              className="btn-primary px-8 py-2 text-sm"
-            >
-              {saving[match.id] ? "Saving…" : saved[match.id] ? "Saved ✓" : hasPred ? "Update" : "Save Prediction"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleSave(match.id)}
+                disabled={saving[match.id]}
+                className="btn-primary px-8 py-2 text-sm"
+              >
+                {saving[match.id] ? "Saving…" : saved[match.id] ? "Saved ✓" : hasPred ? "Update" : "Save Prediction"}
+              </button>
+              {hasPred && (
+                <button
+                  onClick={() => handleCancel(match.id)}
+                  disabled={cancelling[match.id]}
+                  title="Withdraw prediction"
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition disabled:opacity-40"
+                >
+                  {cancelling[match.id] ? "…" : "✕"}
+                </button>
+              )}
+            </div>
             {carouselWarning && (
               <p className="text-xs text-amber-600 flex items-center gap-1">
                 <span>⚠️</span> {carouselWarning}

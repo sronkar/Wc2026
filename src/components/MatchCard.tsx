@@ -158,34 +158,37 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
         <span className="truncate max-w-[140px] text-right">{match.city}</span>
       </div>
 
-      {/* Teams & Score */}
-      <div className="flex items-start justify-between gap-2">
+      {/* Teams row */}
+      <div className="flex items-center justify-between gap-3">
         {/* Home */}
-        <div className="flex-1 min-w-0 text-right">
-          <p className="font-semibold text-gray-800 text-sm leading-snug break-words">{match.homeTeam}</p>
-          <p className="text-base leading-tight">{getFlag(match.homeTeam) || "　"}</p>
+        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+          <span className="text-lg shrink-0">{getFlag(match.homeTeam) || "　"}</span>
+          <span className="font-semibold text-gray-800 text-sm truncate">{match.homeTeam}</span>
         </div>
-        {/* Score / date */}
-        <div className="shrink-0 text-center pt-0.5">
-          {finished ? (
-            <span className="text-lg font-bold text-fifa-blue whitespace-nowrap">
-              {match.homeScore} – {match.awayScore}
-            </span>
-          ) : (
-            <span className="text-xs text-gray-400 font-medium">
-              {kickoff.toLocaleDateString("en-US", {
-                month: "short", day: "numeric",
-                hour: "2-digit", minute: "2-digit", timeZoneName: "short",
-              })}
-            </span>
-          )}
-        </div>
+        {/* vs */}
+        {!finished && <span className="text-gray-300 text-sm shrink-0">vs</span>}
+        {/* Score */}
+        {finished && (
+          <span className="text-lg font-bold text-fifa-blue whitespace-nowrap shrink-0">
+            {match.homeScore}–{match.awayScore}
+          </span>
+        )}
         {/* Away */}
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-800 text-sm leading-snug break-words">{match.awayTeam}</p>
-          <p className="text-base leading-tight">{getFlag(match.awayTeam) || "　"}</p>
+        <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
+          <span className="font-semibold text-gray-800 text-sm truncate text-right">{match.awayTeam}</span>
+          <span className="text-lg shrink-0">{getFlag(match.awayTeam) || "　"}</span>
         </div>
       </div>
+
+      {/* Date row (only when not finished) */}
+      {!finished && (
+        <div className="text-center text-xs text-gray-400">
+          {kickoff.toLocaleDateString("en-US", {
+            month: "short", day: "numeric",
+            hour: "2-digit", minute: "2-digit", timeZoneName: "short",
+          })}
+        </div>
+      )}
 
       {/* Prediction row */}
       {isLoggedIn && (
