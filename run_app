@@ -18,5 +18,18 @@ npm install
 echo "==> Syncing database schema..."
 npx prisma db push
 
+echo "==> Seeding matches if database is empty..."
+MATCH_COUNT=$(node -e "
+const { PrismaClient } = require('@prisma/client');
+const p = new PrismaClient();
+p.match.count().then(c => { console.log(c); p.\$disconnect(); }).catch(() => { console.log(0); p.\$disconnect(); });
+")
+if [ "$MATCH_COUNT" -eq 0 ]; then
+  echo "    No matches found — running seed..."
+  npm run db:seed
+else
+  echo "    $MATCH_COUNT matches already in DB, skipping seed."
+fi
+
 echo "==> Starting dev server..."
 npm run dev
