@@ -2,7 +2,12 @@ node_modules/
 .next/
 *.db
 .env
+.env.local
+.env.*.local
 !.env.example
 tsconfig.tsbuildinfo
 prisma/dev.db-journal
 backups/
+.DS_Store
+.claude/
+skills/
