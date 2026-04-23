@@ -41,9 +41,46 @@ interface CustomPredictionAdmin {
   answers: { userName: string; option: string; points: number | null }[];
 }
 
+function formatExpiry(expiresAt: string): string {
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return "Expired";
+  const days = Math.floor(ms / 86_400_000);
+  const hours = Math.floor((ms % 86_400_000) / 3_600_000);
+  if (days > 0) return `Expires in ${days}d${hours > 0 ? ` ${hours}h` : ""}`;
+  const minutes = Math.floor((ms % 3_600_000) / 60_000);
+  return `Expires in ${hours}h${minutes > 0 ? ` ${minutes}m` : ""}`;
+}
+
+const STAGES = [
+  "Group Stage",
+  "Round of 32",
+  "Round of 16",
+  "Quarter-final",
+  "Semi-final",
+  "Third Place Play-off",
+  "Final",
+] as const;
+
+type StageName = typeof STAGES[number];
+type StagePointsMap = Record<StageName, { exact: number; direction: number }>;
+
+function defaultStagePoints(): StagePointsMap {
+  return {
+    "Group Stage":          { exact: 2, direction: 1 },
+    "Round of 32":          { exact: 3, direction: 2 },
+    "Round of 16":          { exact: 4, direction: 2 },
+    "Quarter-final":        { exact: 6, direction: 3 },
+    "Semi-final":           { exact: 8, direction: 4 },
+    "Third Place Play-off": { exact: 8, direction: 4 },
+    "Final":                { exact: 10, direction: 5 },
+  };
+}
+
+const DEFAULT_ADVANCEMENT_POINTS = { exact: 4, direction: 2 };
+
 interface GroupSettings {
-  exactMatchPoints: number;
-  directionMatchPoints: number;
+  stagePoints: StagePointsMap;
+  advancementPoints: { exact: number; direction: number };
   isPublic: boolean;
   requirePassword: boolean;
 }
@@ -108,7 +145,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [joinLinkLoading, setJoinLinkLoading] = useState(false);
 
   // ── Settings state ────────────────────────────────────────────────────────────
-  const [settings, setSettings] = useState<GroupSettings>({ exactMatchPoints: 5, directionMatchPoints: 1, isPublic: true, requirePassword: false });
+  const [settings, setSettings] = useState<GroupSettings>({ stagePoints: defaultStagePoints(), advancementPoints: DEFAULT_ADVANCEMENT_POINTS, isPublic: true, requirePassword: false });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -151,15 +188,29 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     // Load group settings
     fetch(`/api/groups/${groupId}`)
       .then((r) => r.json())
-      .then((data: { exactMatchPoints?: number; directionMatchPoints?: number; isPublic?: boolean; requirePassword?: boolean }) => {
-        if (data.exactMatchPoints !== undefined && data.directionMatchPoints !== undefined) {
-          setSettings({
-            exactMatchPoints: data.exactMatchPoints,
-            directionMatchPoints: data.directionMatchPoints,
-            isPublic: data.isPublic ?? true,
-            requirePassword: data.requirePassword ?? false,
-          });
+      .then((data: { stagePoints?: string; exactMatchPoints?: number; directionMatchPoints?: number; isPublic?: boolean; requirePassword?: boolean }) => {
+        const loaded = defaultStagePoints();
+        // Parse saved stagePoints JSON, fall back to old global values if a stage is missing
+        const savedMap: Partial<Record<string, { exact: number; direction: number }>> =
+          data.stagePoints ? JSON.parse(data.stagePoints) : {};
+        const fallbackExact = data.exactMatchPoints ?? 2;
+        const fallbackDir = data.directionMatchPoints ?? 1;
+        for (const stage of STAGES) {
+          const s = savedMap[stage];
+          loaded[stage] = {
+            exact: s?.exact ?? fallbackExact,
+            direction: s?.direction ?? fallbackDir,
+          };
         }
+        const advancementPoints = savedMap["Advancement"]
+          ? { exact: savedMap["Advancement"].exact, direction: savedMap["Advancement"].direction }
+          : DEFAULT_ADVANCEMENT_POINTS;
+        setSettings({
+          stagePoints: loaded,
+          advancementPoints,
+          isPublic: data.isPublic ?? true,
+          requirePassword: data.requirePassword ?? false,
+        });
         setSettingsLoaded(true);
       });
 
@@ -224,6 +275,9 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   };
 
   const handleRemoveMember = async (userId: string) => {
+    const member = memberships.find((m) => m.userId === userId);
+    const label = member?.user.name ?? member?.user.email ?? "this member";
+    if (!confirm(`Remove ${label} from the group? This cannot be undone.`)) return;
     setMemberUpdating((p) => ({ ...p, [userId]: true }));
     const res = await fetch(`/api/admin/groups/${groupId}/members/${userId}`, {
       method: "DELETE",
@@ -269,6 +323,24 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       setTimeout(() => setInviteMessage(null), 4000);
     }
     setInviteSending(false);
+  };
+
+  const handleResendInvite = async (inv: PendingInvite) => {
+    const res = await fetch(`/api/groups/${groupId}/invite/${inv.id}`, { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      setPendingInvites((prev) =>
+        prev.map((p) =>
+          p.id === inv.id
+            ? { ...p, id: data.invite.id, expiresAt: data.invite.expiresAt, createdAt: new Date().toISOString() }
+            : p
+        )
+      );
+      setInviteMessage({ ok: true, text: data.emailSent ? `Invite re-sent to ${inv.email}` : `Invite refreshed (email unavailable)` });
+    } else {
+      setInviteMessage({ ok: false, text: "Failed to resend invite" });
+    }
+    setTimeout(() => setInviteMessage(null), 3500);
   };
 
   const handleGenerateJoinLink = async () => {
@@ -342,8 +414,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        exactMatchPoints: settings.exactMatchPoints,
-        directionMatchPoints: settings.directionMatchPoints,
+        stagePoints: JSON.stringify({ ...settings.stagePoints, Advancement: settings.advancementPoints }),
         isPublic: settings.isPublic,
         requirePassword: settings.requirePassword,
       }),
@@ -643,14 +714,25 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
           {pendingInvites.length > 0 && (
             <div className="mt-2 space-y-1">
               <p className="text-xs text-gray-400 font-medium">Pending invites:</p>
-              {pendingInvites.map((inv) => (
-                <div key={inv.id} className="flex items-center gap-2 text-xs text-gray-500">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <span>{inv.email}</span>
-                  <span className="text-gray-300">·</span>
-                  <span>{inv.memberRole === "VISITOR_ADMIN" ? "Visitor Admin" : "Member"}</span>
-                </div>
-              ))}
+              {pendingInvites.map((inv) => {
+                const expired = new Date(inv.expiresAt) < new Date();
+                return (
+                  <div key={inv.id} className="flex items-center gap-2 text-xs text-gray-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                    <span className="font-medium truncate max-w-[140px]">{inv.email}</span>
+                    <span className="text-gray-300">·</span>
+                    <span>{inv.memberRole === "VISITOR_ADMIN" ? "Visitor Admin" : "Member"}</span>
+                    <span className="text-gray-300">·</span>
+                    <span className={expired ? "text-red-400" : "text-gray-400"}>{formatExpiry(inv.expiresAt)}</span>
+                    <button
+                      onClick={() => handleResendInvite(inv)}
+                      className="ml-auto text-xs text-fifa-blue hover:underline shrink-0"
+                    >
+                      Resend
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -812,36 +894,95 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
           <div className="text-sm text-gray-400 py-2">Loading…</div>
         ) : (
           <div className="space-y-4">
-            <div className="flex flex-wrap gap-6 items-end">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Exact Score (pts)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={settings.exactMatchPoints}
-                  onChange={(e) =>
-                    setSettings((s) => ({ ...s, exactMatchPoints: Number(e.target.value) }))
-                  }
-                  className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  Correct Winner/Draw (pts)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={settings.directionMatchPoints}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      directionMatchPoints: Number(e.target.value),
-                    }))
-                  }
-                  className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                />
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-gray-500 border-b border-gray-100">
+                    <th className="text-left py-2 pr-4 font-medium">Stage</th>
+                    <th className="px-3 py-2 font-medium text-center w-24">Exact</th>
+                    <th className="px-3 py-2 font-medium text-center w-28">Directional</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {STAGES.map((stage) => {
+                    const val = settings.stagePoints[stage];
+                    return (
+                      <tr key={stage} className="border-b border-gray-50">
+                        <td className="py-2 pr-4 text-gray-700 font-medium whitespace-nowrap">{stage}</td>
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={val.exact}
+                            onChange={(e) =>
+                              setSettings((s) => ({
+                                ...s,
+                                stagePoints: {
+                                  ...s.stagePoints,
+                                  [stage]: { ...s.stagePoints[stage], exact: Number(e.target.value) },
+                                },
+                              }))
+                            }
+                            className="w-16 border border-gray-300 rounded-md px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={val.direction}
+                            onChange={(e) =>
+                              setSettings((s) => ({
+                                ...s,
+                                stagePoints: {
+                                  ...s.stagePoints,
+                                  [stage]: { ...s.stagePoints[stage], direction: Number(e.target.value) },
+                                },
+                              }))
+                            }
+                            className="w-16 border border-gray-300 rounded-md px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {/* Advancement picks row */}
+                  <tr className="border-t-2 border-gray-200">
+                    <td className="py-2 pr-4 font-medium whitespace-nowrap">
+                      <span className="text-gray-700">Advancement picks</span>
+                      <span className="ml-1.5 text-xs text-gray-400" title="Exact = correct team + correct method (Winner/Runner-up/3rd). Directional = correct team but wrong method.">ⓘ</span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <input
+                        type="number"
+                        min="0"
+                        value={settings.advancementPoints.exact}
+                        onChange={(e) =>
+                          setSettings((s) => ({
+                            ...s,
+                            advancementPoints: { ...s.advancementPoints, exact: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-16 border border-gray-300 rounded-md px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <input
+                        type="number"
+                        min="0"
+                        value={settings.advancementPoints.direction}
+                        onChange={(e) =>
+                          setSettings((s) => ({
+                            ...s,
+                            advancementPoints: { ...s.advancementPoints, direction: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-16 border border-gray-300 rounded-md px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1.5">Visibility</label>

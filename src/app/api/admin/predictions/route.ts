@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculatePoints, isPredictionLocked } from "@/lib/scoring";
+import { calculatePoints, getPointsForRound, isPredictionLocked } from "@/lib/scoring";
 import { notifyAdminOfSubAdminAction } from "@/lib/notifications";
 
 export async function POST(req: NextRequest) {
@@ -37,9 +37,13 @@ export async function POST(req: NextRequest) {
 
   let points: number | null = null;
   if (match.status === "FINISHED" && match.homeScore !== null && match.awayScore !== null) {
-    const settings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
-    const exactPts = settings?.exactMatchPoints ?? 5;
-    const dirPts = settings?.directionMatchPoints ?? 1;
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { exactMatchPoints: true, directionMatchPoints: true, stagePoints: true },
+    });
+    const { exact: exactPts, direction: dirPts } = getPointsForRound(
+      group?.stagePoints ?? "{}", match.round, group?.exactMatchPoints ?? 2, group?.directionMatchPoints ?? 1
+    );
     const result = calculatePoints(homeScore, awayScore, match.homeScore, match.awayScore, exactPts, dirPts);
     points = result.points;
   }

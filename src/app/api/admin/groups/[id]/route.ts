@@ -14,13 +14,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const group = await prisma.group.findUnique({ where: { id: params.id } });
   if (!group) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { name, description, avatar, exactMatchPoints, directionMatchPoints, isPublic, requirePassword } = await req.json();
+  const { name, description, avatar, exactMatchPoints, directionMatchPoints, stagePoints, isPublic, requirePassword } = await req.json();
   const data: Record<string, unknown> = {};
   if (name?.trim()) data.name = String(name).trim();
   if (description !== undefined) data.description = description ? String(description).trim() : null;
   if (avatar !== undefined) data.avatar = avatar ? String(avatar).trim() : null;
   if (exactMatchPoints !== undefined) data.exactMatchPoints = Number(exactMatchPoints);
   if (directionMatchPoints !== undefined) data.directionMatchPoints = Number(directionMatchPoints);
+  if (stagePoints !== undefined) data.stagePoints = typeof stagePoints === "string" ? stagePoints : JSON.stringify(stagePoints);
   if (isPublic !== undefined) data.isPublic = Boolean(isPublic);
   if (requirePassword !== undefined) data.requirePassword = Boolean(requirePassword);
 

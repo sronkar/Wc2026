@@ -1,3 +1,31 @@
+export const STAGES = [
+  "Group Stage",
+  "Round of 32",
+  "Round of 16",
+  "Quarter-final",
+  "Semi-final",
+  "Third Place Play-off",
+  "Final",
+] as const;
+
+export type StagePoints = Partial<Record<string, { exact: number; direction: number }>>;
+
+export function getPointsForRound(
+  stagePoints: string | StagePoints,
+  round: string,
+  exactFallback: number,
+  directionFallback: number
+): { exact: number; direction: number } {
+  const map: StagePoints = typeof stagePoints === "string"
+    ? (JSON.parse(stagePoints || "{}") as StagePoints)
+    : stagePoints;
+  const s = map[round];
+  return {
+    exact: s?.exact ?? exactFallback,
+    direction: s?.direction ?? directionFallback,
+  };
+}
+
 interface ScoreResult {
   exact: boolean;
   direction: boolean;

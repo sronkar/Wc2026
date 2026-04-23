@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { calculatePoints } from "@/lib/scoring";
+import { calculatePoints, getPointsForRound } from "@/lib/scoring";
 import { sendPostGameNotifications } from "@/lib/notifications";
+import { generateResultNotification } from "@/lib/userNotifications";
 import { getNow } from "@/lib/time";
 
 // ── Team name normalisation ───────────────────────────────────────────────────
@@ -130,20 +131,40 @@ export async function applyMatchResult(
 
   const predictions = await prisma.prediction.findMany({
     where: { matchId },
-    include: { group: { select: { exactMatchPoints: true, directionMatchPoints: true } } },
+    include: { group: { select: { exactMatchPoints: true, directionMatchPoints: true, stagePoints: true } } },
   });
 
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    select: { round: true, homeTeam: true, awayTeam: true },
+  });
+  const round = match?.round ?? "";
+
+  const notified = new Set<string>();
+
   for (const pred of predictions) {
-    const { points } = calculatePoints(
-      pred.homeScore, pred.awayScore, homeScore, awayScore,
-      pred.group.exactMatchPoints, pred.group.directionMatchPoints
+    const { exact: exactPts, direction: dirPts } = getPointsForRound(
+      pred.group.stagePoints, round, pred.group.exactMatchPoints, pred.group.directionMatchPoints
+    );
+    const { points, exact } = calculatePoints(
+      pred.homeScore, pred.awayScore, homeScore, awayScore, exactPts, dirPts
     );
     await prisma.prediction.update({ where: { id: pred.id }, data: { points } });
+
+    // One result notification per user per match (across groups)
+    if (!notified.has(pred.userId) && match) {
+      notified.add(pred.userId);
+      generateResultNotification(
+        pred.userId, matchId,
+        match.homeTeam, match.awayTeam,
+        homeScore, awayScore, points, exact
+      ).catch(() => {});
+    }
   }
 
   // Notifications use global defaults for messaging context only
   const settings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
-  const exactPts = settings?.exactMatchPoints ?? 5;
+  const exactPts = settings?.exactMatchPoints ?? 2;
   const directionPts = settings?.directionMatchPoints ?? 1;
   sendPostGameNotifications(matchId, homeScore, awayScore, exactPts, directionPts).catch(
     (e) => console.error("[notifications] post-game send failed:", e)

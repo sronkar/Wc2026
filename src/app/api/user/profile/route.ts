@@ -9,7 +9,7 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, image: true },
+    select: { id: true, name: true, email: true, image: true, emailNotifications: true },
   });
 
   return NextResponse.json(user);
@@ -19,15 +19,29 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { name } = await req.json();
-  const trimmed = typeof name === "string" ? name.trim() : "";
-  if (!trimmed) return NextResponse.json({ error: "Name is required" }, { status: 400 });
-  if (trimmed.length > 50) return NextResponse.json({ error: "Name too long (max 50 chars)" }, { status: 400 });
+  const body = await req.json();
+
+  const updates: Record<string, unknown> = {};
+
+  if ("name" in body) {
+    const trimmed = typeof body.name === "string" ? body.name.trim() : "";
+    if (!trimmed) return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    if (trimmed.length > 50) return NextResponse.json({ error: "Name too long (max 50 chars)" }, { status: 400 });
+    updates.name = trimmed;
+  }
+
+  if ("emailNotifications" in body) {
+    updates.emailNotifications = Boolean(body.emailNotifications);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  }
 
   const updated = await prisma.user.update({
     where: { id: session.user.id },
-    data: { name: trimmed },
-    select: { id: true, name: true, email: true },
+    data: updates,
+    select: { id: true, name: true, email: true, emailNotifications: true },
   });
 
   return NextResponse.json(updated);

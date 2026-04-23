@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   // Fall back to global PointSettings if per-group values not provided
   const globalSettings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
-  const resolvedExact = exactMatchPoints !== undefined ? Number(exactMatchPoints) : (globalSettings?.exactMatchPoints ?? 5);
+  const resolvedExact = exactMatchPoints !== undefined ? Number(exactMatchPoints) : (globalSettings?.exactMatchPoints ?? 2);
   const resolvedDirection = directionMatchPoints !== undefined ? Number(directionMatchPoints) : (globalSettings?.directionMatchPoints ?? 1);
 
   const group = await prisma.group.create({

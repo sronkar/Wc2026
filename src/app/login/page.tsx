@@ -1,12 +1,22 @@
 "use client";
 
-import { signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useState, Suspense, useEffect } from "react";
+import Link from "next/link";
 
 function LoginForm() {
+  const { status } = useSession();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const verify = searchParams.get("verify");
+  // Honour the callbackUrl if present (e.g. user was redirected from a deep link)
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/groups";
+
+  // Already logged in — redirect immediately
+  useEffect(() => {
+    if (status === "authenticated") router.replace(callbackUrl);
+  }, [status, router, callbackUrl]);
 
   const [magicEmail, setMagicEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
@@ -21,7 +31,7 @@ function LoginForm() {
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     setMagicLoading(true);
-    await signIn("email", { email: magicEmail, callbackUrl: "/groups", redirect: false });
+    await signIn("email", { email: magicEmail, callbackUrl, redirect: false });
     setEmailSent(true);
     setMagicLoading(false);
   };
@@ -33,14 +43,14 @@ function LoginForm() {
     const result = await signIn("credentials", {
       email: credEmail,
       password: credPassword,
-      callbackUrl: "/groups",
+      callbackUrl,
       redirect: false,
     });
     if (result?.error) {
       setCredError("Incorrect email or password.");
       setCredLoading(false);
     } else {
-      window.location.href = "/groups";
+      window.location.href = callbackUrl;
     }
   };
 
@@ -60,7 +70,7 @@ function LoginForm() {
         <>
           {/* Google */}
           <button
-            onClick={() => signIn("google", { callbackUrl: "/groups" })}
+            onClick={() => signIn("google", { callbackUrl })}
             className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg px-4 py-3 text-gray-700 font-medium hover:bg-gray-50 transition"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -125,13 +135,18 @@ function LoginForm() {
               <button type="submit" disabled={credLoading} className="btn-primary w-full py-3">
                 {credLoading ? "Signing in…" : "Sign In"}
               </button>
-              <button
-                type="button"
-                onClick={() => { setShowPasswordForm(false); setCredError(""); }}
-                className="w-full text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2 pt-1"
-              >
-                Send magic link instead
-              </button>
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowPasswordForm(false); setCredError(""); }}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
+                >
+                  Send magic link instead
+                </button>
+                <Link href="/forgot-password" className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2">
+                  Forgot password?
+                </Link>
+              </div>
             </form>
           )}
         </>

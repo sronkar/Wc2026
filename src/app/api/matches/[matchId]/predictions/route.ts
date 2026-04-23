@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isPredictionLocked } from "@/lib/scoring";
+import { loadVirtualTime } from "@/lib/time";
 
 export async function GET(
   req: NextRequest,
@@ -20,6 +21,7 @@ export async function GET(
   const match = await prisma.match.findUnique({ where: { id: params.matchId } });
   if (!match) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  await loadVirtualTime();
   const locked = isPredictionLocked(match.kickoff);
   if (!locked && match.status !== "FINISHED") return NextResponse.json([]);
 

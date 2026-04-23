@@ -42,13 +42,16 @@ model User {
   role                    String                   @default("USER")
   password                String?
   isDemo                  Boolean                  @default(false)
-  predictions             Prediction[]
-  customPredictionAnswers CustomPredictionAnswer[]
-  groupMemberships        GroupMembership[]
-  accounts                Account[]
-  sessions                Session[]
-  pushSubscriptions       PushSubscription[]
-  matchReminders          MatchReminder[]
+  predictions              Prediction[]
+  customPredictionAnswers  CustomPredictionAnswer[]
+  advancementPredictions   AdvancementPrediction[]
+  groupMemberships         GroupMembership[]
+  accounts                 Account[]
+  sessions                 Session[]
+  pushSubscriptions        PushSubscription[]
+  matchReminders           MatchReminder[]
+  notifications            Notification[]
+  emailNotifications       Boolean                  @default(true)
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 }
@@ -126,9 +129,25 @@ model MatchReminder {
   @@unique([userId, matchId])
 }
 
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "lock_1h" | "lock_30m" | "result"
+  title     String
+  body      String
+  matchId   String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
 model DemoSettings {
-  id          String   @id @default("demo")
-  virtualTime DateTime @default(now())
+  id                  String   @id @default("demo")
+  virtualTime         DateTime @default(now())
+  simulationActive    Boolean  @default(false)
+  simulationMatchIds  String   @default("[]")  // JSON: match IDs scored during simulation
 }
 
 model Group {
@@ -139,13 +158,15 @@ model Group {
   createdBy            String
   exactMatchPoints     Int                 @default(5)
   directionMatchPoints Int                 @default(1)
+  stagePoints          String              @default("{}")
   joinToken            String?             @unique
   isPublic             Boolean             @default(true)
   requirePassword      Boolean             @default(false)
-  memberships          GroupMembership[]
-  predictions          Prediction[]
-  customPredictions    CustomPrediction[]
-  invites              GroupInvite[]
+  memberships              GroupMembership[]
+  predictions              Prediction[]
+  customPredictions        CustomPrediction[]
+  advancementPredictions   AdvancementPrediction[]
+  invites                  GroupInvite[]
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 }
@@ -203,6 +224,30 @@ model Player {
   number   Int?
 
   @@index([country])
+}
+
+// Per-user prediction of how each team will finish the group stage
+model AdvancementPrediction {
+  id      String  @id @default(cuid())
+  userId  String
+  groupId String  // prediction group id
+  team    String
+  pick    String  // "WINNER" | "RUNNER_UP" | "THIRD" | "ELIMINATED"
+  points  Int?
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, groupId, team])
+}
+
+// Admin-set actual group stage outcome per team
+model TeamAdvancement {
+  id         String   @id @default(cuid())
+  team       String   @unique
+  result     String   // "WINNER" | "RUNNER_UP" | "THIRD" | "ELIMINATED"
+  resolvedAt DateTime @default(now())
 }
 
 model CustomPredictionAnswer {

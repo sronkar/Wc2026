@@ -1,11 +1,11 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 
-export default function ProfilePage() {
+function ProfilePageInner() {
   const { data: session, update, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,6 +15,8 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [emailNotifications, setEmailNotifications] = useState(true);
+  const [savingEmail, setSavingEmail] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/login");
@@ -23,6 +25,29 @@ export default function ProfilePage() {
   useEffect(() => {
     if (session?.user?.name) setName(session.user.name);
   }, [session?.user?.name]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetch("/api/user/profile")
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d.emailNotifications === "boolean") setEmailNotifications(d.emailNotifications);
+      })
+      .catch(() => {});
+  }, [session?.user?.id]);
+
+  const toggleEmailNotifications = async (val: boolean) => {
+    setEmailNotifications(val);
+    setSavingEmail(true);
+    try {
+      await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailNotifications: val }),
+      });
+    } catch {}
+    setSavingEmail(false);
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,15 +159,51 @@ export default function ProfilePage() {
         </form>
       </div>
 
+      {/* Notification settings */}
+      <div className="card mt-4">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Notification Settings</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Email notifications</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Receive match reminders and result updates by email.
+            </p>
+          </div>
+          <button
+            onClick={() => toggleEmailNotifications(!emailNotifications)}
+            disabled={savingEmail}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+              emailNotifications ? "bg-fifa-blue" : "bg-gray-200"
+            }`}
+            aria-checked={emailNotifications}
+            role="switch"
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                emailNotifications ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
       {/* Sign out */}
-      <div className="mt-6 text-center">
+      <div className="mt-4">
         <button
           onClick={() => signOut({ callbackUrl: "/" })}
-          className="text-sm text-red-400 hover:text-red-600"
+          className="w-full py-2.5 rounded-lg border border-red-200 text-sm font-medium text-red-500 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition"
         >
           Sign out
         </button>
       </div>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense>
+      <ProfilePageInner />
+    </Suspense>
   );
 }

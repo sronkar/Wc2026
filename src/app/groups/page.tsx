@@ -25,14 +25,20 @@ export default function GroupsPage() {
   const [search, setSearch] = useState("");
   const [searching, setSearching] = useState(false);
   const [joining, setJoining] = useState<Record<string, boolean>>({});
+  const [joinErrors, setJoinErrors] = useState<Record<string, string>>({});
 
   const fetchGroups = useCallback(async (q: string) => {
     setSearching(true);
-    const url = q.trim() ? `/api/groups?search=${encodeURIComponent(q.trim())}` : "/api/groups";
-    const data = await fetch(url).then((r) => r.json());
-    if (Array.isArray(data)) setGroups(data);
-    setSearching(false);
-    setLoaded(true);
+    try {
+      const url = q.trim() ? `/api/groups?search=${encodeURIComponent(q.trim())}` : "/api/groups";
+      const data = await fetch(url).then((r) => r.json());
+      if (Array.isArray(data)) setGroups(data);
+    } catch {
+      /* non-fatal — user will see the last known state */
+    } finally {
+      setSearching(false);
+      setLoaded(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -50,11 +56,20 @@ export default function GroupsPage() {
 
   const handleJoin = async (groupId: string) => {
     setJoining((p) => ({ ...p, [groupId]: true }));
-    const res = await fetch(`/api/groups/${groupId}/join`, { method: "POST" });
-    if (res.ok) {
-      setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, myStatus: "PENDING" } : g));
+    setJoinErrors((e) => ({ ...e, [groupId]: "" }));
+    try {
+      const res = await fetch(`/api/groups/${groupId}/join`, { method: "POST" });
+      if (res.ok) {
+        setGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, myStatus: "PENDING" } : g));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setJoinErrors((e) => ({ ...e, [groupId]: data.error ?? "Failed to join" }));
+      }
+    } catch {
+      setJoinErrors((e) => ({ ...e, [groupId]: "Connection error — try again" }));
+    } finally {
+      setJoining((p) => ({ ...p, [groupId]: false }));
     }
-    setJoining((p) => ({ ...p, [groupId]: false }));
   };
 
   const myGroups = groups.filter((g) => g.myStatus === "APPROVED" && g.source === "member");
@@ -86,13 +101,13 @@ export default function GroupsPage() {
         </div>
         <div className="shrink-0">
           {g.myStatus === "INVITED" && (
-            <Link
-              href={`/invite/${encodeURIComponent("")}`}
-              onClick={(e) => e.stopPropagation()}
-              className="badge bg-blue-100 text-blue-700 text-xs"
+            <button
+              onClick={(e) => { e.preventDefault(); handleJoin(g.id); }}
+              disabled={joining[g.id]}
+              className="badge bg-blue-100 text-blue-700 text-xs hover:bg-blue-200 transition disabled:opacity-50"
             >
-              Invited
-            </Link>
+              {joining[g.id] ? "Accepting…" : "Accept Invite →"}
+            </button>
           )}
           {g.myStatus === "PENDING" && (
             <span className="badge bg-yellow-100 text-yellow-700 text-xs">Pending</span>
@@ -104,13 +119,18 @@ export default function GroupsPage() {
             <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
           )}
           {!canOpen && g.myStatus === null && (
-            <button
-              onClick={(e) => { e.preventDefault(); handleJoin(g.id); }}
-              disabled={joining[g.id]}
-              className="btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
-            >
-              {joining[g.id] ? "…" : "Request to join"}
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <button
+                onClick={(e) => { e.preventDefault(); handleJoin(g.id); }}
+                disabled={joining[g.id]}
+                className="btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
+              >
+                {joining[g.id] ? "…" : "Request to join"}
+              </button>
+              {joinErrors[g.id] && (
+                <p className="text-[10px] text-red-500 max-w-[120px] text-right">{joinErrors[g.id]}</p>
+              )}
+            </div>
           )}
         </div>
       </>
@@ -164,6 +184,15 @@ export default function GroupsPage() {
         </div>
       )}
 
+      {/* Empty state — no groups yet and not searching */}
+      {myGroups.length === 0 && invitedGroups.length === 0 && pendingGroups.length === 0 && !search.trim() && (
+        <div className="card text-center py-10 mb-6">
+          <div className="text-4xl mb-3">⚽</div>
+          <p className="font-semibold text-gray-700 mb-1">You're not in any groups yet</p>
+          <p className="text-sm text-gray-400">Search for a public group below, or ask a friend for their invite link.</p>
+        </div>
+      )}
+
       {/* Search public groups */}
       <div>
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -189,7 +218,7 @@ export default function GroupsPage() {
             {searchResults.map((g) => <GroupCard key={g.id} g={g} />)}
           </div>
         ) : !search.trim() ? (
-          <p className="text-sm text-gray-400 text-center py-6">Type a name above to search for public groups.</p>
+          <p className="text-sm text-gray-400 text-center py-4">Type a name above to search for public groups.</p>
         ) : null}
       </div>
     </div>

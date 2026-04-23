@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getNow } from "@/lib/time";
 
 type Ctx = { params: { id: string } };
 
@@ -18,32 +19,59 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   const body = await req.json();
 
-  // ── Resolve: set correct answer and award points ──
+  // ── Disable: hide from users without deleting ──
+  if (body.action === "disable") {
+    await prisma.customPrediction.update({ where: { id: params.id }, data: { status: "DISABLED" } });
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Enable: re-open a disabled prediction ──
+  if (body.action === "enable") {
+    await prisma.customPrediction.update({ where: { id: params.id }, data: { status: "OPEN" } });
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Unresolve: revert to OPEN and clear points ──
+  if (body.action === "unresolve") {
+    await prisma.customPrediction.update({
+      where: { id: params.id },
+      data: { correctOption: null, status: "OPEN" },
+    });
+    // Reset all answer points to null
+    await prisma.customPredictionAnswer.updateMany({
+      where: { customPredictionId: params.id },
+      data: { points: null },
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── Resolve: set correct answers and award points ──
   if (body.action === "resolve") {
     const { correctOption } = body;
-    if (!correctOption) return NextResponse.json({ error: "correctOption is required" }, { status: 400 });
+    if (!correctOption?.trim()) return NextResponse.json({ error: "correctOption is required" }, { status: 400 });
 
-    // For FIXED/TEAM types validate against options; PLAYER allows free text
-    if (cp.optionType !== "PLAYER") {
-      const options: string[] = JSON.parse(cp.options);
-      if (!options.includes(correctOption)) {
-        return NextResponse.json({ error: "correctOption must be one of the defined options" }, { status: 400 });
-      }
-    }
+    // Store as comma-separated canonical string (trimmed values)
+    const correctValues = (correctOption as string)
+      .split(",")
+      .map((v: string) => v.trim())
+      .filter(Boolean);
+    if (correctValues.length === 0) return NextResponse.json({ error: "No valid values provided" }, { status: 400 });
+
+    const stored = correctValues.join(",");
 
     await prisma.customPrediction.update({
       where: { id: params.id },
-      data: { correctOption, status: "RESOLVED" },
+      data: { correctOption: stored, status: "RESOLVED" },
     });
 
     const answers = await prisma.customPredictionAnswer.findMany({
       where: { customPredictionId: params.id },
     });
 
-    const isMatch = (answer: string) =>
-      cp.optionType === "PLAYER"
-        ? answer.trim().toLowerCase() === correctOption.trim().toLowerCase()
-        : answer === correctOption;
+    const isMatch = (answer: string) => {
+      const a = answer.trim().toLowerCase();
+      return correctValues.some((v) => v.toLowerCase() === a);
+    };
 
     await Promise.all(
       answers.map((a) =>
@@ -58,7 +86,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   }
 
   // ── Edit metadata (only allowed before lock time) ──
-  if (new Date() >= cp.lockTime) {
+  if (getNow() >= cp.lockTime) {
     return NextResponse.json({ error: "Cannot edit a locked prediction" }, { status: 409 });
   }
 

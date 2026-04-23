@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { encode } from "next-auth/jwt";
+import { sendWelcomeEmail } from "@/lib/email";
 
 type Ctx = { params: { token: string } };
 
@@ -62,22 +63,40 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // Mark invite as accepted
   await prisma.groupInvite.update({ where: { token: params.token }, data: { status: "ACCEPTED" } });
 
-  // Create a database session
-  const sessionToken = crypto.randomBytes(32).toString("hex");
-  const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  await prisma.session.create({ data: { sessionToken, userId: user.id, expires } });
+  // Issue a JWT session (strategy: "jwt" — no DB session row needed)
+  const maxAge = 30 * 24 * 60 * 60; // 30 days in seconds
+  const expires = new Date(Date.now() + maxAge * 1000);
+  const jwt = await encode({
+    token: {
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+      picture: user.image ?? undefined,
+      role: user.role,
+    },
+    secret: process.env.NEXTAUTH_SECRET!,
+    maxAge,
+  });
 
   const isProduction = process.env.NODE_ENV === "production";
   const cookieName = isProduction ? "__Secure-next-auth.session-token" : "next-auth.session-token";
 
   const response = NextResponse.json({ ok: true, groupId: invite.groupId });
-  response.cookies.set(cookieName, sessionToken, {
+  response.cookies.set(cookieName, jwt, {
     httpOnly: true,
     secure: isProduction,
     sameSite: "lax",
     path: "/",
     expires,
   });
+
+  // Send welcome email non-blocking
+  sendWelcomeEmail({
+    to: user.email!,
+    name: user.name ?? "there",
+    groupName: invite.group.name,
+    groupId: invite.groupId,
+  }).catch((e) => console.error("[invite/login] welcome email failed:", e));
 
   return response;
 }

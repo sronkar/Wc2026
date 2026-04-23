@@ -19,6 +19,8 @@ interface Props {
 
 const medals = ["🥇", "🥈", "🥉"];
 
+const initial = (name: string) => (name.match(/[a-zA-Z]/) ?? ["?"])[0].toUpperCase();
+
 export function MiniLeaderboard({ entries, currentUserId }: Props) {
   const top3 = entries.slice(0, 3);
   const userEntry = entries.find((e) => e.id === currentUserId);
@@ -37,13 +39,13 @@ export function MiniLeaderboard({ entries, currentUserId }: Props) {
             entry.id === currentUserId ? "bg-yellow-50 ring-1 ring-yellow-200" : "bg-gray-50"
           }`}
         >
-          <span className="text-xl w-8 text-center">{medals[i]}</span>
+          <span className="text-xl w-8 text-center" suppressHydrationWarning>{medals[i]}</span>
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {entry.image ? (
               <Image src={entry.image} alt={entry.name} width={28} height={28} className="rounded-full shrink-0" />
             ) : (
               <div className="w-7 h-7 rounded-full bg-fifa-blue text-white text-xs font-bold flex items-center justify-center shrink-0">
-                {entry.name.charAt(0).toUpperCase()}
+                {initial(entry.name)}
               </div>
             )}
             <span className={`text-sm font-medium truncate ${entry.id === currentUserId ? "text-gray-900" : "text-gray-700"}`}>

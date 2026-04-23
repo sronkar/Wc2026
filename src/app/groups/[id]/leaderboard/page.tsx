@@ -40,6 +40,8 @@ export default function GroupLeaderboardPage() {
       setGroupName(g.name ?? "");
       setGroupAvatar(g.avatar ?? null);
       if (!g.leaderboard && g.myStatus !== "APPROVED") router.replace("/groups");
+    }).catch(() => {
+      /* non-fatal — user sees empty table; will still load=true so spinner clears */
     }).finally(() => setLoaded(true));
   }, [session, status, groupId, router]);
 
@@ -83,8 +85,7 @@ export default function GroupLeaderboardPage() {
                 <th className="px-4 py-3 w-10">#</th>
                 <th className="px-4 py-3">Player</th>
                 <th className="px-4 py-3 text-right hidden sm:table-cell">Preds</th>
-                <th className="px-4 py-3 text-right" title="Correct outcome (win/draw) — used as tiebreaker">Raw</th>
-                <th className="px-4 py-3 text-right">Points</th>
+                <th className="px-4 py-3 text-right" title="Points · correct outcomes in parentheses (used as tiebreaker)">Points (Dir.)</th>
               </tr>
             </thead>
             <tbody>
@@ -116,8 +117,10 @@ export default function GroupLeaderboardPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right text-gray-500 hidden sm:table-cell">{e.predictionsCount}</td>
-                    <td className="px-4 py-3 text-right text-gray-500">{e.directHits}</td>
-                    <td className="px-4 py-3 text-right font-bold text-fifa-blue">{e.totalPoints}</td>
+                    <td className="px-4 py-3 text-right font-bold text-fifa-blue">
+                      {e.totalPoints}
+                      <span className="text-gray-400 font-normal text-xs ml-1">({e.directHits})</span>
+                    </td>
                   </tr>
                 );
               })}

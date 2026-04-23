@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -66,6 +66,131 @@ export default function GroupMatchesPage() {
   const [roundFilter, setRoundFilter] = useState("All");
   const [groupFilter, setGroupFilter] = useState("All");
   const [hideResolved, setHideResolved] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
+  const [nowMs, setNowMs] = useState<number>(Date.now());
+  const [alerts, setAlerts] = useState<{ id: string; text: string; type: "warn" | "score" }[]>([]);
+  const [groupSettings, setGroupSettings] = useState<{
+    exact: number;
+    direction: number;
+    stagePoints: Record<string, { exact: number; direction: number }>;
+  }>({ exact: 5, direction: 1, stagePoints: {} });
+  const prevStatuses = useRef<Record<string, string>>({});
+  const warnedLocks = useRef<Set<string>>(new Set());
+
+  const dismissAlert = useCallback((id: string) => {
+    setAlerts((a) => a.filter((x) => x.id !== id));
+  }, []);
+
+  // Load filters from localStorage after mount
+  useEffect(() => {
+    try {
+      const r = localStorage.getItem("wc2026_round");
+      const g = localStorage.getItem("wc2026_group_filter");
+      const h = localStorage.getItem("wc2026_hide_resolved");
+      const c = localStorage.getItem("wc2026_collapsed");
+      if (r) setRoundFilter(r);
+      if (g) setGroupFilter(g);
+      if (h) setHideResolved(h === "1");
+      if (c) setCollapsed(JSON.parse(c));
+    } catch {}
+    setFiltersLoaded(true);
+  }, []);
+
+  // Persist filters
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    try { localStorage.setItem("wc2026_round", roundFilter); } catch {}
+  }, [roundFilter, filtersLoaded]);
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    try { localStorage.setItem("wc2026_group_filter", groupFilter); } catch {}
+  }, [groupFilter, filtersLoaded]);
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    try { localStorage.setItem("wc2026_hide_resolved", hideResolved ? "1" : "0"); } catch {}
+  }, [hideResolved, filtersLoaded]);
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    try { localStorage.setItem("wc2026_collapsed", JSON.stringify(collapsed)); } catch {}
+  }, [collapsed, filtersLoaded]);
+
+  // Poll server time every 30s and trigger lock warnings
+  useEffect(() => {
+    const fetchTime = async () => {
+      const res = await fetch("/api/time");
+      if (res.ok) {
+        const data = await res.json();
+        setNowMs(new Date(data.now).getTime());
+      }
+    };
+    fetchTime();
+    const interval = setInterval(fetchTime, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fire lock warnings when virtual time enters the 60-min window before lock
+  useEffect(() => {
+    if (matches.length === 0) return;
+    const newAlerts: typeof alerts = [];
+    matches.forEach((m) => {
+      if (m.status !== "SCHEDULED") return;
+      if (warnedLocks.current.has(m.id)) return;
+      const lockMs = new Date(m.kickoff).getTime() - 60 * 60 * 1000;
+      const minutesToLock = Math.round((lockMs - nowMs) / 60_000);
+      if (minutesToLock >= 0 && minutesToLock <= 60) {
+        warnedLocks.current.add(m.id);
+        newAlerts.push({
+          id: `lock-${m.id}`,
+          text: `${m.homeTeam} vs ${m.awayTeam} — predictions lock in ${minutesToLock}m`,
+          type: "warn",
+        });
+      }
+    });
+    if (newAlerts.length > 0) setAlerts((a) => [...a, ...newAlerts]);
+  }, [nowMs, matches]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll matches + predictions every 60s and surface scoring alerts
+  useEffect(() => {
+    if (!groupId) return;
+    const poll = async () => {
+      const [matchRes, predRes] = await Promise.all([
+        fetch("/api/matches"),
+        fetch(`/api/predictions?groupId=${groupId}`),
+      ]);
+      let freshPreds: Record<string, Prediction> = {};
+      if (predRes.ok) {
+        const predData: (Prediction & { matchId: string })[] = await predRes.json();
+        predData.forEach((p) => (freshPreds[p.matchId] = p));
+        setPredictions(freshPreds);
+      }
+      if (matchRes.ok) {
+        const fresh: Match[] = await matchRes.json();
+        fresh.forEach((m) => {
+          const prev = prevStatuses.current[m.id];
+          if (prev === "SCHEDULED" && m.status === "FINISHED") {
+            const pred = freshPreds[m.id];
+            const pts = pred?.points;
+            const scoreStr = `${m.homeScore}–${m.awayScore}`;
+            const ptsStr =
+              pts != null ? (pts > 0 ? ` · +${pts}pts` : " · miss") : "";
+            setAlerts((a) => [
+              ...a,
+              {
+                id: `score-${m.id}`,
+                text: `⚽ ${m.homeTeam} ${scoreStr} ${m.awayTeam}${ptsStr}`,
+                type: "score",
+              },
+            ]);
+          }
+          prevStatuses.current[m.id] = m.status;
+        });
+        setMatches(fresh);
+      }
+    };
+    const interval = setInterval(poll, 60_000);
+    return () => clearInterval(interval);
+  }, [groupId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (status === "loading") return;
@@ -79,6 +204,7 @@ export default function GroupMatchesPage() {
         fetch(`/api/groups/${groupId}`),
       ]);
       const matchData: Match[] = await matchRes.json();
+      matchData.forEach((m) => { prevStatuses.current[m.id] = m.status; });
       setMatches(matchData);
 
       if (predRes.ok) {
@@ -91,6 +217,20 @@ export default function GroupMatchesPage() {
       if (groupRes.ok) {
         const g = await groupRes.json();
         setGroupName(g.name ?? "");
+        if (g.exactMatchPoints) {
+          const stagePoints: Record<string, { exact: number; direction: number }> = {};
+          try {
+            const raw = JSON.parse(g.stagePoints || "{}");
+            for (const [round, vals] of Object.entries(raw)) {
+              const v = vals as { exact?: number; direction?: number };
+              stagePoints[round] = {
+                exact: v.exact ?? g.exactMatchPoints,
+                direction: v.direction ?? g.directionMatchPoints ?? 1,
+              };
+            }
+          } catch {}
+          setGroupSettings({ exact: g.exactMatchPoints, direction: g.directionMatchPoints ?? 1, stagePoints });
+        }
         if (g.myMemberRole === "VISITOR_ADMIN") {
           router.replace(`/groups/${groupId}`);
           return;
@@ -219,6 +359,31 @@ export default function GroupMatchesPage() {
         </button>
       </div>
 
+      {/* In-app notification alerts */}
+      {alerts.length > 0 && (
+        <div className="mb-4 space-y-2">
+          {alerts.map((alert) => (
+            <div
+              key={alert.id}
+              className={`rounded-lg px-4 py-3 flex items-center gap-3 text-sm font-medium ${
+                alert.type === "warn"
+                  ? "bg-orange-50 border border-orange-200 text-orange-800"
+                  : "bg-emerald-50 border border-emerald-200 text-emerald-800"
+              }`}
+            >
+              <span>{alert.type === "warn" ? "🔒" : "⚽"}</span>
+              <span className="flex-1">{alert.text}</span>
+              <button
+                onClick={() => dismissAlert(alert.id)}
+                className="opacity-50 hover:opacity-100 transition text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center text-gray-400 py-20">Loading matches…</div>
       ) : (
@@ -231,41 +396,72 @@ export default function GroupMatchesPage() {
             {/* General: custom predictions first */}
             {showGeneral && (
               <div>
-                <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-                  General
-                </h2>
-                <CustomPredictionsPanel groupId={groupId} hideResolved={hideResolved} />
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                    General
+                  </h2>
+                  <button
+                    onClick={() => setCollapsed((prev) => ({ ...prev, General: !prev.General }))}
+                    className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 rounded px-2 py-0.5 transition"
+                  >
+                    {collapsed.General ? "Show" : "Hide"}
+                  </button>
+                </div>
+                {!collapsed.General && <CustomPredictionsPanel groupId={groupId} hideResolved={hideResolved} />}
               </div>
             )}
 
             {/* Match rounds */}
-            {showMatches && ROUND_ORDER.filter((r) => grouped[r]).map((round) => (
-              <div key={round}>
-                <h2 className="text-lg font-bold text-gray-700 mb-3 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-fifa-blue inline-block" />
-                  {round}
-                </h2>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {grouped[round].map((match) => (
-                    <MatchCard
-                      key={match.id}
-                      match={match}
-                      prediction={predictions[match.id]}
-                      onSave={session ? handleSave : undefined}
-                      onCancel={session ? handleCancel : undefined}
-                      isLoggedIn={!!session}
-                      groupId={groupId}
-                    />
-                  ))}
+            {showMatches && ROUND_ORDER.filter((r) => grouped[r]).map((round) => {
+              const isCollapsed = collapsed[round];
+              const roundPts = groupSettings.stagePoints[round] ?? {
+                exact: groupSettings.exact,
+                direction: groupSettings.direction,
+              };
+              return (
+                <div key={round}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-fifa-blue inline-block" />
+                        {round}
+                      </h2>
+                      <p className="text-xs text-gray-400 mt-0.5 ml-4">
+                        Exact score: +{roundPts.exact} pts · Correct result: +{roundPts.direction} pt{roundPts.direction !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setCollapsed((prev) => ({ ...prev, [round]: !prev[round] }))}
+                      className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 rounded px-2 py-0.5 transition"
+                    >
+                      {isCollapsed ? "Show" : "Hide"}
+                    </button>
+                  </div>
+                  {!isCollapsed && (
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {grouped[round].map((match) => (
+                        <MatchCard
+                          key={match.id}
+                          match={match}
+                          prediction={predictions[match.id]}
+                          onSave={session ? handleSave : undefined}
+                          onCancel={session ? handleCancel : undefined}
+                          isLoggedIn={!!session}
+                          groupId={groupId}
+                          nowMs={nowMs}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Sidebar: standings (desktop only, Group Stage visible) */}
+          {/* Sidebar: standings — sidebar on desktop, collapsible section on mobile */}
           {showSidebar && (
-            <div className="hidden lg:block w-64 shrink-0">
+            <div className="mt-8 lg:mt-0 lg:w-64 lg:shrink-0">
               <GroupStandingsPanel
                 matches={matches}
                 predictions={predictions}

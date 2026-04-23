@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isPredictionLocked } from "@/lib/scoring";
+import { loadVirtualTime } from "@/lib/time";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -18,9 +19,13 @@ export async function POST(req: NextRequest) {
     typeof homeScore !== "number" ||
     typeof awayScore !== "number" ||
     homeScore < 0 ||
-    awayScore < 0
+    awayScore < 0 ||
+    homeScore > 20 ||
+    awayScore > 20 ||
+    !Number.isInteger(homeScore) ||
+    !Number.isInteger(awayScore)
   ) {
-    return NextResponse.json({ error: "Invalid scores" }, { status: 400 });
+    return NextResponse.json({ error: "Scores must be whole numbers between 0 and 20" }, { status: 400 });
   }
 
   // Verify user is an approved member of this group (not a visitor admin)
@@ -37,6 +42,7 @@ export async function POST(req: NextRequest) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
 
+  await loadVirtualTime();
   if (isPredictionLocked(match.kickoff)) {
     return NextResponse.json(
       { error: "Predictions are locked (< 1 hour before kickoff)" },
@@ -69,6 +75,7 @@ export async function DELETE(req: NextRequest) {
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
 
+  await loadVirtualTime();
   if (isPredictionLocked(match.kickoff)) {
     return NextResponse.json({ error: "Predictions are locked" }, { status: 403 });
   }

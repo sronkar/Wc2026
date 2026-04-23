@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { isPredictionLocked } from "@/lib/scoring";
 import { getFlag } from "@/lib/flags";
 
 interface Match {
@@ -43,6 +42,7 @@ interface Props {
   onCancel?: (matchId: string) => Promise<void>;
   isLoggedIn: boolean;
   groupId?: string;
+  nowMs?: number;
 }
 
 const UNUSUAL_THRESHOLD = 7;
@@ -54,7 +54,45 @@ function unrealisticWarning(h: number, a: number): string | null {
   return null;
 }
 
-export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, groupId }: Props) {
+// Shows "Locks in Xh Ym" starting 2 hours before lock, updating every 10min then every 1min
+function LockCountdown({ kickoffMs }: { kickoffMs: number }) {
+  const [label, setLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    const lockMs = kickoffMs - 60 * 60 * 1000;
+    const showAtMs = lockMs - 2 * 60 * 60 * 1000; // 2hr before lock = 3hr before kickoff
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      const now = Date.now();
+      const remaining = lockMs - now;
+
+      if (remaining <= 0 || now < showAtMs) {
+        setLabel(null);
+        return;
+      }
+
+      const h = Math.floor(remaining / 3_600_000);
+      const m = Math.floor((remaining % 3_600_000) / 60_000);
+      setLabel(h > 0 ? `Locks in ${h}h ${m}m` : `Locks in ${m}m`);
+
+      // Switch to 1-min updates when < 30min to lock
+      const minsLeft = remaining / 60_000;
+      timeoutId = setTimeout(tick, minsLeft <= 30 ? 60_000 : 10 * 60_000);
+    };
+
+    tick();
+    return () => clearTimeout(timeoutId);
+  }, [kickoffMs]);
+
+  if (!label) return null;
+  return (
+    <span className="text-xs font-semibold text-orange-500 animate-pulse">{label}</span>
+  );
+}
+
+export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, groupId, nowMs }: Props) {
   const [homeInput, setHomeInput] = useState<string>(
     prediction !== undefined ? String(prediction.homeScore) : ""
   );
@@ -64,16 +102,46 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [withdrawPending, setWithdrawPending] = useState(false);
+  const [withdrawCountdown, setWithdrawCountdown] = useState(5);
+  const withdrawTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const withdrawTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [error, setError] = useState("");
   const [groupPredictions, setGroupPredictions] = useState<GroupPredictionEntry[]>([]);
   const [loadingGroup, setLoadingGroup] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [now, setNow] = useState(nowMs ?? Date.now());
+
+  // Auto-refresh every 60s to update live/lock state
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const kickoff = new Date(match.kickoff);
-  const locked = isPredictionLocked(kickoff);
+  const kickoffMs = kickoff.getTime();
+  const locked = now >= kickoffMs - 60 * 60 * 1000;
   const finished = match.status === "FINISHED";
+  const isLive = now >= kickoffMs && !finished;
 
+  // hasPred: treat as no prediction while withdraw is pending (optimistic UI)
+  const hasPred = prediction !== undefined && !withdrawPending;
+  const isExact = finished && hasPred && match.homeScore === prediction!.homeScore && match.awayScore === prediction!.awayScore;
+  const isWinner = finished && hasPred && prediction!.points !== null && prediction!.points > 0 && !isExact;
+  const isMiss = finished && hasPred && prediction!.points !== null && prediction!.points === 0;
+
+  // Clean up timers on unmount
   useEffect(() => {
-    if (!groupId || (!locked && !finished)) return;
+    return () => {
+      if (withdrawTimerRef.current) clearTimeout(withdrawTimerRef.current);
+      if (withdrawTickRef.current) clearInterval(withdrawTickRef.current);
+    };
+  }, []);
+
+  // Lazy-fetch group predictions when expanded
+  useEffect(() => {
+    if (!expanded || !groupId || (!locked && !finished)) return;
+    if (groupPredictions.length > 0) return;
     setLoadingGroup(true);
     fetch(`/api/matches/${match.id}/predictions?groupId=${groupId}`)
       .then((r) => r.json())
@@ -82,27 +150,61 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
         setLoadingGroup(false);
       })
       .catch(() => setLoadingGroup(false));
-  }, [groupId, match.id]);
+  }, [expanded, groupId, match.id, locked, finished, groupPredictions.length]);
 
-  // Treat empty input as 0; still reject non-numeric input
   const parseScore = (val: string) => (val.trim() === "" ? 0 : parseInt(val, 10));
-
   const h = parseScore(homeInput);
   const a = parseScore(awayInput);
   const inputsValid = !isNaN(h) && !isNaN(a) && h >= 0 && a >= 0;
   const warning = inputsValid ? unrealisticWarning(h, a) : null;
 
-  const handleCancel = async () => {
-    setCancelling(true);
-    setError("");
-    try {
-      await onCancel!(match.id);
-      setHomeInput("");
-      setAwayInput("");
-    } catch {
-      setError("Failed to withdraw. Try again.");
-    } finally {
-      setCancelling(false);
+  const handleWithdraw = () => {
+    // Optimistically clear inputs and show undo state
+    setHomeInput("");
+    setAwayInput("");
+    setWithdrawPending(true);
+    setWithdrawCountdown(5);
+
+    // Countdown ticker for UI
+    withdrawTickRef.current = setInterval(() => {
+      setWithdrawCountdown((c) => Math.max(0, c - 1));
+    }, 1000);
+
+    // After 5s, fire the actual delete
+    withdrawTimerRef.current = setTimeout(async () => {
+      if (withdrawTickRef.current) clearInterval(withdrawTickRef.current);
+      setWithdrawPending(false);
+      setCancelling(true);
+      setError("");
+      try {
+        await onCancel!(match.id);
+      } catch {
+        setError("Failed to withdraw. Try again.");
+        // Restore inputs if delete failed
+        if (prediction) {
+          setHomeInput(String(prediction.homeScore));
+          setAwayInput(String(prediction.awayScore));
+        }
+      } finally {
+        setCancelling(false);
+      }
+    }, 5000);
+  };
+
+  const handleUndoWithdraw = () => {
+    if (withdrawTimerRef.current) {
+      clearTimeout(withdrawTimerRef.current);
+      withdrawTimerRef.current = null;
+    }
+    if (withdrawTickRef.current) {
+      clearInterval(withdrawTickRef.current);
+      withdrawTickRef.current = null;
+    }
+    setWithdrawPending(false);
+    // Restore inputs
+    if (prediction) {
+      setHomeInput(String(prediction.homeScore));
+      setAwayInput(String(prediction.awayScore));
     }
   };
 
@@ -124,123 +226,210 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
     }
   };
 
-  const pointsBadge = () => {
-    if (!finished || prediction?.points === undefined || prediction.points === null) return null;
-    const pts = prediction.points;
-    const color = pts >= 5 ? "bg-green-100 text-green-800" : pts > 0 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-500";
-    return <span className={`badge ${color} ml-2`}>{pts > 0 ? `+${pts}` : "0"} pts</span>;
-  };
-
-  const hasPred = prediction !== undefined;
-
   const resultBg = (() => {
-    if (!finished || !hasPred || prediction.points === null) return "";
-    const isExact = match.homeScore === prediction.homeScore && match.awayScore === prediction.awayScore;
-    if (isExact) return "!bg-emerald-50 !border-emerald-400";
-    if (prediction.points > 0) return "!bg-green-50 !border-green-200";
-    return "!bg-red-50 !border-red-200";
+    if (!finished) return "";
+    if (!hasPred) return "!bg-gray-50 opacity-60";     // no prediction — gray out
+    if (prediction!.points === null) return "";
+    if (isExact) return "!bg-emerald-100 !border-emerald-500";
+    if (isWinner) return "!bg-green-50 !border-green-200";
+    if (isMiss) return "!bg-red-50 !border-red-200";
+    return "";
   })();
 
-  return (
-    <div className={`card flex flex-col gap-3 relative ${resultBg}`}>
-      {/* Predicted badge — shown when prediction exists and match not yet locked or finished */}
-      {hasPred && !locked && !finished && (
-        <div className="absolute top-3 right-3">
-          <span className="badge bg-green-100 text-green-700">✓ Predicted</span>
-        </div>
-      )}
+  const resolutionBadge = () => {
+    if (!finished || !hasPred || prediction!.points === null) return null;
+    const pts = prediction!.points;
+    if (isExact) {
+      return (
+        <span className="badge bg-emerald-600 text-white font-bold">
+          Exact +{pts}pts
+        </span>
+      );
+    }
+    if (isWinner) {
+      return (
+        <span className="badge bg-green-100 text-green-700 border border-green-300">
+          +{pts}pts
+        </span>
+      );
+    }
+    return (
+      <span className="badge bg-red-100 text-red-700 border border-red-300">
+        miss
+      </span>
+    );
+  };
 
+  const othersSummary = () => {
+    if (!finished || groupPredictions.length === 0) return null;
+    const others = groupPredictions.filter((e) => !e.isCurrentUser);
+    if (others.length === 0) return null;
+    const exactCount = others.filter(
+      (e) => e.homeScore === match.homeScore && e.awayScore === match.awayScore
+    ).length;
+    const rightCount = others.filter(
+      (e) =>
+        e.points !== null &&
+        e.points > 0 &&
+        !(e.homeScore === match.homeScore && e.awayScore === match.awayScore)
+    ).length;
+    const parts: string[] = [];
+    if (exactCount > 0) parts.push(`${exactCount} exact`);
+    if (rightCount > 0) parts.push(`${rightCount} right`);
+    if (parts.length === 0) return null;
+    return <span className="text-xs text-gray-400">{parts.join(" · ")}</span>;
+  };
+
+  return (
+    <div className={`card flex flex-col gap-3 ${resultBg}`}>
       {/* Header */}
       <div className="flex items-center justify-between text-xs text-gray-400">
-        <span>
-          {match.group ? `Group ${match.group}` : match.round} · #{match.matchNumber}
+        <span className="flex items-center gap-1.5 min-w-0">
+          <span className="shrink-0">{match.group ? `Group ${match.group}` : match.round} · #{match.matchNumber}</span>
+          {isLive && (
+            <span className="badge bg-red-500 text-white flex items-center gap-1 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              LIVE
+            </span>
+          )}
+          {!isLive && hasPred && !locked && !finished && (
+            <span className="badge bg-green-100 text-green-700 font-semibold shrink-0">✓ Predicted</span>
+          )}
         </span>
-        <span className="truncate max-w-[140px] text-right">{match.city}</span>
+        <span className="truncate max-w-[120px] text-right ml-2 shrink-0">{match.city}</span>
       </div>
 
-      {/* Teams row */}
-      <div className="flex items-center justify-between gap-3">
+      {/* Teams */}
+      <div className="flex flex-col gap-2">
         {/* Home */}
-        <div className="flex-1 min-w-0 flex items-center gap-1.5">
-          <span className="text-lg shrink-0">{getFlag(match.homeTeam) || "　"}</span>
-          <span className="font-semibold text-gray-800 text-sm truncate">{match.homeTeam}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xl shrink-0">{getFlag(match.homeTeam) || "　"}</span>
+          <span className="font-semibold text-gray-800 text-sm flex-1">{match.homeTeam}</span>
+          {finished ? (
+            <span className="w-8 text-center text-lg font-bold text-fifa-blue tabular-nums shrink-0">
+              {match.homeScore}
+            </span>
+          ) : locked && isLoggedIn && prediction ? (
+            <span className="text-sm font-medium text-orange-500 tabular-nums shrink-0">
+              {prediction.homeScore}
+            </span>
+          ) : !locked && isLoggedIn && onSave ? (
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={homeInput}
+              onChange={(e) => setHomeInput(e.target.value)}
+              className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
+              placeholder="0"
+            />
+          ) : null}
         </div>
-        {/* vs */}
-        {!finished && <span className="text-gray-300 text-sm shrink-0">vs</span>}
-        {/* Score */}
-        {finished && (
-          <span className="text-lg font-bold text-fifa-blue whitespace-nowrap shrink-0">
-            {match.homeScore}–{match.awayScore}
-          </span>
-        )}
+
         {/* Away */}
-        <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5">
-          <span className="font-semibold text-gray-800 text-sm truncate text-right">{match.awayTeam}</span>
-          <span className="text-lg shrink-0">{getFlag(match.awayTeam) || "　"}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xl shrink-0">{getFlag(match.awayTeam) || "　"}</span>
+          <span className="font-semibold text-gray-800 text-sm flex-1">{match.awayTeam}</span>
+          {finished ? (
+            <span className="w-8 text-center text-lg font-bold text-fifa-blue tabular-nums shrink-0">
+              {match.awayScore}
+            </span>
+          ) : locked && isLoggedIn && prediction ? (
+            <span className="text-sm font-medium text-orange-500 tabular-nums shrink-0">
+              {prediction.awayScore}
+            </span>
+          ) : !locked && isLoggedIn && onSave ? (
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={awayInput}
+              onChange={(e) => setAwayInput(e.target.value)}
+              className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
+              placeholder="0"
+            />
+          ) : null}
         </div>
       </div>
 
-      {/* Date row (only when not finished) */}
+      {/* Date / lock countdown row */}
       {!finished && (
-        <div className="text-center text-xs text-gray-400">
-          {kickoff.toLocaleDateString("en-US", {
-            month: "short", day: "numeric",
-            hour: "2-digit", minute: "2-digit", timeZoneName: "short",
-          })}
+        <div className="text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+          {!locked && <LockCountdown kickoffMs={kickoffMs} />}
+          <span>
+            {kickoff.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZoneName: "short",
+            })}
+          </span>
         </div>
       )}
 
-      {/* Prediction row */}
-      {isLoggedIn && (
-        <div className="border-t border-gray-100 pt-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-gray-400">Your prediction:</span>
-            {pointsBadge()}
-          </div>
-          {finished && prediction ? (
-            <div className="text-sm text-gray-600 mt-1">
-              {prediction.homeScore} – {prediction.awayScore}
+      {/* Undo toast */}
+      {withdrawPending && (
+        <div className="border-t border-orange-100 pt-2 flex items-center gap-2">
+          <span className="text-xs text-orange-600 flex-1">
+            Prediction withdrawn ({withdrawCountdown}s)
+          </span>
+          <button
+            onClick={handleUndoWithdraw}
+            className="text-xs font-semibold text-fifa-blue hover:underline"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      {/* Action / status row */}
+      {isLoggedIn && !withdrawPending && (
+        <div className="border-t border-gray-100 pt-2 flex flex-col gap-1.5">
+          {finished ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              {hasPred ? resolutionBadge() : (
+                <span className="text-xs text-gray-400 italic">No prediction submitted</span>
+              )}
+              {groupId && expanded && othersSummary()}
+              {groupId && (
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="ml-auto text-xs text-gray-400 hover:text-gray-600 transition"
+                >
+                  {expanded ? "▲ Hide" : "▼ Show picks"}
+                </button>
+              )}
             </div>
-          ) : finished && !prediction ? (
-            <div className="text-xs text-gray-400 italic mt-1">No prediction submitted</div>
           ) : locked ? (
-            <div className="text-xs text-orange-500 font-medium mt-1">
-              {prediction ? `${prediction.homeScore} – ${prediction.awayScore} (locked)` : "Locked — no prediction submitted"}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-orange-500 font-medium">
+                {prediction ? "Locked" : "Locked — no prediction submitted"}
+              </span>
+              {groupId && (
+                <button
+                  onClick={() => setExpanded((v) => !v)}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition"
+                >
+                  {expanded ? "▲ Hide" : "▼ See picks"}
+                </button>
+              )}
             </div>
           ) : (
-            <div className="flex flex-col gap-1.5 mt-1">
+            <>
               <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={homeInput}
-                  onChange={(e) => setHomeInput(e.target.value)}
-                  className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                  placeholder="0"
-                />
-                <span className="text-gray-400">–</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={awayInput}
-                  onChange={(e) => setAwayInput(e.target.value)}
-                  className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                  placeholder="0"
-                />
                 <button
                   onClick={handleSave}
                   disabled={saving || !onSave}
-                  className="btn-primary text-xs px-3 py-1.5"
+                  className="btn-primary text-xs px-3 py-1.5 flex-1"
                 >
                   {saving ? "..." : saved ? "Saved ✓" : "Save"}
                 </button>
                 {hasPred && onCancel && (
                   <button
-                    onClick={handleCancel}
+                    onClick={handleWithdraw}
                     disabled={cancelling}
-                    className="w-7 h-7 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition disabled:opacity-40 ml-1 shrink-0"
+                    className="w-7 h-7 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition disabled:opacity-40 shrink-0"
                     title="Withdraw prediction"
                   >
                     {cancelling ? "…" : "✕"}
@@ -252,17 +441,17 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
                   <span>⚠️</span> {warning}
                 </p>
               )}
-            </div>
+            </>
           )}
-          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
       )}
 
-      {/* Everyone's picks — shown when locked or finished and groupId provided */}
-      {groupId && (locked || finished) && (
+      {/* Everyone's picks — shown when expanded */}
+      {groupId && (locked || finished) && expanded && (
         <div className="border-t border-gray-100 pt-2">
           <p className="text-xs text-gray-400 mb-2">
-            {finished ? "Everyone's picks" : "Everyone's picks (locked)"}
+            {finished ? "Everyone's picks" : "Sealed predictions"}
           </p>
           {loadingGroup ? (
             <div className="text-xs text-gray-400 py-1 text-center">Loading…</div>
@@ -270,37 +459,60 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
             <div className="text-xs text-gray-400 italic text-center py-1">No predictions submitted.</div>
           ) : (
             <div className="grid grid-cols-3 gap-1.5">
-              {groupPredictions.map((e) => (
-                <div
-                  key={e.userId}
-                  className={`rounded-md p-1.5 flex flex-col items-center gap-0.5 text-center ${
-                    e.isCurrentUser ? "bg-blue-50 ring-1 ring-fifa-blue" : "bg-gray-50"
-                  }`}
-                >
-                  {e.userImage ? (
-                    <Image src={e.userImage} alt={e.userName} width={20} height={20} className="rounded-full" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full bg-fifa-blue text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-                      {e.userName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="text-[10px] text-gray-600 truncate max-w-full leading-tight">
-                    {e.isCurrentUser ? "You" : e.userName}
-                  </span>
-                  <span className="text-xs font-bold text-gray-800 tabular-nums">
-                    {e.homeScore}–{e.awayScore}
-                  </span>
-                  {finished && e.points !== null && (
-                    <span className={`text-[9px] font-semibold rounded px-1 ${
-                      e.points >= 5 ? "bg-green-100 text-green-700" :
-                      e.points > 0  ? "bg-yellow-100 text-yellow-700" :
-                                      "bg-gray-100 text-gray-400"
-                    }`}>
-                      {e.points > 0 ? `+${e.points}` : "0"} pts
+              {groupPredictions.map((e) => {
+                const eExact =
+                  finished &&
+                  match.homeScore !== null &&
+                  e.homeScore === match.homeScore &&
+                  e.awayScore === match.awayScore;
+                const eRight = !eExact && e.points !== null && e.points > 0;
+                const bgClass = e.isCurrentUser
+                  ? "bg-blue-50 ring-1 ring-fifa-blue"
+                  : eExact
+                  ? "bg-emerald-100 ring-2 ring-emerald-500"
+                  : eRight
+                  ? "bg-green-50 ring-1 ring-green-200"
+                  : "bg-gray-50";
+                return (
+                  <div
+                    key={e.userId}
+                    className={`rounded-md p-1.5 flex flex-col items-center gap-0.5 text-center ${bgClass}`}
+                  >
+                    {e.userImage ? (
+                      <Image
+                        src={e.userImage}
+                        alt={e.userName}
+                        width={20}
+                        height={20}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-fifa-blue text-white text-[9px] font-bold flex items-center justify-center shrink-0">
+                        {(e.userName.match(/[a-zA-Z]/) ?? ["?"])[0].toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-[10px] text-gray-600 truncate max-w-full leading-tight">
+                      {e.isCurrentUser ? "You" : e.userName}
                     </span>
-                  )}
-                </div>
-              ))}
+                    <span className="text-xs font-bold text-gray-800 tabular-nums">
+                      {e.homeScore}–{e.awayScore}
+                    </span>
+                    {finished && e.points !== null && (
+                      <span
+                        className={`text-[9px] font-semibold rounded px-1 ${
+                          eExact
+                            ? "bg-emerald-600 text-white"
+                            : eRight
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        {e.points > 0 ? `+${e.points}` : "0"} pts
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

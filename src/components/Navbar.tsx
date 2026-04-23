@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 interface GroupItem {
   id: string;
@@ -27,8 +28,8 @@ export function Navbar() {
   // Group ID from the current URL (only set when on a group page)
   const urlGroupId = pathname.match(/^\/groups\/([^/]+)/)?.[1] ?? null;
 
-  // Current sub-page (matches or leaderboard) — used to stay on the same page when switching groups
-  const subPage = pathname.match(/^\/groups\/[^/]+\/(matches|leaderboard)$/)?.[1] ?? null;
+  // Current sub-page — used to stay on the same page when switching groups
+  const subPage = pathname.match(/^\/groups\/[^/]+\/(matches|leaderboard|advancement)$/)?.[1] ?? null;
 
   // When URL has a group ID, persist it as the selected group
   useEffect(() => {
@@ -278,6 +279,7 @@ export function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           {session ? (
             <div className="flex items-center gap-3">
+              <NotificationCenter />
               <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition">
                 {session.user?.image ? (
                   <Image
@@ -374,7 +376,10 @@ export function Navbar() {
             </>
           )}
           {session ? (
-            <button onClick={() => signOut({ callbackUrl: "/" })} className="block py-2 text-red-300 hover:text-red-100 w-full text-left">Sign Out</button>
+            <div className="flex items-center justify-between py-2">
+              <button onClick={() => signOut({ callbackUrl: "/" })} className="text-red-300 hover:text-red-100 text-sm">Sign Out</button>
+              <NotificationCenter />
+            </div>
           ) : (
             <Link href="/login" className="block py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>Sign In</Link>
           )}

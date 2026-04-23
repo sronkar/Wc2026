@@ -9,6 +9,7 @@ interface InviteDetails {
   groupId: string;
   groupName: string;
   requirePassword: boolean;
+  userHasPassword: boolean;
   email: string;
   memberRole: string;
   expiresAt: string;
@@ -66,8 +67,18 @@ export default function InvitePage() {
   };
 
   const handleAccept = async () => {
+    const needsPassword = invite?.requirePassword && !invite.userHasPassword;
+    if (needsPassword && (!password.trim() || password.trim().length < 6)) {
+      setJoinError("Please set a password (min. 6 characters) to join this group.");
+      return;
+    }
     setAccepting(true);
-    const res = await fetch(`/api/invite/${token}`, { method: "POST" });
+    setJoinError("");
+    const res = await fetch(`/api/invite/${token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(needsPassword ? { password: password.trim() } : {}),
+    });
     const data = await res.json();
     if (!res.ok) {
       setJoinError(data.error ?? "Failed to accept invite");
@@ -231,12 +242,39 @@ export default function InvitePage() {
               </button>
             </>
           ) : (
-            /* Correct account: one-click accept */
+            /* Correct account: accept (with password if required and not yet set) */
             <>
+              {invite!.requirePassword && !invite!.userHasPassword && (
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Create a password (min. 6 characters)"
+                      minLength={6}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue pr-16"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Required by this group — lets you sign in with email &amp; password later.
+                  </p>
+                </div>
+              )}
               {joinError && <p className="text-sm text-red-600 mb-3">{joinError}</p>}
               <button
                 onClick={handleAccept}
-                disabled={accepting}
+                disabled={accepting || (invite!.requirePassword && !invite!.userHasPassword && password.trim().length < 6)}
                 className="btn-primary w-full py-3 disabled:opacity-50"
               >
                 {accepting ? "Joining…" : "Accept & Join Group"}

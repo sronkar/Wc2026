@@ -3,8 +3,8 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
 import EmailProvider from "next-auth/providers/email";
 import CredentialsProvider from "next-auth/providers/credentials";
-import nodemailer from "nodemailer";
 import bcrypt from "bcryptjs";
+import { decode as defaultDecode } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
@@ -25,28 +25,19 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.EMAIL_FROM,
       sendVerificationRequest: async ({ identifier: email, url }) => {
-        // Always log so local dev works without an SMTP server
+        // Always log — dev works without SMTP, and gives a quick copy-paste URL
         console.log("\n========================================");
         console.log(`[AUTH] Magic link for: ${email}`);
         console.log(`[AUTH] Sign-in URL:\n  ${url}`);
         console.log("========================================\n");
 
-        // Also send real email in production if SMTP is configured
+        // Send branded email in production
         if (process.env.NODE_ENV === "production") {
-          const transport = nodemailer.createTransport({
-            host: process.env.EMAIL_SERVER_HOST,
-            port: Number(process.env.EMAIL_SERVER_PORT ?? 587),
-            auth: {
-              user: process.env.EMAIL_SERVER_USER,
-              pass: process.env.EMAIL_SERVER_PASSWORD,
-            },
-          });
-          await transport.sendMail({
+          const { sendEmail, buildMagicLinkHtml } = await import("@/lib/email");
+          await sendEmail({
             to: email,
-            from: process.env.EMAIL_FROM,
             subject: "Your WC2026 sign-in link",
-            text: `Sign in to WC2026:\n\n${url}\n\nThis link expires in 24 hours.`,
-            html: `<p>Sign in to WC2026 by clicking the link below:</p><p><a href="${url}">${url}</a></p><p>This link expires in 24 hours.</p>`,
+            html: buildMagicLinkHtml(url),
           });
         }
       },
@@ -71,10 +62,23 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
-        session.user.role = user.role;
+    async jwt({ token, user }) {
+      if (user) {
+        // First sign-in: load fresh role from DB so any signIn-callback
+        // role promotions (e.g. ADMIN_EMAIL) are reflected immediately.
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { role: true },
+        });
+        token.sub = user.id;
+        token.role = dbUser?.role ?? "USER";
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token.sub) {
+        session.user.id = token.sub;
+        session.user.role = (token.role as string) ?? "USER";
       }
       return session;
     },
@@ -96,6 +100,26 @@ export const authOptions: NextAuthOptions = {
     verifyRequest: "/login?verify=1",
   },
   session: {
-    strategy: "database",
+    // JWT strategy is required for CredentialsProvider to work correctly.
+    // With "database" strategy, credentials sign-ins issue a JWT internally
+    // but session lookups expect a DB row → always returns empty session.
+    strategy: "jwt",
+  },
+  jwt: {
+    // Silently discard stale opaque DB session tokens that were set before the
+    // strategy was changed to "jwt". Without this, those cookies cause a flood
+    // of [JWT_SESSION_ERROR] Invalid Compact JWE errors in the server log.
+    decode: async (params) => {
+      try {
+        return await defaultDecode(params);
+      } catch (err) {
+        // Log what kind of error we're silencing so we can diagnose issues
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes("JWEInvalid") && !msg.includes("compact JWE")) {
+          console.warn("[auth] JWT decode failed:", msg);
+        }
+        return null;
+      }
+    },
   },
 };

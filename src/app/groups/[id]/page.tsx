@@ -3,13 +3,15 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isPredictionLocked } from "@/lib/scoring";
+import { getNow } from "@/lib/time";
 import Image from "next/image";
 import Link from "next/link";
 import { MatchCarousel } from "@/components/dashboard/MatchCarousel";
 import { MiniLeaderboard } from "@/components/dashboard/MiniLeaderboard";
 import { MatchCard } from "@/components/MatchCard";
-import { CustomPredictionsPanel } from "@/components/dashboard/CustomPredictionsPanel";
+import { GeneralPredictionsCarousel } from "@/components/dashboard/GeneralPredictionsCarousel";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
+import { WC_GROUPS, ADVANCEMENT_LOCK_TIME } from "@/lib/wcGroups";
 export const revalidate = 0;
 
 export default async function GroupDashboardPage({
@@ -35,7 +37,19 @@ export default async function GroupDashboardPage({
   if (!group) redirect("/groups");
   if (!isAdminRole && membership?.status !== "APPROVED") redirect("/groups");
 
-  const now = new Date();
+  const now = getNow();
+
+  // Count today's matches (UTC day) to determine carousel size
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const todayCount = await prisma.match.count({
+    where: {
+      status: "SCHEDULED",
+      kickoff: { gte: todayStart, lt: todayEnd },
+      isDemo: false,
+    },
+  });
+  const carouselTake = Math.max(5, todayCount);
 
   const upcomingMatches = await prisma.match.findMany({
     where: {
@@ -44,7 +58,7 @@ export default async function GroupDashboardPage({
       isDemo: false,
     },
     orderBy: { kickoff: "asc" },
-    take: 5,
+    take: carouselTake,
   });
 
   const upcomingPredictions = await prisma.prediction.findMany({
@@ -58,6 +72,12 @@ export default async function GroupDashboardPage({
   upcomingPredictions.forEach((p) => {
     predMap[p.matchId] = { homeScore: p.homeScore, awayScore: p.awayScore };
   });
+
+  // Count today's matches in the carousel and how many are predicted
+  const todayMatchIds = upcomingMatches
+    .filter((m) => m.kickoff >= todayStart && m.kickoff < todayEnd)
+    .map((m) => m.id);
+  const todayPredictedCount = todayMatchIds.filter((id) => predMap[id] !== undefined).length;
 
   // Live match: most recently locked (past 24h or locking within next 1h), any status
   const recentCandidates = await prisma.match.findMany({
@@ -98,11 +118,18 @@ export default async function GroupDashboardPage({
       })
     : null;
 
-  const groupPredictions = await prisma.prediction.findMany({
-    where: { userId, groupId },
-    include: { match: { select: { status: true, homeScore: true, awayScore: true } } },
-  });
-  const totalPoints = groupPredictions.reduce((s, p) => s + (p.points ?? 0), 0);
+  const [groupPredictions, customAnswers, advancementPreds] = await Promise.all([
+    prisma.prediction.findMany({
+      where: { userId, groupId },
+      include: { match: { select: { status: true, homeScore: true, awayScore: true } } },
+    }),
+    prisma.customPredictionAnswer.findMany({ where: { userId, groupId }, select: { points: true } }),
+    prisma.advancementPrediction.findMany({ where: { userId, groupId }, select: { points: true } }),
+  ]);
+  const totalPoints =
+    groupPredictions.reduce((s, p) => s + (p.points ?? 0), 0) +
+    customAnswers.reduce((s, p) => s + (p.points ?? 0), 0) +
+    advancementPreds.reduce((s, p) => s + (p.points ?? 0), 0);
   const exactMatches = groupPredictions.filter(
     (p) =>
       p.match.homeScore !== null &&
@@ -111,6 +138,19 @@ export default async function GroupDashboardPage({
   ).length;
 
   const isVisitor = membership?.memberRole === "VISITOR_ADMIN";
+
+  // Advancement picks progress (for quick link badge)
+  const advancementLocked = getNow() >= ADVANCEMENT_LOCK_TIME;
+  const savedAdvancementPicks = isVisitor ? [] : await prisma.advancementPrediction.findMany({
+    where: { userId, groupId },
+    select: { team: true, pick: true },
+  });
+  const savedPickMap: Record<string, string> = {};
+  for (const p of savedAdvancementPicks) savedPickMap[p.team] = p.pick;
+  const advancementPickCount = savedAdvancementPicks.length;
+  // 32 required: 12 winners + 12 runners-up + 8 third-place picks
+  const ADVANCEMENT_REQUIRED = 32;
+  const advancementComplete = !isVisitor && advancementPickCount >= ADVANCEMENT_REQUIRED;
 
   const memberships = await prisma.groupMembership.findMany({
     where: { groupId, status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
@@ -124,6 +164,14 @@ export default async function GroupDashboardPage({
             where: { points: { not: null }, groupId },
             select: { points: true },
           },
+          customPredictionAnswers: {
+            where: { points: { not: null }, groupId },
+            select: { points: true },
+          },
+          advancementPredictions: {
+            where: { points: { not: null }, groupId },
+            select: { points: true },
+          },
         },
       },
     },
@@ -131,20 +179,28 @@ export default async function GroupDashboardPage({
 
   const leaderboard = memberships
     .map((m) => {
-      const totalPoints = m.user.predictions.reduce((s, p) => s + (p.points ?? 0), 0);
-      const directHits = m.user.predictions.filter((p) => (p.points ?? 0) > 0).length;
+      const allPts = [
+        ...m.user.predictions.map((p) => p.points ?? 0),
+        ...m.user.customPredictionAnswers.map((p) => p.points ?? 0),
+        ...m.user.advancementPredictions.map((p) => p.points ?? 0),
+      ];
+      const totalPoints = allPts.reduce((s, p) => s + p, 0);
+      const directHits = allPts.filter((p) => p > 0).length;
+      const zeroPoints = allPts.filter((p) => p === 0).length;
       return {
         id: m.user.id,
         name: m.user.name ?? "Anonymous",
         image: m.user.image,
         totalPoints,
         directHits,
+        zeroPoints,
         predictionsCount: m.user.predictions.length,
       };
     })
     .sort((a, b) =>
       b.totalPoints !== a.totalPoints ? b.totalPoints - a.totalPoints :
       b.directHits !== a.directHits ? b.directHits - a.directHits :
+      a.zeroPoints !== b.zeroPoints ? a.zeroPoints - b.zeroPoints :
       b.predictionsCount - a.predictionsCount
     )
     .map((u, i) => ({ ...u, rank: i + 1 }));
@@ -212,7 +268,7 @@ export default async function GroupDashboardPage({
         {[
           { label: "Group Points", value: totalPoints, color: "text-fifa-blue" },
           { label: "Predictions", value: groupPredictions.length, color: "text-gray-700" },
-          { label: "Exact Scores", value: exactMatches, color: "text-green-600" },
+          { label: "Exact Scores", value: exactMatches, color: exactMatches > 0 ? "text-green-600" : "text-gray-700" },
         ].map(({ label, value, color }) => (
           <div key={label} className="card text-center py-3">
             <div className={`text-2xl font-extrabold ${color}`}>{value}</div>
@@ -224,16 +280,28 @@ export default async function GroupDashboardPage({
       <div className="grid md:grid-cols-2 gap-6">
         {/* Left column */}
         <div className="space-y-6">
-          {!isVisitor && (
+          {/* General predictions carousel — prominent at top */}
+          <div>
+            <h2 className="font-bold text-gray-800 mb-3">General Predictions</h2>
+            <GeneralPredictionsCarousel groupId={groupId} />
+          </div>
+
+          {!isVisitor && upcomingMatches.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-1">
                 <h2 className="font-bold text-gray-800">Next Up to Predict</h2>
-                <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline">All matches →</Link>
+                <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline shrink-0 whitespace-nowrap ml-2">All matches →</Link>
               </div>
+              {todayMatchIds.length > 0 && (
+                <p className="text-xs text-gray-400 mb-3">
+                  {todayPredictedCount} of {todayMatchIds.length} today predicted
+                </p>
+              )}
               <MatchCarousel
                 groupId={groupId}
                 matches={carouselMatches as Parameters<typeof MatchCarousel>[0]["matches"]}
                 predictions={predMap}
+                nowMs={getNow().getTime()}
               />
             </div>
           )}
@@ -258,6 +326,7 @@ export default async function GroupDashboardPage({
                 }
                 isLoggedIn={true}
                 groupId={groupId}
+                nowMs={getNow().getTime()}
               />
             </div>
           )}
@@ -268,14 +337,12 @@ export default async function GroupDashboardPage({
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-gray-800">Group Leaderboard</h2>
-              <Link href={`/groups/${groupId}/leaderboard`} className="text-xs text-fifa-blue hover:underline">
+              <Link href={`/groups/${groupId}/leaderboard`} className="text-xs font-semibold text-fifa-blue hover:underline px-2 py-0.5 rounded-md hover:bg-blue-50 transition">
                 Full table →
               </Link>
             </div>
             <MiniLeaderboard entries={leaderboard} currentUserId={userId} />
           </div>
-
-          <CustomPredictionsPanel groupId={groupId} />
 
           <div className="card">
             <h2 className="font-bold text-gray-800 mb-3">Quick Links</h2>
@@ -286,6 +353,24 @@ export default async function GroupDashboardPage({
                   className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition group"
                 >
                   <span className="text-sm text-gray-700 group-hover:text-fifa-blue">⚽ All 104 Matches</span>
+                  <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
+                </Link>
+              )}
+              {!isVisitor && (
+                <Link
+                  href={`/groups/${groupId}/advancement`}
+                  className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition group"
+                >
+                  <span className="text-sm text-gray-700 group-hover:text-fifa-blue flex items-center gap-2">
+                    🏅 Group Stage Picks
+                    {!advancementLocked && (
+                      advancementComplete
+                        ? <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">✓ Done</span>
+                        : <span className={`text-[10px] font-semibold ${advancementPickCount === 0 ? "text-amber-500" : "text-orange-500"}`}>
+                            {advancementPickCount}/{ADVANCEMENT_REQUIRED} picks
+                          </span>
+                    )}
+                  </span>
                   <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
                 </Link>
               )}

@@ -306,7 +306,7 @@ async function handleSimulate(body: Record<string, unknown>) {
 
   // Step 4 – build leaderboard snapshot
   const settings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
-  const exactPts = settings?.exactMatchPoints ?? 5;
+  const exactPts = settings?.exactMatchPoints ?? 2;
   const dirPts = settings?.directionMatchPoints ?? 1;
 
   const predictions = await prisma.prediction.findMany({

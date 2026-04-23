@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { WC2026_TEAMS } from "@/lib/teams";
+import { getFlag } from "@/lib/flags";
 
 interface CustomPrediction {
   id: string;
@@ -63,8 +64,9 @@ function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) 
               <button
                 key={t}
                 onClick={() => { setQuery(t); onChange(t); }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
               >
+                <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
                 {value === t ? "✓ " : ""}{t}
               </button>
             ))
@@ -202,16 +204,22 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
           const isTeam = cp.optionType === "TEAM";
           const isFixed = !isPlayer && !isTeam;
 
-          // For resolved/locked views: aggregate all submitted answers for PLAYER type
+          // For resolved/locked views: aggregate all submitted answers for PLAYER and TEAM types
           const allAnswers = cp.answers ?? [];
-          const playerAnswerCounts = isPlayer && cp.isLocked
+          const correctValues = cp.correctOption
+            ? cp.correctOption.split(",").map((v) => v.trim().toLowerCase()).filter(Boolean)
+            : [];
+          const freeAnswerCounts = (isPlayer || isTeam) && (cp.isLocked || cp.status === "RESOLVED")
             ? allAnswers.reduce<Record<string, number>>((acc, a) => {
                 const key = a.option.trim().toLowerCase();
                 acc[key] = (acc[key] ?? 0) + 1;
                 return acc;
               }, {})
             : {};
-          const uniquePlayerAnswers = Object.keys(playerAnswerCounts).sort((a, b) => playerAnswerCounts[b] - playerAnswerCounts[a]);
+          const uniqueFreeAnswers = Object.keys(freeAnswerCounts).sort((a, b) => freeAnswerCounts[b] - freeAnswerCounts[a]);
+          // keep legacy names for PLAYER branches
+          const playerAnswerCounts = freeAnswerCounts;
+          const uniquePlayerAnswers = uniqueFreeAnswers;
 
           return (
             <div key={cp.id} className="card">
@@ -245,21 +253,26 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                   <div className="mb-3">
                     {isFixed && (
                       <div className="space-y-2">
-                        {cp.options.map((opt) => (
-                          <label
-                            key={opt}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition text-sm ${
-                              selected[cp.id] === opt
-                                ? "border-fifa-blue bg-blue-50 text-fifa-blue font-medium"
-                                : "border-gray-200 hover:border-gray-300 text-gray-700"
-                            }`}
-                          >
-                            <input type="radio" name={cp.id} value={opt} checked={selected[cp.id] === opt}
-                              onChange={() => setSelected((p) => ({ ...p, [cp.id]: opt }))} className="sr-only" />
-                            <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${selected[cp.id] === opt ? "border-fifa-blue bg-fifa-blue" : "border-gray-300"}`} />
-                            {opt}
-                          </label>
-                        ))}
+                        {cp.options.map((opt) => {
+                          const flag = getFlag(opt);
+                          const isSelected = selected[cp.id] === opt;
+                          return (
+                            <label
+                              key={opt}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition text-sm ${
+                                isSelected
+                                  ? "border-fifa-blue bg-blue-50 text-fifa-blue font-medium"
+                                  : "border-gray-200 hover:border-gray-300 text-gray-700"
+                              }`}
+                            >
+                              <input type="radio" name={cp.id} value={opt} checked={isSelected}
+                                onChange={() => setSelected((p) => ({ ...p, [cp.id]: opt }))} className="sr-only" />
+                              <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${isSelected ? "border-fifa-blue bg-fifa-blue" : "border-gray-300"}`} />
+                              {flag && <span className="shrink-0">{flag}</span>}
+                              {opt}
+                            </label>
+                          );
+                        })}
                       </div>
                     )}
                     {isTeam && (
@@ -300,20 +313,22 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
               {/* ── RESOLVED ── */}
               {cp.status === "RESOLVED" && (
                 <div className="space-y-2">
-                  {isPlayer ? (
+                  {(isPlayer || isTeam) ? (
                     <>
                       <div className="rounded-lg border border-green-400 bg-green-50 px-3 py-2 text-sm">
-                        <p className="text-green-700 font-medium">✓ Correct answer: {cp.correctOption}</p>
+                        <p className="text-green-700 font-medium">
+                          ✓ Correct answer{correctValues.length > 1 ? "s" : ""}: {correctValues.join(", ")}
+                        </p>
                       </div>
                       {cp.userAnswer && (
                         <p className={`text-xs text-center font-semibold ${cp.userPoints ? "text-green-600" : "text-gray-400"}`}>
                           Your pick: {cp.userAnswer} — {cp.userPoints ? `+${cp.userPoints} pts!` : "no points this time"}
                         </p>
                       )}
-                      {uniquePlayerAnswers.slice(0, 10).map((key) => {
-                        const count = playerAnswerCounts[key];
+                      {uniqueFreeAnswers.slice(0, 10).map((key) => {
+                        const count = freeAnswerCounts[key];
                         const pct = cp.totalAnswers ? Math.round((count / cp.totalAnswers) * 100) : 0;
-                        const isCorrect = key === cp.correctOption?.trim().toLowerCase();
+                        const isCorrect = correctValues.includes(key);
                         return (
                           <div key={key} className={`rounded-lg border px-3 py-2 text-sm ${isCorrect ? "border-green-400 bg-green-50" : "border-gray-200"}`}>
                             <div className="flex items-center justify-between mb-1">
@@ -329,7 +344,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                     </>
                   ) : (
                     cp.options.map((opt) => {
-                      const isCorrect = opt === cp.correctOption;
+                      const isCorrect = correctValues.includes(opt.trim().toLowerCase());
                       const isUserAnswer = opt === cp.userAnswer;
                       const count = cp.answerCounts?.[opt] ?? 0;
                       const pct = cp.totalAnswers ? Math.round((count / cp.totalAnswers) * 100) : 0;
@@ -350,7 +365,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                       );
                     })
                   )}
-                  {!isPlayer && cp.userAnswer && (
+                  {cp.userAnswer && (
                     <p className={`text-xs text-center mt-2 font-semibold ${cp.userPoints ? "text-green-600" : "text-gray-400"}`}>
                       {cp.userPoints ? `+${cp.userPoints} pts earned!` : "No points this time"}
                     </p>
@@ -365,9 +380,9 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
               {cp.status === "OPEN" && cp.isLocked && (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500 mb-2">How everyone answered ({cp.totalAnswers} {cp.totalAnswers === 1 ? "response" : "responses"})</p>
-                  {isPlayer ? (
-                    uniquePlayerAnswers.slice(0, 10).map((key) => {
-                      const count = playerAnswerCounts[key];
+                  {(isPlayer || isTeam) ? (
+                    uniqueFreeAnswers.slice(0, 10).map((key) => {
+                      const count = freeAnswerCounts[key];
                       const pct = cp.totalAnswers ? Math.round((count / cp.totalAnswers) * 100) : 0;
                       const isUserAnswer = key === cp.userAnswer?.trim().toLowerCase();
                       return (

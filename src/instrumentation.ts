@@ -3,9 +3,8 @@ export async function register() {
     const { startCronJobs } = await import("@/lib/cron");
     startCronJobs();
 
-    if (process.env.DEMO_MODE === "true") {
-      const { loadVirtualTime } = await import("@/lib/time");
-      await loadVirtualTime();
-    }
+    // Always restore simulation/demo state from DB on startup
+    const { loadVirtualTime } = await import("@/lib/time");
+    await loadVirtualTime();
   }
 }

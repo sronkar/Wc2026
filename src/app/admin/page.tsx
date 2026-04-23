@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getFlag } from "@/lib/flags";
 import Image from "next/image";
 import Link from "next/link";
+import { WC_GROUPS } from "@/lib/wcGroups";
 
 interface Match {
   id: string;
@@ -51,10 +52,11 @@ interface GlobalPrediction {
   points: number;
   lockTime: string;
   status: string;
+  correctOption: string | null;
   answerCount: number;
 }
 
-type Tab = "results" | "settings" | "users" | "groups";
+type Tab = "results" | "settings" | "users" | "groups" | "advancement";
 
 const ROUNDS = [
   "Group Stage",
@@ -64,6 +66,15 @@ const ROUNDS = [
   "Semi-final",
   "Third Place Play-off",
   "Final",
+];
+
+// WC_GROUPS is imported from @/lib/wcGroups — single source of truth
+
+const ADVANCEMENT_OPTIONS = [
+  { value: "WINNER", label: "Group Winner", color: "text-green-700 border-green-300 bg-green-50" },
+  { value: "RUNNER_UP", label: "Runner-up", color: "text-blue-700 border-blue-300 bg-blue-50" },
+  { value: "THIRD", label: "Advance as 3rd", color: "text-amber-700 border-amber-300 bg-amber-50" },
+  { value: "ELIMINATED", label: "Eliminated", color: "text-red-700 border-red-300 bg-red-50" },
 ];
 
 function AdminPage() {
@@ -99,8 +110,13 @@ function AdminPage() {
   // ── Groups tab state ──────────────────────────────────────────────────────────
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [groupsLoaded, setGroupsLoaded] = useState(false);
+  const [deletingGroup, setDeletingGroup] = useState<Record<string, boolean>>({});
   const [globalPreds, setGlobalPreds] = useState<GlobalPrediction[]>([]);
-  const [deletingGlobalPred, setDeletingGlobalPred] = useState<Record<string, boolean>>({});
+  const [togglingPred, setTogglingPred] = useState<Record<string, boolean>>({});
+  const [unresolvingPred, setUnresolvingPred] = useState<Record<string, boolean>>({});
+  const [resolveInputs, setResolveInputs] = useState<Record<string, string>>({});
+  const [resolvingPred, setResolvingPred] = useState<Record<string, boolean>>({});
+  const [resolveResults, setResolveResults] = useState<Record<string, { awarded: number } | { error: string }>>({});
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupVisitor, setNewGroupVisitor] = useState(false);
@@ -129,8 +145,22 @@ Winner\t\tTeam\t10`;
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const t = searchParams.get("tab");
-    return (t === "groups" || t === "settings" || t === "users" || t === "results") ? t as Tab : "results";
+    return (t === "groups" || t === "settings" || t === "users" || t === "results" || t === "advancement") ? t as Tab : "results";
   });
+
+  // ── Advancement tab state ─────────────────────────────────────────────────────
+  const [advancementResolutions, setAdvancementResolutions] = useState<Record<string, string>>({});
+  const [advancementLocal, setAdvancementLocal] = useState<Record<string, string>>({});
+  const [advancementLoaded, setAdvancementLoaded] = useState(false);
+  const [advancementGroupSaving, setAdvancementGroupSaving] = useState<Record<string, boolean>>({});
+  const [advancementGroupSaved, setAdvancementGroupSaved] = useState<Record<string, boolean>>({});
+  const [advancementGroupErrors, setAdvancementGroupErrors] = useState<Record<string, string>>({});
+
+  // ── Email preview state (admin only) ─────────────────────────────────────────
+  const [previewTemplate, setPreviewTemplate] = useState("invite");
+  const [previewSending, setPreviewSending] = useState(false);
+  const [previewSent, setPreviewSent] = useState(false);
+  const [isDev, setIsDev] = useState(false);
 
   // ── Auth guard ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -162,6 +192,12 @@ Winner\t\tTeam\t10`;
         const sRes = await fetch("/api/admin/settings");
         const sData: Settings = await sRes.json();
         if (sData) setSettings(sData);
+
+        // Load dev/prod flag for banner
+        fetch("/api/admin/config")
+          .then((r) => r.json())
+          .then((d) => { if (d.isDev !== undefined) setIsDev(d.isDev); })
+          .catch(() => {});
       }
     }
     load();
@@ -183,7 +219,14 @@ Winner\t\tTeam\t10`;
       fetch("/api/admin/custom-predictions").then((r) => r.json()),
     ]).then(([groupData, predData]) => {
       if (Array.isArray(groupData)) setGroups(groupData);
-      if (Array.isArray(predData)) setGlobalPreds(predData);
+      if (Array.isArray(predData)) {
+        setGlobalPreds(predData);
+        const inputs: Record<string, string> = {};
+        predData.forEach((p: GlobalPrediction) => {
+          if (p.correctOption) inputs[p.id] = p.correctOption;
+        });
+        setResolveInputs(inputs);
+      }
       setGroupsLoaded(true);
     });
   }, [activeTab, groupsLoaded]);
@@ -249,6 +292,24 @@ Winner\t\tTeam\t10`;
     setTimeout(() => setSettingsSaved(false), 2000);
   };
 
+  const handleEmailPreviewInTab = async () => {
+    const res = await fetch(`/api/admin/email-preview?template=${previewTemplate}`);
+    const html = await res.text();
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 15_000);
+  };
+
+  const handleSendTestEmail = async () => {
+    setPreviewSending(true);
+    setPreviewSent(false);
+    await fetch(`/api/admin/email-preview?template=${previewTemplate}&send=true`);
+    setPreviewSending(false);
+    setPreviewSent(true);
+    setTimeout(() => setPreviewSent(false), 3000);
+  };
+
   const handleRoleToggle = async (userId: string, currentRole: string) => {
     const newRole = currentRole === "SUB_ADMIN" ? "USER" : "SUB_ADMIN";
     setRoleUpdating((prev) => ({ ...prev, [userId]: true }));
@@ -263,6 +324,21 @@ Winner\t\tTeam\t10`;
     }
     setRoleUpdating((prev) => ({ ...prev, [userId]: false }));
   };
+
+  // ── Load advancement resolutions when tab opens ──────────────────────────────
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (activeTab !== "advancement" || advancementLoaded) return;
+    fetch("/api/admin/advancement")
+      .then((r) => r.json())
+      .then((data: { team: string; result: string }[]) => {
+        const map: Record<string, string> = {};
+        for (const r of data) map[r.team] = r.result;
+        setAdvancementResolutions(map);
+        setAdvancementLocal(map); // initialise local to DB state
+        setAdvancementLoaded(true);
+      });
+  }, [activeTab, advancementLoaded]);
 
   // ── Render guards ─────────────────────────────────────────────────────────────
   if (status === "loading" || !session) {
@@ -316,12 +392,65 @@ Winner\t\tTeam\t10`;
     }
   };
 
-  const handleDeleteGlobalPred = async (id: string) => {
-    if (!confirm("Delete this global prediction and all answers?")) return;
-    setDeletingGlobalPred((p) => ({ ...p, [id]: true }));
-    const res = await fetch(`/api/admin/custom-predictions/${id}`, { method: "DELETE" });
-    if (res.ok) setGlobalPreds((prev) => prev.filter((p) => p.id !== id));
-    setDeletingGlobalPred((p) => ({ ...p, [id]: false }));
+  const handleDeleteGroup = async (id: string, name: string) => {
+    if (!confirm(`Delete group "${name}" and all its data? This cannot be undone.`)) return;
+    setDeletingGroup((p) => ({ ...p, [id]: true }));
+    const res = await fetch(`/api/admin/groups/${id}`, { method: "DELETE" });
+    if (res.ok) setGroups((prev) => prev.filter((g) => g.id !== id));
+    setDeletingGroup((p) => ({ ...p, [id]: false }));
+  };
+
+  const handleToggleGlobalPred = async (pred: GlobalPrediction) => {
+    const action = pred.status === "DISABLED" ? "enable" : "disable";
+    setTogglingPred((p) => ({ ...p, [pred.id]: true }));
+    const res = await fetch(`/api/admin/custom-predictions/${pred.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      setGlobalPreds((prev) => prev.map((p) =>
+        p.id === pred.id ? { ...p, status: action === "enable" ? "OPEN" : "DISABLED" } : p
+      ));
+    }
+    setTogglingPred((p) => ({ ...p, [pred.id]: false }));
+  };
+
+  const handleUnresolvePred = async (id: string) => {
+    if (!confirm("Un-resolve this prediction? All awarded points will be cleared.")) return;
+    setUnresolvingPred((p) => ({ ...p, [id]: true }));
+    const res = await fetch(`/api/admin/custom-predictions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "unresolve" }),
+    });
+    if (res.ok) {
+      setGlobalPreds((prev) => prev.map((p) =>
+        p.id === id ? { ...p, status: "OPEN", correctOption: null } : p
+      ));
+      setResolveResults((r) => { const n = { ...r }; delete n[id]; return n; });
+    }
+    setUnresolvingPred((p) => ({ ...p, [id]: false }));
+  };
+
+  const handleResolvePred = async (id: string) => {
+    const correctOption = resolveInputs[id]?.trim();
+    if (!correctOption) return;
+    setResolvingPred((p) => ({ ...p, [id]: true }));
+    setResolveResults((p) => { const n = { ...p }; delete n[id]; return n; });
+    const res = await fetch(`/api/admin/custom-predictions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "resolve", correctOption }),
+    });
+    const data = await res.json();
+    setResolvingPred((p) => ({ ...p, [id]: false }));
+    if (res.ok) {
+      setResolveResults((p) => ({ ...p, [id]: { awarded: data.awarded } }));
+      setGlobalPreds((prev) => prev.map((p) => p.id === id ? { ...p, status: "RESOLVED" } : p));
+    } else {
+      setResolveResults((p) => ({ ...p, [id]: { error: data.error ?? "Failed" } }));
+    }
   };
 
   const handleCreateGroup = async (e: React.FormEvent) => {
@@ -345,9 +474,52 @@ Winner\t\tTeam\t10`;
     setCreatingGroup(false);
   };
 
+  // Toggle local (no API call yet)
+  const handleAdvancementToggle = (team: string, result: string) => {
+    setAdvancementLocal((prev) => {
+      const next = { ...prev };
+      if (prev[team] === result) { delete next[team]; } // click same = deselect
+      else { next[team] = result; }
+      return next;
+    });
+  };
+
+  // Save one WC group to the DB
+  const handleSaveAdvancementGroup = async (wcGroup: string) => {
+    const teams = WC_GROUPS[wcGroup];
+    setAdvancementGroupSaving((s) => ({ ...s, [wcGroup]: true }));
+    setAdvancementGroupErrors((e) => ({ ...e, [wcGroup]: "" }));
+    try {
+      for (const team of teams) {
+        const local = advancementLocal[team] ?? null;
+        const saved = advancementResolutions[team] ?? null;
+        if (local === saved) continue;
+        if (local === null) {
+          await fetch(`/api/admin/advancement?team=${encodeURIComponent(team)}`, { method: "DELETE" });
+          setAdvancementResolutions((r) => { const n = { ...r }; delete n[team]; return n; });
+        } else {
+          const res = await fetch("/api/admin/advancement", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ team, result: local }),
+          });
+          if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
+          setAdvancementResolutions((r) => ({ ...r, [team]: local }));
+        }
+      }
+      setAdvancementGroupSaved((s) => ({ ...s, [wcGroup]: true }));
+      setTimeout(() => setAdvancementGroupSaved((s) => ({ ...s, [wcGroup]: false })), 2500);
+    } catch (err: unknown) {
+      setAdvancementGroupErrors((e) => ({ ...e, [wcGroup]: (err as Error).message ?? "Save failed" }));
+    } finally {
+      setAdvancementGroupSaving((s) => ({ ...s, [wcGroup]: false }));
+    }
+  };
+
   const tabs: { key: Tab; label: string }[] = [
     { key: "results", label: "Match Results" },
     { key: "groups", label: "Groups" },
+    { key: "advancement", label: "Advancement" },
     ...(isAdmin ? [
       { key: "settings" as Tab, label: "Point Defaults" },
       { key: "users" as Tab, label: "Users" },
@@ -356,9 +528,19 @@ Winner\t\tTeam\t10`;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">
-        {isAdmin ? "Admin Panel" : "Moderator Panel"}
-      </h1>
+      <div className="flex items-start justify-between mb-1">
+        <h1 className="text-2xl font-bold text-gray-900">
+          {isAdmin ? "Admin Panel" : "Moderator Panel"}
+        </h1>
+        {isAdmin && (
+          <Link
+            href="/admin/simulation"
+            className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 font-medium transition"
+          >
+            Simulation Mode →
+          </Link>
+        )}
+      </div>
       <p className="text-gray-400 text-sm mb-6">
         {isAdmin ? "Manage match results, global point defaults and user roles" : "Update match results"}
       </p>
@@ -492,8 +674,11 @@ Winner\t\tTeam\t10`;
         <>
           <div className="card mb-8">
             <h2 className="font-bold text-gray-800 mb-1">Point Defaults</h2>
+            <p className="text-sm text-gray-500 mb-1">
+              Global defaults applied to <strong>new groups</strong> at creation time.
+            </p>
             <p className="text-xs text-gray-400 mb-4">
-              These are the defaults used when creating a new group. Each group can override them.
+              Existing groups are unaffected — each group has its own per-stage settings you can edit from the group&apos;s Manage page.
             </p>
             <div className="flex flex-wrap gap-6 items-end">
               <div>
@@ -574,6 +759,52 @@ Winner\t\tTeam\t10`;
               </div>
             )}
           </div>
+          {/* Email Preview card */}
+          <div className="card mt-6">
+            <h2 className="font-bold text-gray-800 mb-1">Email Preview</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Preview or test-send any transactional email template. &quot;Send to me&quot; delivers to your admin email address.
+            </p>
+            <div className="flex flex-wrap gap-3 items-center">
+              <select
+                value={previewTemplate}
+                onChange={(e) => { setPreviewTemplate(e.target.value); setPreviewSent(false); }}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+              >
+                {[
+                  { value: "invite", label: "Group invite" },
+                  { value: "welcome", label: "Welcome (post-join)" },
+                  { value: "magic", label: "Magic link sign-in" },
+                  { value: "reset", label: "Password reset" },
+                  { value: "verification", label: "Join-link verification" },
+                  { value: "reminder", label: "1-hour lock reminder" },
+                  { value: "lock30m", label: "30-min lock warning" },
+                  { value: "postgame", label: "Post-game result" },
+                  { value: "subadmin", label: "Sub-admin action alert" },
+                ].map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleEmailPreviewInTab}
+                className="btn-secondary text-sm"
+              >
+                Preview in tab
+              </button>
+              <button
+                onClick={handleSendTestEmail}
+                disabled={previewSending}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                {previewSending ? "Sending…" : previewSent ? "Sent ✓" : "Send to me"}
+              </button>
+            </div>
+            {isDev && (
+              <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                🛠 <strong>Dev mode:</strong> "Send to me" will attempt SMTP delivery. Magic link emails in this environment are logged to the server console only.
+              </p>
+            )}
+          </div>
         </>
       )}
 
@@ -607,6 +838,15 @@ Winner\t\tTeam\t10`;
                         <div className="flex items-center gap-3">
                           <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">View</Link>
                           <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">Manage →</Link>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDeleteGroup(g.id, g.name)}
+                              disabled={deletingGroup[g.id]}
+                              className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 ml-auto"
+                            >
+                              {deletingGroup[g.id] ? "…" : "Delete"}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -711,36 +951,86 @@ Winner\t\tTeam\t10`;
                     <th className="px-4 py-2">Pts</th>
                     <th className="px-4 py-2">Answers</th>
                     <th className="px-4 py-2">Status</th>
+                    <th className="px-4 py-2 min-w-[260px]">Resolve (comma-separated valid answers)</th>
                     <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {globalPreds.map((pred, i) => (
-                    <tr key={pred.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                      <td className="px-4 py-3 font-medium text-gray-800 max-w-xs">
-                        <p className="truncate">{pred.question}</p>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">
-                        {pred.optionType === "TEAM" ? "⚽ Team" : pred.optionType === "PLAYER" ? "🧑 Player" : "Custom"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500">{pred.points}</td>
-                      <td className="px-4 py-3 text-gray-500">{pred.answerCount}</td>
-                      <td className="px-4 py-3">
-                        <span className={`badge ${pred.status === "RESOLVED" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
-                          {pred.status === "RESOLVED" ? "Resolved" : "Open"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleDeleteGlobalPred(pred.id)}
-                          disabled={deletingGlobalPred[pred.id]}
-                          className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
-                        >
-                          {deletingGlobalPred[pred.id] ? "…" : "Delete"}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {globalPreds.map((pred, i) => {
+                    const result = resolveResults[pred.id];
+                    return (
+                      <tr key={pred.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                        <td className="px-4 py-3 font-medium text-gray-800 max-w-xs">
+                          <p className="truncate">{pred.question}</p>
+                        </td>
+                        <td className="px-4 py-3 text-gray-500">
+                          {pred.optionType === "TEAM" ? "⚽ Team" : pred.optionType === "PLAYER" ? "🧑 Player" : "Custom"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500">{pred.points}</td>
+                        <td className="px-4 py-3 text-gray-500">{pred.answerCount}</td>
+                        <td className="px-4 py-3">
+                          <span className={`badge ${
+                            pred.status === "RESOLVED" ? "bg-green-100 text-green-700" :
+                            pred.status === "DISABLED" ? "bg-gray-100 text-gray-400" :
+                            "bg-blue-100 text-blue-700"
+                          }`}>
+                            {pred.status === "RESOLVED" ? "Resolved" : pred.status === "DISABLED" ? "Disabled" : "Open"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {pred.status !== "DISABLED" && (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={resolveInputs[pred.id] ?? ""}
+                                onChange={(e) => setResolveInputs((p) => ({ ...p, [pred.id]: e.target.value }))}
+                                placeholder={pred.status === "RESOLVED" ? "Re-resolve…" : "e.g. France, Argentina"}
+                                className="flex-1 min-w-0 border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                              />
+                              <button
+                                onClick={() => handleResolvePred(pred.id)}
+                                disabled={resolvingPred[pred.id] || !resolveInputs[pred.id]?.trim()}
+                                className="btn-primary text-xs px-2 py-1 whitespace-nowrap disabled:opacity-40"
+                              >
+                                {resolvingPred[pred.id] ? "…" : "Resolve"}
+                              </button>
+                            </div>
+                          )}
+                          {result && (
+                            <p className={`text-xs mt-1 ${
+                              "error" in result ? "text-red-500" : "text-green-600"
+                            }`}>
+                              {"error" in result ? `⚠ ${result.error}` : `✓ Awarded to ${result.awarded} player${result.awarded !== 1 ? "s" : ""}`}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => handleToggleGlobalPred(pred)}
+                              disabled={togglingPred[pred.id]}
+                              className={`text-xs disabled:opacity-40 ${
+                                pred.status === "DISABLED"
+                                  ? "text-green-600 hover:text-green-800"
+                                  : "text-gray-400 hover:text-gray-600"
+                              }`}
+                            >
+                              {togglingPred[pred.id] ? "…" : pred.status === "DISABLED" ? "Enable" : "Disable"}
+                            </button>
+                            {pred.status === "RESOLVED" && (
+                              <button
+                                onClick={() => handleUnresolvePred(pred.id)}
+                                disabled={unresolvingPred[pred.id]}
+                                className="text-xs text-orange-400 hover:text-orange-600 disabled:opacity-40"
+                              >
+                                {unresolvingPred[pred.id] ? "…" : "Un-resolve"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
@@ -782,6 +1072,109 @@ Winner\t\tTeam\t10`;
       })()}
 
       {/* ── Users tab (admin only) ────────────────────────────────────────────── */}
+      {/* ── Advancement tab ────────────────────────────────────────────────────── */}
+      {activeTab === "advancement" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <p className="text-sm text-gray-500">
+              Set each team&apos;s actual group stage result to award points to users&apos; advancement picks.
+              Select results then click <strong>Save Group</strong> to commit.
+            </p>
+            {advancementLoaded && (() => {
+              const resolvedCount = Object.keys(advancementResolutions).length;
+              const total = 48;
+              const pct = Math.round((resolvedCount / total) * 100);
+              return (
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium shrink-0 ${
+                  resolvedCount === total
+                    ? "bg-green-50 border-green-200 text-green-700"
+                    : resolvedCount === 0
+                    ? "bg-gray-50 border-gray-200 text-gray-500"
+                    : "bg-amber-50 border-amber-200 text-amber-700"
+                }`}>
+                  <span>{resolvedCount === total ? "✓" : "📋"}</span>
+                  <span>{resolvedCount}/{total} teams resolved</span>
+                  {resolvedCount > 0 && resolvedCount < total && (
+                    <span className="text-xs opacity-70">({pct}%)</span>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+          {!advancementLoaded ? (
+            <div className="text-center text-gray-400 py-8 text-sm">Loading…</div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {Object.entries(WC_GROUPS).sort(([a], [b]) => a.localeCompare(b)).map(([wcGroup, teams]) => {
+                const groupDirty = teams.some(
+                  (t) => (advancementLocal[t] ?? null) !== (advancementResolutions[t] ?? null)
+                );
+                const isSaving = advancementGroupSaving[wcGroup];
+                const isSaved = advancementGroupSaved[wcGroup];
+                const groupError = advancementGroupErrors[wcGroup];
+                return (
+                  <div key={wcGroup} className="card p-0 overflow-hidden">
+                    <div className="bg-fifa-blue text-white text-xs font-bold px-3 py-1.5 flex items-center justify-between">
+                      <span>Group {wcGroup}</span>
+                    </div>
+                    <div className="divide-y divide-gray-50">
+                      {teams.map((team) => {
+                        const localResult = advancementLocal[team];
+                        const savedResult = advancementResolutions[team];
+                        const changed = (localResult ?? null) !== (savedResult ?? null);
+                        return (
+                          <div key={team} className={`px-3 py-2 ${changed ? "bg-amber-50" : ""}`}>
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="font-medium text-sm text-gray-800 flex-1">{team}</span>
+                              {changed && <span className="text-[10px] text-amber-600 font-medium">unsaved</span>}
+                            </div>
+                            <div className="flex gap-1 flex-wrap">
+                              {ADVANCEMENT_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => handleAdvancementToggle(team, opt.value)}
+                                  disabled={isSaving}
+                                  className={`text-[10px] font-semibold px-2 py-1 rounded border transition disabled:opacity-50 ${
+                                    localResult === opt.value
+                                      ? opt.color + " font-bold"
+                                      : "border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Per-group save footer */}
+                    <div className="px-3 py-2 border-t border-gray-100 flex items-center gap-2">
+                      <button
+                        onClick={() => handleSaveAdvancementGroup(wcGroup)}
+                        disabled={isSaving || !groupDirty}
+                        className={`text-xs font-semibold px-3 py-1 rounded-lg transition ${
+                          groupDirty && !isSaving
+                            ? "bg-fifa-blue text-white hover:bg-blue-700"
+                            : isSaved
+                            ? "bg-green-500 text-white"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        }`}
+                      >
+                        {isSaving ? "Saving…" : isSaved ? "Saved ✓" : groupDirty ? "Save Group" : "No changes"}
+                      </button>
+                      {groupError && (
+                        <span className="text-[10px] text-red-500">{groupError}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === "users" && isAdmin && (
         <div className="card overflow-hidden p-0">
           {!usersLoaded ? (

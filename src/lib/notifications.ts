@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { calculatePoints } from "@/lib/scoring";
-import { sendReminderEmail, sendPostGameEmail, sendSubAdminActionEmail } from "@/lib/email";
+import { sendReminderEmail, sendPostGameEmail, sendSubAdminActionEmail, type PredRow } from "@/lib/email";
 import { sendPushToUser, sendPushToAll } from "@/lib/webpush";
 import { getNow } from "@/lib/time";
 
@@ -21,25 +21,44 @@ export async function sendMatchReminders() {
   if (upcomingMatches.length === 0) return;
 
   const users = await prisma.user.findMany({
-    where: { email: { not: null } },
-    select: { id: true, email: true, name: true },
+    where: { email: { not: null }, isDemo: { not: true } },
+    select: { id: true, email: true, name: true, emailNotifications: true },
   });
+
+  // Pre-load match-reminder dedup records and lock_30m notifications for all matches+users
+  const matchIds = upcomingMatches.map((m) => m.id);
+  const userIds = users.map((u) => u.id);
+
+  const [alreadySentRecords, lock30mRecords, existingPredictions] = await Promise.all([
+    prisma.matchReminder.findMany({
+      where: { matchId: { in: matchIds }, userId: { in: userIds } },
+      select: { userId: true, matchId: true },
+    }),
+    // If lock_30m was already sent for this match+user, skip the 1h reminder to avoid double-email
+    prisma.notification.findMany({
+      where: { matchId: { in: matchIds }, userId: { in: userIds }, type: "lock_30m" },
+      select: { userId: true, matchId: true },
+    }),
+    prisma.prediction.findMany({
+      where: { matchId: { in: matchIds }, userId: { in: userIds } },
+      select: { userId: true, matchId: true },
+    }),
+  ]);
+
+  const alreadySentSet = new Set(alreadySentRecords.map((r) => `${r.userId}:${r.matchId}`));
+  const lock30mSet     = new Set(lock30mRecords.map((r) => `${r.userId}:${r.matchId}`));
+  const predictedSet   = new Set(existingPredictions.map((r) => `${r.userId}:${r.matchId}`));
 
   for (const user of users) {
     const matchesToRemind: typeof upcomingMatches = [];
 
     for (const match of upcomingMatches) {
       // Skip if already reminded
-      const alreadySent = await prisma.matchReminder.findUnique({
-        where: { userId_matchId: { userId: user.id, matchId: match.id } },
-      });
-      if (alreadySent) continue;
-
+      if (alreadySentSet.has(`${user.id}:${match.id}`)) continue;
+      // Skip if lock_30m email already sent — prevent double-email in the overlap window
+      if (lock30mSet.has(`${user.id}:${match.id}`)) continue;
       // Skip if user already predicted (in any group)
-      const hasPrediction = await prisma.prediction.findFirst({
-        where: { userId: user.id, matchId: match.id },
-      });
-      if (hasPrediction) continue;
+      if (predictedSet.has(`${user.id}:${match.id}`)) continue;
 
       matchesToRemind.push(match);
     }
@@ -48,21 +67,22 @@ export async function sendMatchReminders() {
 
     // Send email reminder
     try {
-      if (user.email) {
+      if (user.email && user.emailNotifications) {
         await sendReminderEmail(user.email, user.name ?? "Predictor", matchesToRemind);
       }
     } catch { /* non-fatal */ }
 
     // Send push notification
+    // Lock is kickoff−60min; our window fires when lock is 30–90 min away
     const body =
       matchesToRemind.length === 1
-        ? `${matchesToRemind[0].homeTeam} vs ${matchesToRemind[0].awayTeam} kicks off in ~2 hours!`
-        : `${matchesToRemind.length} matches kick off in ~2 hours — predict now!`;
+        ? `${matchesToRemind[0].homeTeam} vs ${matchesToRemind[0].awayTeam} — predictions lock in ~1 hour!`
+        : `${matchesToRemind.length} matches lock for predictions in ~1 hour — predict now!`;
 
     await sendPushToUser(user.id, {
-      title: "⚽ Don't forget to predict!",
+      title: "⚽ Predictions lock soon!",
       body,
-      url: "/matches",
+      url: "/groups",
       tag: "reminder",
     });
 
@@ -91,35 +111,186 @@ export async function sendPostGameNotifications(
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return;
 
-  const predictions = await prisma.prediction.findMany({
+  // ── Dedup guard: skip email blast if already processed for this match ───────
+  // Uses "post_game_email" (not "result" which is a per-user in-app notification
+  // created by generateResultNotification — using "result" here would always match).
+  const alreadyProcessed = await prisma.notification.findFirst({
+    where: { matchId, type: "post_game_email" },
+  });
+  if (alreadyProcessed) return;
+
+  const matchLabel = `${match.homeTeam} ${homeScore}–${awayScore} ${match.awayTeam}`;
+
+  // Fetch all predictions for this match, including groupId
+  const allPredictions = await prisma.prediction.findMany({
     where: { matchId },
     include: { user: { select: { id: true, name: true, email: true } } },
   });
 
-  // ── Build insights ──────────────────────────────────────────────────────────
+  // ── Find all groups that have at least one prediction for this match ─────────
+  const groupIds = Array.from(new Set(allPredictions.map((p) => p.groupId)));
+
+  // ── Build global push insights (cross-group summary for push only) ───────────
   const exactScorers: string[] = [];
   const directionCorrect: string[] = [];
   const wrong: string[] = [];
-
-  for (const pred of predictions) {
-    const result = calculatePoints(
-      pred.homeScore, pred.awayScore, homeScore, awayScore, exactPoints, directionPoints
-    );
+  for (const pred of allPredictions) {
+    const result = calculatePoints(pred.homeScore, pred.awayScore, homeScore, awayScore, exactPoints, directionPoints);
     const displayName = pred.user.name ?? pred.user.email ?? "Someone";
     if (result.exact) exactScorers.push(displayName);
     else if (result.direction) directionCorrect.push(displayName);
     else wrong.push(displayName);
   }
+  const insights: { emoji: string; text: string }[] = buildInsights(exactScorers, directionCorrect, wrong, allPredictions.length, exactPoints);
 
+  // ── Per-group email sends ─────────────────────────────────────────────────
+  for (const groupId of groupIds) {
+    const groupPredictions = allPredictions.filter((p) => p.groupId === groupId);
+    const predictedUserIds = new Set(groupPredictions.map((p) => p.userId));
+    const pointsGainedMap: Record<string, number> = {};
+
+    for (const pred of groupPredictions) {
+      const result = calculatePoints(pred.homeScore, pred.awayScore, homeScore, awayScore, exactPoints, directionPoints);
+      pointsGainedMap[pred.userId] = result.points;
+    }
+
+    // Build group-scoped predRows (sorted: exact → direction → miss → no pick)
+    const predRows: PredRow[] = groupPredictions
+      .map((pred) => {
+        const result = calculatePoints(pred.homeScore, pred.awayScore, homeScore, awayScore, exactPoints, directionPoints);
+        return {
+          name: pred.user.name ?? pred.user.email ?? "Anonymous",
+          predHomeScore: pred.homeScore,
+          predAwayScore: pred.awayScore,
+          points: result.points,
+          isExact: result.exact,
+          isDirection: result.direction && !result.exact,
+          hasPrediction: true,
+        } as PredRow;
+      })
+      .sort((a, b) => {
+        if (a.isExact !== b.isExact) return a.isExact ? -1 : 1;
+        if (a.isDirection !== b.isDirection) return a.isDirection ? -1 : 1;
+        return b.points - a.points;
+      });
+
+    // Fetch group members for leaderboard + to add non-predictors to predRows
+    const memberships = await prisma.groupMembership.findMany({
+      where: { groupId, status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            emailNotifications: true,
+            isDemo: true,
+            predictions: { where: { points: { not: null }, groupId }, select: { points: true } },
+            customPredictionAnswers: { where: { points: { not: null }, groupId }, select: { points: true } },
+            advancementPredictions: { where: { points: { not: null }, groupId }, select: { points: true } },
+          },
+        },
+      },
+    });
+
+    // Add group members who didn't predict this match to predRows (no-pick rows)
+    for (const m of memberships) {
+      if (!predictedUserIds.has(m.user.id) && !m.user.isDemo) {
+        predRows.push({
+          name: m.user.name ?? m.user.email ?? "Anonymous",
+          predHomeScore: null,
+          predAwayScore: null,
+          points: 0,
+          isExact: false,
+          isDirection: false,
+          hasPrediction: false,
+        });
+      }
+    }
+
+    // Build group-scoped leaderboard
+    const leaderboard = memberships
+      .filter((m) => !m.user.isDemo)
+      .map((m) => {
+        const allPts = [
+          ...m.user.predictions.map((p) => p.points ?? 0),
+          ...m.user.customPredictionAnswers.map((p) => p.points ?? 0),
+          ...m.user.advancementPredictions.map((p) => p.points ?? 0),
+        ];
+        return {
+          id: m.user.id,
+          name: m.user.name ?? m.user.email ?? "Anonymous",
+          email: m.user.email,
+          emailNotifications: m.user.emailNotifications,
+          totalPoints: allPts.reduce((s, p) => s + p, 0),
+          pointsGained: pointsGainedMap[m.user.id] ?? 0,
+        };
+      })
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .map((u, i) => ({ ...u, rank: i + 1 }));
+
+    const top3 = leaderboard.slice(0, 3);
+    const pushBody = buildPushBody(insights, top3);
+
+    await Promise.allSettled(
+      leaderboard.map(async (entry) => {
+        // Email
+        try {
+          if (entry.email && entry.emailNotifications) {
+            await sendPostGameEmail(
+              entry.email,
+              entry.name,
+              { homeTeam: match.homeTeam, awayTeam: match.awayTeam, homeScore, awayScore },
+              insights,
+              top3,
+              predRows,
+              entry.rank > 3 ? entry : undefined
+            );
+          }
+        } catch { /* non-fatal */ }
+
+        // Push
+        await sendPushToUser(entry.id, {
+          title: `⚽ Result: ${matchLabel}`,
+          body: pushBody,
+          url: "/groups",
+          tag: `result-${matchId}`,
+        });
+      })
+    );
+  }
+
+  // ── Create dedup sentinel so score corrections don't re-fire the email blast ─
+  // We use "post_game_email" type (never shown in NotificationCenter UI).
+  if (allPredictions.length > 0) {
+    await prisma.notification.create({
+      data: {
+        userId: allPredictions[0].userId,
+        type: "post_game_email",
+        title: "__email_sent__",
+        body: matchLabel,
+        matchId,
+        read: true,
+      },
+    }).catch(() => { /* non-fatal */ });
+  }
+}
+
+function buildInsights(
+  exactScorers: string[],
+  directionCorrect: string[],
+  wrong: string[],
+  totalPredictions: number,
+  exactPoints: number
+): { emoji: string; text: string }[] {
   const insights: { emoji: string; text: string }[] = [];
-
   if (exactScorers.length === 0 && directionCorrect.length === 0) {
     insights.push({ emoji: "😅", text: "Nobody predicted this result correctly!" });
   } else {
     if (exactScorers.length > 0) {
       if (exactScorers.length === 1) {
         insights.push({ emoji: "🔮", text: `${exactScorers[0]} was the only one to get the exact score!` });
-      } else if (exactScorers.length === predictions.length) {
+      } else if (exactScorers.length === totalPredictions) {
         insights.push({ emoji: "🎯", text: `Everyone got the exact score — ${exactScorers.length} players earn ${exactPoints} pts!` });
       } else {
         insights.push({ emoji: "🎯", text: `${exactScorers.length} player${exactScorers.length > 1 ? "s" : ""} got the exact score: ${exactScorers.join(", ")}` });
@@ -133,72 +304,11 @@ export async function sendPostGameNotifications(
     if (wrong.length > 0) {
       insights.push({ emoji: "❌", text: `${wrong.length} player${wrong.length > 1 ? "s" : ""} got it wrong` });
     }
-    if (predictions.length === 0) {
+    if (totalPredictions === 0) {
       insights.push({ emoji: "📭", text: "No predictions were submitted for this match" });
     }
   }
-
-  // ── Build leaderboard snapshot ─────────────────────────────────────────────
-  // Points gained per user from this match
-  const pointsGainedMap: Record<string, number> = {};
-  for (const pred of predictions) {
-    const result = calculatePoints(
-      pred.homeScore, pred.awayScore, homeScore, awayScore, exactPoints, directionPoints
-    );
-    pointsGainedMap[pred.userId] = result.points;
-  }
-
-  const users = await prisma.user.findMany({
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      predictions: { where: { points: { not: null } }, select: { points: true } },
-    },
-  });
-
-  const leaderboard = users
-    .map((u) => ({
-      id: u.id,
-      name: u.name ?? u.email ?? "Anonymous",
-      email: u.email,
-      totalPoints: u.predictions.reduce((s, p) => s + (p.points ?? 0), 0),
-      pointsGained: pointsGainedMap[u.id] ?? 0,
-    }))
-    .sort((a, b) => b.totalPoints - a.totalPoints)
-    .map((u, i) => ({ ...u, rank: i + 1 }));
-
-  const top3 = leaderboard.slice(0, 3);
-
-  // ── Send to each user ───────────────────────────────────────────────────────
-  const matchLabel = `${match.homeTeam} ${homeScore}–${awayScore} ${match.awayTeam}`;
-  const pushBody = buildPushBody(insights, top3);
-
-  await Promise.allSettled(
-    leaderboard.map(async (entry) => {
-      // Email
-      try {
-        if (entry.email) {
-          await sendPostGameEmail(
-            entry.email,
-            entry.name,
-            { homeTeam: match.homeTeam, awayTeam: match.awayTeam, homeScore, awayScore },
-            insights,
-            top3,
-            entry.rank > 3 ? entry : undefined
-          );
-        }
-      } catch { /* non-fatal */ }
-
-      // Push
-      await sendPushToUser(entry.id, {
-        title: `⚽ Result: ${matchLabel}`,
-        body: pushBody,
-        url: "/leaderboard",
-        tag: `result-${matchId}`,
-      });
-    })
-  );
+  return insights;
 }
 
 // ── Sub-admin action notification to admin ────────────────────────────────────

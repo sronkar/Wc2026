@@ -35,6 +35,14 @@ export async function GET(req: NextRequest) {
             where: { points: { not: null }, groupId },
             select: { points: true },
           },
+          customPredictionAnswers: {
+            where: { points: { not: null }, groupId },
+            select: { points: true },
+          },
+          advancementPredictions: {
+            where: { points: { not: null }, groupId },
+            select: { points: true },
+          },
         },
       },
     },
@@ -42,20 +50,30 @@ export async function GET(req: NextRequest) {
 
   const leaderboard = memberships
     .map((m) => {
-      const totalPoints = m.user.predictions.reduce((s, p) => s + (p.points ?? 0), 0);
-      const directHits = m.user.predictions.filter((p) => (p.points ?? 0) > 0).length;
+      const matchPts = m.user.predictions.map((p) => p.points ?? 0);
+      const customPts = m.user.customPredictionAnswers.map((p) => p.points ?? 0);
+      const advPts = m.user.advancementPredictions.map((p) => p.points ?? 0);
+      const allPts = [...matchPts, ...customPts, ...advPts];
+
+      const totalPoints = allPts.reduce((s, p) => s + p, 0);
+      const directHits = allPts.filter((p) => p > 0).length;
+      const zeroPoints = allPts.filter((p) => p === 0).length;
+      const predictionsCount = matchPts.length;
+
       return {
         id: m.user.id,
         name: m.user.name ?? "Anonymous",
         image: m.user.image,
         totalPoints,
         directHits,
-        predictionsCount: m.user.predictions.length,
+        zeroPoints,
+        predictionsCount,
       };
     })
     .sort((a, b) =>
       b.totalPoints !== a.totalPoints ? b.totalPoints - a.totalPoints :
       b.directHits !== a.directHits ? b.directHits - a.directHits :
+      a.zeroPoints !== b.zeroPoints ? a.zeroPoints - b.zeroPoints :
       b.predictionsCount - a.predictionsCount
     )
     .map((u, i) => ({ ...u, rank: i + 1 }));

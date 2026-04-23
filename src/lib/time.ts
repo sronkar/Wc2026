@@ -1,15 +1,21 @@
 import { prisma } from "@/lib/prisma";
 
-// Module-level virtual time (null = use real time)
-let _virtualTimeMs: number | null = null;
+// Use globalThis to persist state across hot reloads in dev
+const g = globalThis as { __wc2026_sim?: { active: boolean; timeMs: number | null } };
+if (!g.__wc2026_sim) g.__wc2026_sim = { active: false, timeMs: null };
 
 export function isDemoMode(): boolean {
-  return process.env.DEMO_MODE === "true";
+  return process.env.DEMO_MODE === "true" || g.__wc2026_sim!.active;
+}
+
+export function isSimulationMode(): boolean {
+  return g.__wc2026_sim!.active;
 }
 
 export function getNow(): Date {
-  if (!isDemoMode() || _virtualTimeMs === null) return new Date();
-  return new Date(_virtualTimeMs);
+  const sim = g.__wc2026_sim!;
+  if (!isDemoMode() || sim.timeMs === null) return new Date();
+  return new Date(sim.timeMs);
 }
 
 export function getNowMs(): number {
@@ -17,7 +23,7 @@ export function getNowMs(): number {
 }
 
 export async function setVirtualTime(date: Date): Promise<void> {
-  _virtualTimeMs = date.getTime();
+  g.__wc2026_sim!.timeMs = date.getTime();
   await prisma.demoSettings.upsert({
     where: { id: "demo" },
     update: { virtualTime: date },
@@ -25,21 +31,43 @@ export async function setVirtualTime(date: Date): Promise<void> {
   });
 }
 
+export async function setSimulationMode(active: boolean): Promise<void> {
+  const sim = g.__wc2026_sim!;
+  sim.active = active;
+  if (active && sim.timeMs === null) {
+    sim.timeMs = Date.now();
+  }
+  await prisma.demoSettings.upsert({
+    where: { id: "demo" },
+    update: { simulationActive: active, virtualTime: active ? new Date(sim.timeMs!) : new Date() },
+    create: { id: "demo", simulationActive: active, virtualTime: new Date() },
+  });
+  if (!active) {
+    sim.timeMs = null;
+  }
+}
+
 export async function loadVirtualTime(): Promise<void> {
-  if (!isDemoMode()) return;
   try {
     const settings = await prisma.demoSettings.findUnique({ where: { id: "demo" } });
-    if (settings) {
-      _virtualTimeMs = settings.virtualTime.getTime();
-      console.log(`[demo] virtual time restored: ${new Date(_virtualTimeMs).toISOString()}`);
-    } else {
-      _virtualTimeMs = Date.now();
-      await prisma.demoSettings.create({
-        data: { id: "demo", virtualTime: new Date(_virtualTimeMs) },
-      });
-      console.log(`[demo] virtual time initialised to real time`);
+    if (!settings) {
+      if (process.env.DEMO_MODE === "true") {
+        g.__wc2026_sim!.timeMs = Date.now();
+        await prisma.demoSettings.create({ data: { id: "demo", virtualTime: new Date(g.__wc2026_sim!.timeMs) } });
+        console.log(`[time] virtual time initialised to real time`);
+      }
+      return;
+    }
+
+    if (settings.simulationActive) {
+      g.__wc2026_sim!.active = true;
+      g.__wc2026_sim!.timeMs = settings.virtualTime.getTime();
+      console.log(`[time] simulation mode restored: virtual time = ${new Date(g.__wc2026_sim!.timeMs).toISOString()}`);
+    } else if (process.env.DEMO_MODE === "true") {
+      g.__wc2026_sim!.timeMs = settings.virtualTime.getTime();
+      console.log(`[time] demo virtual time restored: ${new Date(g.__wc2026_sim!.timeMs).toISOString()}`);
     }
   } catch (e) {
-    console.error("[demo] failed to load virtual time:", e);
+    console.error("[time] failed to load virtual time:", e);
   }
 }

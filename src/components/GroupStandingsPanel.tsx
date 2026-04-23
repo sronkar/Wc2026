@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { getFlag } from "@/lib/flags";
 
 interface Match {
@@ -132,12 +133,12 @@ function GroupTable({
         <thead>
           <tr className="border-b border-gray-100 text-gray-400">
             <th className="text-left px-3 py-1.5 font-medium w-full">Team</th>
+            <th className="px-2 py-1.5 font-medium text-center text-fifa-blue">P</th>
             <th className="px-1 py-1.5 font-medium text-center">W</th>
             <th className="px-1 py-1.5 font-medium text-center">D</th>
             <th className="px-1 py-1.5 font-medium text-center">L</th>
             <th className="px-1 py-1.5 font-medium text-center">GD</th>
             <th className="px-1 py-1.5 font-medium text-center">GF</th>
-            <th className="px-2 py-1.5 font-medium text-center text-fifa-blue">P</th>
           </tr>
         </thead>
         <tbody>
@@ -163,12 +164,12 @@ function GroupTable({
                     </span>
                   </div>
                 </td>
+                <td className="px-2 py-1.5 text-center font-bold text-fifa-blue">{row.Pts}</td>
                 <td className="px-1 py-1.5 text-center text-gray-500">{row.W}</td>
                 <td className="px-1 py-1.5 text-center text-gray-500">{row.D}</td>
                 <td className="px-1 py-1.5 text-center text-gray-500">{row.L}</td>
                 <td className="px-1 py-1.5 text-center text-gray-500">{row.GD > 0 ? `+${row.GD}` : row.GD}</td>
                 <td className="px-1 py-1.5 text-center text-gray-500">{row.GF}</td>
-                <td className="px-2 py-1.5 text-center font-bold text-fifa-blue">{row.Pts}</td>
               </tr>
             );
           })}
@@ -190,13 +191,8 @@ function ThirdPlaceRanking({ ranking }: { ranking: (Row & { group: string })[] }
           <tr className="border-b border-gray-100 text-gray-400">
             <th className="px-2 py-1.5 font-medium text-center">#</th>
             <th className="text-left px-3 py-1.5 font-medium w-full">Team</th>
-            <th className="px-1 py-1.5 font-medium text-center">Grp</th>
-            <th className="px-1 py-1.5 font-medium text-center">W</th>
-            <th className="px-1 py-1.5 font-medium text-center">D</th>
-            <th className="px-1 py-1.5 font-medium text-center">L</th>
-            <th className="px-1 py-1.5 font-medium text-center">GD</th>
-            <th className="px-1 py-1.5 font-medium text-center">GF</th>
             <th className="px-2 py-1.5 font-medium text-center text-fifa-blue">P</th>
+            <th className="px-1 py-1.5 font-medium text-center">GD</th>
           </tr>
         </thead>
         <tbody>
@@ -218,13 +214,8 @@ function ThirdPlaceRanking({ ranking }: { ranking: (Row & { group: string })[] }
                     </span>
                   </div>
                 </td>
-                <td className="px-1 py-1.5 text-center text-gray-500">{row.group}</td>
-                <td className="px-1 py-1.5 text-center text-gray-500">{row.W}</td>
-                <td className="px-1 py-1.5 text-center text-gray-500">{row.D}</td>
-                <td className="px-1 py-1.5 text-center text-gray-500">{row.L}</td>
-                <td className="px-1 py-1.5 text-center text-gray-500">{row.GD > 0 ? `+${row.GD}` : row.GD}</td>
-                <td className="px-1 py-1.5 text-center text-gray-500">{row.GF}</td>
                 <td className="px-2 py-1.5 text-center font-bold text-fifa-blue">{row.Pts}</td>
+                <td className="px-1 py-1.5 text-center text-gray-500">{row.GD > 0 ? `+${row.GD}` : row.GD}</td>
               </tr>
             );
           })}
@@ -248,7 +239,10 @@ export function GroupStandingsPanel({
   groupFilter: string;
   sidebar?: boolean;
 }) {
-  const standings = computeStandings(matches, predictions);
+  const [mode, setMode] = useState<"actual" | "picks">("picks");
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const effectivePredictions = mode === "picks" ? predictions : {};
+  const standings = computeStandings(matches, effectivePredictions);
   const groupNames = Object.keys(standings).sort();
   if (groupNames.length === 0) return null;
 
@@ -263,26 +257,70 @@ export function GroupStandingsPanel({
 
   const showThirdPlace = groupFilter === "All";
 
+  const ModeToggle = ({ compact }: { compact?: boolean }) => (
+    <div className={`flex items-center gap-1 ${compact ? "" : "mb-3"}`}>
+      <button
+        onClick={() => setMode("actual")}
+        className={`text-[10px] px-2 py-0.5 rounded border transition ${
+          mode === "actual" ? "bg-fifa-blue text-white border-fifa-blue" : "border-gray-200 text-gray-400 hover:border-gray-300"
+        }`}
+      >
+        Actual
+      </button>
+      <button
+        onClick={() => setMode("picks")}
+        className={`text-[10px] px-2 py-0.5 rounded border transition ${
+          mode === "picks" ? "bg-fifa-blue text-white border-fifa-blue" : "border-gray-200 text-gray-400 hover:border-gray-300"
+        }`}
+      >
+        with my picks
+      </button>
+    </div>
+  );
+
   if (sidebar) {
     return (
-      <div className="space-y-3">
-        <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-          Standings
-        </h2>
-        {visible.map((g) => (
-          <GroupTable key={g} name={g} rows={standings[g]} top8ThirdPlace={top8ThirdPlace} />
-        ))}
-        {showThirdPlace && <ThirdPlaceRanking ranking={thirdPlaceRanking} />}
-        <div className="text-xs text-gray-400 space-y-0.5">
-          <p>
-            <span className="inline-block w-2 h-2 rounded-sm bg-green-100 border border-green-300 mr-1" />
-            Top 2 advance
-          </p>
-          <p>
-            <span className="inline-block w-2 h-2 rounded-sm bg-amber-100 border border-amber-300 mr-1" />
-            Best 8 third-place advance
-          </p>
+      <div>
+        {/* Mobile: collapsible header */}
+        <button
+          onClick={() => setMobileOpen((v) => !v)}
+          className="lg:hidden w-full flex items-center justify-between py-2 text-sm font-bold text-gray-700 border-b border-gray-200 mb-3"
+        >
+          <span className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+            Group Standings
+          </span>
+          <span className="text-gray-400 text-xs">{mobileOpen ? "▲ Hide" : "▼ Show"}</span>
+        </button>
+
+        {/* Desktop: always visible; Mobile: only when expanded */}
+        <div className={`space-y-3 ${mobileOpen ? "block" : "hidden"} lg:block`}>
+          <div className="hidden lg:flex items-center justify-between">
+            <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+              Standings
+            </h2>
+            <ModeToggle compact />
+          </div>
+          {/* Mobile mode toggle (visible when panel is open) */}
+          <div className="lg:hidden flex items-center justify-between mb-1">
+            <span className="text-xs text-gray-500">Toggle predictions</span>
+            <ModeToggle compact />
+          </div>
+          {visible.map((g) => (
+            <GroupTable key={g} name={g} rows={standings[g]} top8ThirdPlace={top8ThirdPlace} />
+          ))}
+          {showThirdPlace && <ThirdPlaceRanking ranking={thirdPlaceRanking} />}
+          <div className="text-xs text-gray-400 space-y-0.5">
+            <p>
+              <span className="inline-block w-2 h-2 rounded-sm bg-green-100 border border-green-300 mr-1" />
+              Top 2 advance
+            </p>
+            <p>
+              <span className="inline-block w-2 h-2 rounded-sm bg-amber-100 border border-amber-300 mr-1" />
+              Best 8 third-place advance
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -290,11 +328,16 @@ export function GroupStandingsPanel({
 
   return (
     <div className="mb-8">
-      <h2 className="text-base font-bold text-gray-700 mb-3 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-        Group Stage Standings
-        <span className="text-xs font-normal text-gray-400">(based on your predictions)</span>
-      </h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-base font-bold text-gray-700 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+          Group Stage Standings
+          {mode === "picks" && (
+            <span className="text-xs font-normal text-gray-400">actual + your picks</span>
+          )}
+        </h2>
+        <ModeToggle />
+      </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
         {visible.map((g) => (
           <GroupTable key={g} name={g} rows={standings[g]} top8ThirdPlace={top8ThirdPlace} />

@@ -19,13 +19,23 @@ export async function POST(
   const { option, groupId } = await req.json();
   const effectiveGroupId: string | null = cp.groupId ?? groupId ?? null;
 
-  // Verify membership in the group context
+  // Verify membership in the group context.
+  // For group-scoped predictions: must be an approved member of that specific group.
+  // For global predictions (cp.groupId === null): must be an approved member of at least one group.
   if (effectiveGroupId) {
     const membership = await prisma.groupMembership.findUnique({
       where: { userId_groupId: { userId: session.user.id, groupId: effectiveGroupId } },
     });
     if (membership?.status !== "APPROVED") {
       return NextResponse.json({ error: "Not a member of this group" }, { status: 403 });
+    }
+  } else {
+    // Global prediction — require membership in at least one group
+    const anyMembership = await prisma.groupMembership.findFirst({
+      where: { userId: session.user.id, status: "APPROVED" },
+    });
+    if (!anyMembership) {
+      return NextResponse.json({ error: "Must be an approved group member to answer predictions" }, { status: 403 });
     }
   }
 

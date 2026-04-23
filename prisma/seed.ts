@@ -132,7 +132,7 @@ async function main() {
   await prisma.pointSettings.upsert({
     where: { id: "default" },
     update: {},
-    create: { id: "default", exactMatchPoints: 5, directionMatchPoints: 1, updatedAt: new Date() },
+    create: { id: "default", exactMatchPoints: 2, directionMatchPoints: 1, updatedAt: new Date() },
   });
 
   for (const match of matches) {
@@ -154,128 +154,106 @@ async function main() {
 
   console.log(`Seeded ${matches.length} matches.`);
 
-  // Global general predictions (locked 1h before tournament starts)
+  // Global general predictions — lock 1h before tournament starts
   const tournamentLock = new Date("2026-06-11T18:00:00Z");
-  // Group winner predictions lock before last group stage matches end
-  const groupLock = new Date("2026-06-28T12:00:00Z");
-
-  const allTeams = [
-    "Mexico","South Africa","South Korea","Czechia",
-    "Canada","Bosnia-Herzegovina","Qatar","Switzerland",
-    "Brazil","Morocco","Haiti","Scotland",
-    "United States","Australia","Turkey","Paraguay",
-    "Germany","Ivory Coast","Ecuador","Curaçao",
-    "Netherlands","Sweden","Japan","Tunisia",
-    "Belgium","Egypt","Iran","New Zealand",
-    "Spain","Uruguay","Saudi Arabia","Cape Verde",
-    "France","Senegal","Iraq","Norway",
-    "Austria","Jordan","Argentina","Algeria",
-    "Portugal","Uzbekistan","DR Congo","Colombia",
-    "England","Croatia","Ghana","Panama",
-  ];
-
-  const groupTeams: Record<string, string[]> = {
-    A: ["Mexico","South Africa","South Korea","Czechia"],
-    B: ["Canada","Bosnia-Herzegovina","Qatar","Switzerland"],
-    C: ["Brazil","Morocco","Haiti","Scotland"],
-    D: ["United States","Australia","Turkey","Paraguay"],
-    E: ["Germany","Ivory Coast","Ecuador","Curaçao"],
-    F: ["Netherlands","Sweden","Japan","Tunisia"],
-    G: ["Belgium","Egypt","Iran","New Zealand"],
-    H: ["Spain","Uruguay","Saudi Arabia","Cape Verde"],
-    I: ["France","Senegal","Iraq","Norway"],
-    J: ["Austria","Jordan","Argentina","Algeria"],
-    K: ["Portugal","Uzbekistan","DR Congo","Colombia"],
-    L: ["England","Croatia","Ghana","Panama"],
-  };
 
   const globalPredictions = [
     {
-      question: "Who will win the 2026 World Cup?",
-      description: "Pick the team you think will lift the trophy in New Jersey.",
+      question: "Top Scorer",
+      description: "In case of ties, all players are valid",
+      optionType: "PLAYER",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Team to Receive first red card",
+      description: "this is globally, not earliest time in a game.",
       optionType: "TEAM",
-      options: JSON.stringify(allTeams),
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Most points in group stage",
+      description: "In case of ties on points, all teams are valid",
+      optionType: "TEAM",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Least goals scored in group stage",
+      description: "In case of ties, all teams are valid",
+      optionType: "TEAM",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Most goals scored in group stage",
+      description: "In case of ties, all teams are valid",
+      optionType: "TEAM",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Least goals conceded in group stage",
+      description: "In case of ties, all teams are valid",
+      optionType: "TEAM",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Most goals conceded in group stage",
+      description: "In case of ties, all teams are valid",
+      optionType: "TEAM",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Team to score fastest goal",
+      description: "Based on official goal minute (not actual specific time), this is not global but actual minute of the scored goal. In case of ties, all teams are valid",
+      optionType: "TEAM",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Finalist 1",
+      description: null,
+      optionType: "TEAM",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Finalist 2",
+      description: null,
+      optionType: "TEAM",
+      options: JSON.stringify([]),
+      points: 4,
+      lockTime: tournamentLock,
+    },
+    {
+      question: "Winner",
+      description: null,
+      optionType: "TEAM",
+      options: JSON.stringify([]),
       points: 10,
       lockTime: tournamentLock,
     },
-    {
-      question: "Which team will be the runner-up?",
-      description: "Pick the team that reaches the Final but doesn't win.",
-      optionType: "TEAM",
-      options: JSON.stringify(allTeams),
-      points: 7,
-      lockTime: tournamentLock,
-    },
-    {
-      question: "Who will win the Golden Boot (top scorer)?",
-      description: "Pick the player who scores the most goals.",
-      optionType: "PLAYER",
-      options: JSON.stringify([]),
-      points: 8,
-      lockTime: tournamentLock,
-    },
-    {
-      question: "Who will win the Golden Ball (best player)?",
-      description: "Pick the player awarded best of the tournament.",
-      optionType: "PLAYER",
-      options: JSON.stringify([]),
-      points: 7,
-      lockTime: tournamentLock,
-    },
-    {
-      question: "Who will win the Golden Glove (best goalkeeper)?",
-      description: "Pick the goalkeeper awarded best of the tournament.",
-      optionType: "PLAYER",
-      options: JSON.stringify([]),
-      points: 6,
-      lockTime: tournamentLock,
-    },
-    {
-      question: "How many total goals will be scored?",
-      description: "WC2022 had 172 goals across 64 matches; WC2026 has 104 matches.",
-      optionType: "FIXED",
-      options: JSON.stringify(["Under 200","200–224","225–249","250–274","275–299","300 or more"]),
-      points: 5,
-      lockTime: tournamentLock,
-    },
-    {
-      question: "Which host nation will advance furthest?",
-      description: "USA, Canada, and Mexico are all hosts. Who goes deepest?",
-      optionType: "FIXED",
-      options: JSON.stringify(["United States","Canada","Mexico","All eliminated in group stage"]),
-      points: 5,
-      lockTime: tournamentLock,
-    },
-    {
-      question: "Will the final go to extra time or penalties?",
-      optionType: "FIXED",
-      options: JSON.stringify(["Yes — extra time or penalties","No — decided in 90 minutes"]),
-      points: 4,
-      lockTime: tournamentLock,
-    },
-    ...Object.entries(groupTeams).map(([g, teams]) => ({
-      question: `Who will win Group ${g}?`,
-      description: teams.join(" · "),
-      optionType: "TEAM",
-      options: JSON.stringify(teams),
-      points: 4,
-      lockTime: groupLock,
-    })),
   ];
 
-  let seededPredictions = 0;
+  // Replace all global predictions with the canonical set
+  await prisma.customPrediction.deleteMany({ where: { isGlobal: true } });
   for (const pred of globalPredictions) {
-    const existing = await prisma.customPrediction.findFirst({
-      where: { isGlobal: true, question: pred.question },
-    });
-    if (!existing) {
-      await prisma.customPrediction.create({
-        data: { ...pred, isGlobal: true },
-      });
-      seededPredictions++;
-    }
+    await prisma.customPrediction.create({ data: { ...pred, isGlobal: true } });
   }
-  console.log(`Seeded ${seededPredictions} global predictions (skipped ${globalPredictions.length - seededPredictions} existing).`);
+  console.log(`Seeded ${globalPredictions.length} global predictions.`);
 }
 
 main()

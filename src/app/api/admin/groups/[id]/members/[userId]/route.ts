@@ -27,6 +27,30 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     data: { status },
   });
 
+  if (status === "APPROVED") {
+    const group = await prisma.group.findUnique({
+      where: { id: params.id },
+      select: { name: true },
+    });
+    const groupName = group?.name ?? "your group";
+    await prisma.notification.create({
+      data: {
+        userId: params.userId,
+        type: "join_approved",
+        title: "You're in! 🎉",
+        body: `Your request to join "${groupName}" was approved. Start predicting!`,
+        read: false,
+      },
+    }).catch(() => {});
+    const { sendPushToUser } = await import("@/lib/webpush");
+    sendPushToUser(params.userId, {
+      title: "You're in! 🎉",
+      body: `Your request to join "${groupName}" was approved. Start predicting!`,
+      url: `/groups/${params.id}`,
+      tag: "join-approved",
+    }).catch(() => {});
+  }
+
   return NextResponse.json(updated);
 }
 
