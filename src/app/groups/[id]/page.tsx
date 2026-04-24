@@ -294,16 +294,19 @@ export default async function GroupDashboardPage({
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Left column */}
-        <div className="space-y-6">
-          {/* General predictions carousel — prominent at top */}
-          <div>
+        {/* Left column. On mobile we promote "Next Up to Predict" above
+            "General Predictions" — the time-sensitive thing should lead when
+            the user is more likely to be on a phone, 5 min before kickoff.
+            On md+ the desktop reading order is preserved. */}
+        <div className="flex flex-col gap-6">
+          {/* General predictions carousel */}
+          <div className="order-2 md:order-1">
             <h2 className="font-bold text-gray-800 mb-3">General Predictions</h2>
             <GeneralPredictionsCarousel groupId={groupId} />
           </div>
 
           {!isVisitor && upcomingMatches.length > 0 && (
-            <div>
+            <div className="order-1 md:order-2">
               <div className="flex items-center justify-between mb-1">
                 <h2 className="font-bold text-gray-800">Next Up to Predict</h2>
                 <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline shrink-0 whitespace-nowrap ml-2">All matches →</Link>
@@ -322,14 +325,14 @@ export default async function GroupDashboardPage({
             </div>
           )}
           {isVisitor && (
-            <div className="card text-center py-6 text-gray-400 text-sm">
+            <div className="order-1 md:order-2 card text-center py-6 text-gray-400 text-sm">
               You are a Visitor Admin — predictions are disabled for your account in this group.
             </div>
           )}
 
           {/* Live match card */}
           {liveMatchSerialized && (
-            <div>
+            <div className="order-3">
               <h2 className="font-bold text-gray-800 mb-3">
                 {liveMatchSerialized.status === "FINISHED" ? "Last Match" : "Live Now"}
               </h2>
