@@ -124,45 +124,66 @@ export async function applyMatchResult(
   homeScore: number,
   awayScore: number
 ) {
-  await prisma.match.update({
-    where: { id: matchId },
-    data: { homeScore, awayScore, status: "FINISHED" },
-  });
+  // ── Atomic phase: all DB writes for this match happen in a single transaction.
+  // If anything throws inside, the match stays SCHEDULED and no predictions are
+  // partially scored. The caller can safely retry.
+  //
+  // Notifications are intentionally collected here and sent AFTER the commit
+  // so that a push/email failure can't roll back the score.
+  const toNotify: Array<{
+    userId: string;
+    points: number;
+    exact: boolean;
+  }> = [];
 
-  const predictions = await prisma.prediction.findMany({
-    where: { matchId },
-    include: { group: { select: { exactMatchPoints: true, directionMatchPoints: true, stagePoints: true } } },
-  });
+  const match = await prisma.$transaction(async (tx) => {
+    await tx.match.update({
+      where: { id: matchId },
+      data: { homeScore, awayScore, status: "FINISHED" },
+    });
 
-  const match = await prisma.match.findUnique({
-    where: { id: matchId },
-    select: { round: true, homeTeam: true, awayTeam: true },
-  });
-  const round = match?.round ?? "";
+    const predictions = await tx.prediction.findMany({
+      where: { matchId },
+      include: { group: { select: { exactMatchPoints: true, directionMatchPoints: true, stagePoints: true } } },
+    });
 
-  const notified = new Set<string>();
+    const m = await tx.match.findUnique({
+      where: { id: matchId },
+      select: { round: true, homeTeam: true, awayTeam: true },
+    });
+    const round = m?.round ?? "";
 
-  for (const pred of predictions) {
-    const { exact: exactPts, direction: dirPts } = getPointsForRound(
-      pred.group.stagePoints, round, pred.group.exactMatchPoints, pred.group.directionMatchPoints
-    );
-    const { points, exact } = calculatePoints(
-      pred.homeScore, pred.awayScore, homeScore, awayScore, exactPts, dirPts
-    );
-    await prisma.prediction.update({ where: { id: pred.id }, data: { points } });
+    const notified = new Set<string>();
+    for (const pred of predictions) {
+      const { exact: exactPts, direction: dirPts } = getPointsForRound(
+        pred.group.stagePoints, round, pred.group.exactMatchPoints, pred.group.directionMatchPoints
+      );
+      const { points, exact } = calculatePoints(
+        pred.homeScore, pred.awayScore, homeScore, awayScore, exactPts, dirPts
+      );
+      await tx.prediction.update({ where: { id: pred.id }, data: { points } });
 
-    // One result notification per user per match (across groups)
-    if (!notified.has(pred.userId) && match) {
-      notified.add(pred.userId);
-      generateResultNotification(
-        pred.userId, matchId,
-        match.homeTeam, match.awayTeam,
-        homeScore, awayScore, points, exact
-      ).catch(() => {});
+      // One result notification per user per match (across groups)
+      if (!notified.has(pred.userId)) {
+        notified.add(pred.userId);
+        toNotify.push({ userId: pred.userId, points, exact });
+      }
     }
+
+    return m;
+  }, { timeout: 30_000 });
+
+  if (!match) return;
+
+  // ── Post-commit side-effects (fire and forget, failures don't roll back scoring)
+  for (const n of toNotify) {
+    generateResultNotification(
+      n.userId, matchId,
+      match.homeTeam, match.awayTeam,
+      homeScore, awayScore, n.points, n.exact
+    ).catch(() => {});
   }
 
-  // Notifications use global defaults for messaging context only
   const settings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
   const exactPts = settings?.exactMatchPoints ?? 2;
   const directionPts = settings?.directionMatchPoints ?? 1;
