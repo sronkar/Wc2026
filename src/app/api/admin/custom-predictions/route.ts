@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { WC2026_TEAMS } from "@/lib/teams";
+import { requireGroupAdminAccess } from "@/lib/authz";
 
 async function getDefaultLockTime(): Promise<Date> {
   const first = await prisma.match.findFirst({
@@ -16,12 +17,21 @@ async function getDefaultLockTime(): Promise<Date> {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role;
+  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
   const groupId = searchParams.get("groupId");
+
+  // Group-scoped fetch: SUB_ADMIN must be an approved member of that group.
+  // Global ADMIN always allowed; globals-only listing (no groupId) allowed for both.
+  if (groupId) {
+    const auth = await requireGroupAdminAccess(groupId);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
 
   const preds = await prisma.customPrediction.findMany({
     where: groupId ? { OR: [{ groupId }, { isGlobal: true }] } : { isGlobal: true },
@@ -64,11 +74,28 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
+  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const role = session.user.role;
+  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
+
+  // Authorization rule: creating a GLOBAL custom prediction requires global ADMIN;
+  // creating a group-scoped one requires ADMIN or SUB_ADMIN who's an approved
+  // member of that specific group. Applied uniformly to single + batch POSTs.
+  const requestedGroupId: string | undefined = body.groupId;
+  const requestedIsGlobal: boolean = Boolean(body.isGlobal);
+  if (requestedIsGlobal) {
+    if (role !== "ADMIN") {
+      return NextResponse.json({ error: "Only global ADMIN can create global custom predictions" }, { status: 403 });
+    }
+  } else if (requestedGroupId) {
+    const auth = await requireGroupAdminAccess(requestedGroupId);
+    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+  // If neither is set, downstream validation will reject with a 400.
 
   // ── Batch import ─────────────────────────────────────────────────────────────
   if (body.batch === true && Array.isArray(body.predictions)) {

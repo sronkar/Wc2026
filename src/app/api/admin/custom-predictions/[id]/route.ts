@@ -3,19 +3,37 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getNow } from "@/lib/time";
+import { requireGroupAdminAccess } from "@/lib/authz";
 
 type Ctx = { params: { id: string } };
+
+/**
+ * Authorize a SUB_ADMIN to act on the custom prediction identified by `cp`.
+ * - ADMIN: always allowed.
+ * - SUB_ADMIN: only for group-scoped predictions where they are a member.
+ *   Global predictions are ADMIN-only to modify.
+ */
+async function authorizeCustomPredMutation(cp: { isGlobal: boolean; groupId: string | null }):
+  Promise<{ ok: true } | { ok: false; status: 401 | 403; error: string }> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) return { ok: false, status: 401, error: "Unauthorized" };
+  const role = session.user.role;
+  if (role === "ADMIN") return { ok: true };
+  if (role !== "SUB_ADMIN") return { ok: false, status: 403, error: "Forbidden" };
+  // SUB_ADMIN can't touch globals
+  if (cp.isGlobal || !cp.groupId) return { ok: false, status: 403, error: "Only ADMIN can modify global custom predictions" };
+  const auth = await requireGroupAdminAccess(cp.groupId);
+  return auth.ok ? { ok: true } : { ok: false, status: auth.status, error: auth.error };
+}
 
 // ── PATCH: edit metadata (pre-lock) or resolve (post-lock) ───────────────────
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const cp = await prisma.customPrediction.findUnique({ where: { id: params.id } });
   if (!cp) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const auth = await authorizeCustomPredMutation(cp);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
 
@@ -111,10 +129,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 // ── DELETE ────────────────────────────────────────────────────────────────────
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const cp = await prisma.customPrediction.findUnique({ where: { id: params.id } });
+  if (!cp) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const auth = await authorizeCustomPredMutation(cp);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   await prisma.customPrediction.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });
