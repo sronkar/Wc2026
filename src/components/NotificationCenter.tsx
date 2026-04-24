@@ -100,7 +100,25 @@ export function NotificationCenter() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-1rem))] bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+        <>
+          {/* Backdrop on mobile only — taps anywhere outside the sheet close it
+              (the existing mousedown handler already covers desktop dropdown). */}
+          <div
+            className="sm:hidden fixed inset-0 bg-black/30 z-40"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="
+              fixed inset-x-0 bottom-0 rounded-t-xl rounded-b-none border-t border-x
+              sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2
+              sm:w-[min(20rem,calc(100vw-1rem))] sm:rounded-xl sm:border sm:border-gray-100
+              bg-white shadow-xl z-50 overflow-hidden
+            "
+            // Pad the sheet's bottom by the iOS home-bar inset on mobile so the
+            // bottom-most notification isn't covered by the home indicator.
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
             {unreadCount > 0 && (
@@ -151,6 +169,7 @@ export function NotificationCenter() {
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   );
