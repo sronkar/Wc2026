@@ -159,6 +159,18 @@ model JobLock {
   pid       Int
 }
 
+// Production health counters. Single row keyed by "default".
+// Not to be confused with DemoSettings which is sim-mode state.
+model SystemHealth {
+  id                            String    @id @default("default")
+  scorePollConsecutiveFailures  Int       @default(0)
+  scorePollLastSuccessAt        DateTime?
+  scorePollLastFailureAt        DateTime?
+  scorePollLastErrorMessage     String?
+  scorePollLastAlertAt          DateTime?
+  updatedAt                     DateTime  @updatedAt
+}
+
 model Group {
   id                   String              @id @default(cuid())
   name                 String

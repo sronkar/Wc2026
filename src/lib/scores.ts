@@ -3,6 +3,7 @@ import { calculatePoints, getPointsForRound } from "@/lib/scoring";
 import { sendPostGameNotifications } from "@/lib/notifications";
 import { generateResultNotification } from "@/lib/userNotifications";
 import { getNow } from "@/lib/time";
+import { recordScorePollSuccess, recordScorePollFailure } from "@/lib/scoreHealth";
 
 // ── Team name normalisation ───────────────────────────────────────────────────
 // Maps external API names → names stored in our DB
@@ -233,6 +234,9 @@ export async function pollAndUpdateScores(): Promise<PollResult> {
 
   if (external.length === 0) {
     console.log(`[scores] polled ${pending.length} match(es) — no external data yet`);
+    // Treat "pending matches exist but neither API returned any data" as a failure.
+    // Sim mode is suppressed inside recordScorePollFailure so sim ticks don't spam alerts.
+    await recordScorePollFailure("Both external sources returned no data for pending matches");
     return { checked: pending.length, updated: 0, matches: [], source: null, error: "No data from any source" };
   }
 
@@ -271,5 +275,8 @@ export async function pollAndUpdateScores(): Promise<PollResult> {
     });
   }
 
+  // At least one API returned data — count as success (even if zero of our
+  // specific pending matches matched, the poller itself is reachable).
+  await recordScorePollSuccess();
   return { checked: pending.length, updated: updated.length, matches: updated, source };
 }
