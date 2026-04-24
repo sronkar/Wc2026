@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sendGroupInviteEmail } from "@/lib/email";
 import { randomBytes } from "crypto";
 import { requireGroupAdminAccess } from "@/lib/authz";
+import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 type Ctx = { params: { id: string } };
 
@@ -19,6 +20,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const auth = await requireGroupAdminAccess(params.id);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const session = auth.session;
+
+  // Rate limit invite sending per inviter to prevent email-spam abuse.
+  const hit = rateLimit(`invite:user:${session.user.id}`, 20, 60 * 60 * 1000);
+  if (!hit.ok) {
+    return NextResponse.json(
+      { error: "Invite rate limit reached. Try again later." },
+      { status: 429, headers: rateLimitHeaders(hit) }
+    );
+  }
 
   const { email, memberRole = "MEMBER" } = await req.json();
   if (!email?.trim()) return NextResponse.json({ error: "Email is required" }, { status: 400 });

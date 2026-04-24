@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { rateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 10/hour per IP — token brute force is already bounded by
+  // 32-byte token entropy, but this cheaply raises the bar.
+  const ip = getClientIp(req);
+  const hit = rateLimit(`reset:ip:${ip}`, 10, 60 * 60 * 1000);
+  if (!hit.ok) {
+    return NextResponse.json(
+      { error: "Too many password reset attempts. Try again later." },
+      { status: 429, headers: rateLimitHeaders(hit) }
+    );
+  }
+
   const { token, password } = await req.json();
 
   if (!token || !password || password.length < 6) {

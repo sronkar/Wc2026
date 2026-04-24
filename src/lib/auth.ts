@@ -6,6 +6,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { decode as defaultDecode } from "next-auth/jwt";
 import { prisma } from "@/lib/prisma";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as NextAuthOptions["adapter"],
@@ -51,9 +52,15 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
-        });
+        const email = credentials.email.toLowerCase();
+
+        // Per-email rate limit: 10 attempts per 5 min. We return null (same as
+        // a wrong password) on rate-limit hits so attackers can't distinguish
+        // "rate-limited" from "invalid password" via the auth response.
+        const limit = rateLimit(`login:email:${email}`, 10, 5 * 60 * 1000);
+        if (!limit.ok) return null;
+
+        const user = await prisma.user.findUnique({ where: { email } });
         if (!user?.password) return null;
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;
