@@ -22,10 +22,8 @@ export async function GET() {
 
   await loadVirtualTime(); // ensure module state matches DB
   const now = getNow();
-  const settings = await prisma.demoSettings.findUnique({ where: { id: "demo" } });
-  const simulationMatchIds: string[] = settings?.simulationMatchIds
-    ? JSON.parse(settings.simulationMatchIds)
-    : [];
+  const scoredRows = await prisma.simulationScoredMatch.findMany({ select: { matchId: true } });
+  const simulationMatchIds: string[] = scoredRows.map((r) => r.matchId);
 
   // Fetch all real matches with prediction counts
   const matches = await prisma.match.findMany({
@@ -169,13 +167,10 @@ async function handleActivate() {
 }
 
 async function resetAndDeactivate(): Promise<number> {
-  const settings = await prisma.demoSettings.findUnique({ where: { id: "demo" } });
-  const simulationMatchIds: string[] = settings?.simulationMatchIds
-    ? JSON.parse(settings.simulationMatchIds)
-    : [];
+  const scoredRows = await prisma.simulationScoredMatch.findMany({ select: { matchId: true } });
 
   let reset = 0;
-  for (const matchId of simulationMatchIds) {
+  for (const { matchId } of scoredRows) {
     await prisma.prediction.updateMany({ where: { matchId }, data: { points: null } });
     await prisma.match.update({
       where: { id: matchId },
@@ -185,10 +180,11 @@ async function resetAndDeactivate(): Promise<number> {
   }
 
   await prisma.matchReminder.deleteMany({});
+  await prisma.simulationScoredMatch.deleteMany({});
   await prisma.demoSettings.upsert({
     where: { id: "demo" },
-    update: { simulationActive: false, simulationMatchIds: "[]", virtualTime: new Date() },
-    create: { id: "demo", simulationActive: false, simulationMatchIds: "[]", virtualTime: new Date() },
+    update: { simulationActive: false, virtualTime: new Date() },
+    create: { id: "demo", simulationActive: false, virtualTime: new Date() },
   });
   await setSimulationMode(false);
   return reset;
@@ -270,13 +266,13 @@ async function handleSetScore(body: Record<string, unknown>) {
     );
   }
 
-  // Track this match as scored during simulation
-  const settings = await prisma.demoSettings.findUnique({ where: { id: "demo" } });
-  const tracked: string[] = settings?.simulationMatchIds ? JSON.parse(settings.simulationMatchIds) : [];
-  if (!tracked.includes(matchId)) {
-    tracked.push(matchId);
-    await prisma.demoSettings.update({ where: { id: "demo" }, data: { simulationMatchIds: JSON.stringify(tracked) } });
-  }
+  // Track this match as scored during simulation. Upsert on the unique matchId
+  // column — no read-modify-write, no race under concurrent setScore calls.
+  await prisma.simulationScoredMatch.upsert({
+    where: { matchId },
+    create: { matchId },
+    update: {},
+  });
 
   return NextResponse.json({ ok: true, match: { homeTeam: match.homeTeam, awayTeam: match.awayTeam, homeScore, awayScore } });
 }
@@ -288,12 +284,7 @@ async function handleResetMatch(body: Record<string, unknown>) {
 
   await prisma.prediction.updateMany({ where: { matchId }, data: { points: null } });
   await prisma.match.update({ where: { id: matchId }, data: { homeScore: null, awayScore: null, status: "SCHEDULED" } });
-
-  // Remove from tracked list
-  const settings = await prisma.demoSettings.findUnique({ where: { id: "demo" } });
-  const tracked: string[] = settings?.simulationMatchIds ? JSON.parse(settings.simulationMatchIds) : [];
-  const updated = tracked.filter((id) => id !== matchId);
-  await prisma.demoSettings.update({ where: { id: "demo" }, data: { simulationMatchIds: JSON.stringify(updated) } });
+  await prisma.simulationScoredMatch.deleteMany({ where: { matchId } });
 
   return NextResponse.json({ ok: true });
 }

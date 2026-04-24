@@ -147,7 +147,16 @@ model DemoSettings {
   id                  String   @id @default("demo")
   virtualTime         DateTime @default(now())
   simulationActive    Boolean  @default(false)
-  simulationMatchIds  String   @default("[]")  // JSON: match IDs scored during simulation
+}
+
+// One row per match scored during the current simulation. Replaces the old
+// JSON-string column on DemoSettings which had a read-modify-write race under
+// concurrent setScore calls. @@unique on matchId makes upsert-by-matchId
+// trivially safe.
+model SimulationScoredMatch {
+  id        String   @id @default(cuid())
+  matchId   String   @unique
+  scoredAt  DateTime @default(now())
 }
 
 // Exclusive run-lock for cron jobs. One row per job name. withJobLock()

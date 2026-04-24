@@ -265,15 +265,13 @@ async function phase0_reset() {
   phase("Phase 0 — Reset existing simulation state");
 
   // Deactivate any ongoing simulation (same logic as /api/admin/simulation deactivate)
-  const settings = await prisma.demoSettings.findUnique({ where: { id: "demo" } });
-  if (settings) {
-    const matchIds = settings.simulationMatchIds ? JSON.parse(settings.simulationMatchIds) : [];
-    note(`Found ${matchIds.length} previously-scored matches; resetting to SCHEDULED`);
-    for (const mid of matchIds) {
-      await prisma.prediction.updateMany({ where: { matchId: mid }, data: { points: null } });
-      await prisma.match.update({ where: { id: mid }, data: { homeScore: null, awayScore: null, status: "SCHEDULED" } });
-    }
+  const scoredRows = await prisma.simulationScoredMatch.findMany({ select: { matchId: true } });
+  note(`Found ${scoredRows.length} previously-scored matches; resetting to SCHEDULED`);
+  for (const { matchId } of scoredRows) {
+    await prisma.prediction.updateMany({ where: { matchId }, data: { points: null } });
+    await prisma.match.update({ where: { id: matchId }, data: { homeScore: null, awayScore: null, status: "SCHEDULED" } });
   }
+  await prisma.simulationScoredMatch.deleteMany({});
   await prisma.matchReminder.deleteMany({});
   await prisma.notification.deleteMany({});
   await prisma.teamAdvancement.deleteMany({});
@@ -298,8 +296,8 @@ async function phase0_reset() {
   // Phase0 runs before we have a logged-in admin jar, so we briefly sign in here.
   await prisma.demoSettings.upsert({
     where: { id: "demo" },
-    update: { simulationActive: true, virtualTime: new Date(), simulationMatchIds: "[]" },
-    create: { id: "demo", simulationActive: true, virtualTime: new Date(), simulationMatchIds: "[]" },
+    update: { simulationActive: true, virtualTime: new Date() },
+    create: { id: "demo", simulationActive: true, virtualTime: new Date() },
   });
   // Ensure an admin exists for HTTP calls below. The real admin in the DB is
   // sronkar@gmail.com but may not have a password. We'll create the test admin early.
