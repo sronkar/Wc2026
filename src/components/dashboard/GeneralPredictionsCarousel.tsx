@@ -237,6 +237,17 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     if (dx > 0 && current > 0) setCurrent((c) => c - 1);
     else if (dx < 0 && current < predictions.length - 1) setCurrent((c) => c + 1);
   }
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    if (target.matches("input, textarea, select")) return;
+    if (e.key === "ArrowLeft" && current > 0) {
+      e.preventDefault();
+      setCurrent((c) => c - 1);
+    } else if (e.key === "ArrowRight" && current < predictions.length - 1) {
+      e.preventDefault();
+      setCurrent((c) => c + 1);
+    }
+  }
 
   const handleSubmit = useCallback(async (cpId: string) => {
     const option = selected[cpId];
@@ -314,7 +325,16 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
   const isPending = !!withdrawPending[cp.id];
 
   return (
-    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onKeyDown={onKeyDown}
+      tabIndex={0}
+      role="region"
+      aria-roledescription="prediction carousel"
+      aria-label={`Prediction ${current + 1} of ${predictions.length}`}
+      className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-fifa-blue focus-visible:ring-offset-2"
+    >
       <div className="card flex flex-col gap-3 relative">
         {/* Predicted badge */}
         {hasPred && !isPending && cp.status === "OPEN" && !cp.isLocked && (

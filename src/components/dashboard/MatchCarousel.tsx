@@ -115,6 +115,21 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
     if (dx > 0 && current > 0) setCurrent((c) => c - 1);
     else if (dx < 0 && current < matches.length - 1) setCurrent((c) => c + 1);
   }
+
+  // Keyboard navigation parity with the on-screen arrow buttons. Active when
+  // the wrapper is focused. Skipped if the user is typing in a field — they
+  // probably mean to edit a score, not navigate.
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    if (target.matches("input, textarea, select")) return;
+    if (e.key === "ArrowLeft" && current > 0) {
+      e.preventDefault();
+      setCurrent((c) => c - 1);
+    } else if (e.key === "ArrowRight" && current < matches.length - 1) {
+      e.preventDefault();
+      setCurrent((c) => c + 1);
+    }
+  }
   const [preds, setPreds] = useState(initialPredictions);
   const [inputs, setInputs] = useState<Record<string, { home: string; away: string }>>(() => {
     const map: Record<string, { home: string; away: string }> = {};
@@ -259,7 +274,16 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
       : null;
 
   return (
-    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onKeyDown={onKeyDown}
+      tabIndex={0}
+      role="region"
+      aria-roledescription="match carousel"
+      aria-label={`Match ${current + 1} of ${matches.length}`}
+      className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-fifa-blue focus-visible:ring-offset-2"
+    >
       {/* Card — mirrors MatchCard layout */}
       <div className="card flex flex-col gap-3">
 
