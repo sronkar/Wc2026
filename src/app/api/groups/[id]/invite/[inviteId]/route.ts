@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendGroupInviteEmail } from "@/lib/email";
 import { randomBytes } from "crypto";
+import { requireGroupAdminAccess } from "@/lib/authz";
+import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 type Ctx = { params: { id: string; inviteId: string } };
 
@@ -16,9 +16,17 @@ const ROLE_LABELS: Record<string, string> = {
 
 // POST /api/groups/[id]/invite/[inviteId] — resend an existing pending invite
 export async function POST(_req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await requireGroupAdminAccess(params.id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const session = auth.session;
+
+  // Resend counts toward the same inviter rate limit as sending a fresh invite.
+  const hit = rateLimit(`invite:user:${session.user.id}`, 20, 60 * 60 * 1000);
+  if (!hit.ok) {
+    return NextResponse.json(
+      { error: "Invite rate limit reached. Try again later." },
+      { status: 429, headers: rateLimitHeaders(hit) }
+    );
   }
 
   const old = await prisma.groupInvite.findUnique({ where: { id: params.inviteId } });
@@ -65,8 +73,9 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
       requirePassword: group.requirePassword,
       inviterName: inviterUser?.name ?? undefined,
     });
-  } catch {
+  } catch (err) {
     emailSent = false;
+    console.warn("[invite-resend] email send failed:", err instanceof Error ? err.message : err);
   }
 
   return NextResponse.json({

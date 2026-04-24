@@ -336,11 +336,19 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
             : p
         )
       );
-      setInviteMessage({ ok: true, text: data.emailSent ? `Invite re-sent to ${inv.email}` : `Invite refreshed (email unavailable)` });
+      if (data.emailSent) {
+        setInviteMessage({ ok: true, text: `Invite re-sent to ${inv.email}` });
+        setInviteLink(null);
+        setTimeout(() => setInviteMessage(null), 3500);
+      } else {
+        // Email unavailable — surface the link so the admin can share manually.
+        setInviteMessage({ ok: true, text: `Invite refreshed — email unavailable, share this link manually:` });
+        setInviteLink(data.inviteUrl);
+      }
     } else {
       setInviteMessage({ ok: false, text: "Failed to resend invite" });
+      setTimeout(() => setInviteMessage(null), 3500);
     }
-    setTimeout(() => setInviteMessage(null), 3500);
   };
 
   const handleGenerateJoinLink = async () => {
