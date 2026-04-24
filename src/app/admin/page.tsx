@@ -646,7 +646,8 @@ Winner\t\tTeam\t10`;
           </div>
 
           <div className="card overflow-hidden p-0">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-[680px] w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200">
                   <th className="px-4 py-3">#</th>
@@ -763,6 +764,7 @@ Winner\t\tTeam\t10`;
                 })}
               </tbody>
             </table>
+            </div>
             {filtered.length === 0 && (
               <div className="py-10 text-center text-sm text-gray-400">
                 No matches in {roundFilter} match your filters.
@@ -948,7 +950,8 @@ Winner\t\tTeam\t10`;
                 );
               }
               return (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="min-w-[500px] w-full text-sm">
                 <thead>
                   <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
                     <th className="px-4 py-2">Name</th>
@@ -983,6 +986,7 @@ Winner\t\tTeam\t10`;
                   ))}
                 </tbody>
               </table>
+              </div>
               );
             })()}
           </div>
@@ -1074,7 +1078,8 @@ Winner\t\tTeam\t10`;
             {globalPreds.length === 0 ? (
               <p className="px-4 py-6 text-center text-gray-400 text-sm">No global predictions yet.</p>
             ) : (
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+              <table className="min-w-[700px] w-full text-sm">
                 <thead>
                   <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
                     <th className="px-4 py-2">Question</th>
@@ -1164,6 +1169,7 @@ Winner\t\tTeam\t10`;
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
 
@@ -1339,7 +1345,8 @@ Winner\t\tTeam\t10`;
               );
             }
             return (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-[600px] w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200">
                   <th className="px-4 py-3">User</th>
@@ -1396,6 +1403,7 @@ Winner\t\tTeam\t10`;
                 ))}
               </tbody>
             </table>
+            </div>
             );
           })()}
         </div>

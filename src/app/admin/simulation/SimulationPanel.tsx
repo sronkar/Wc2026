@@ -326,7 +326,8 @@ export function SimulationPanel() {
         </div>
 
         <div className="card overflow-hidden p-0">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="min-w-[760px] w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200 text-xs">
                 <th className="px-4 py-3">Match</th>
@@ -441,6 +442,7 @@ export function SimulationPanel() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
