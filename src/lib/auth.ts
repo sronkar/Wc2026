@@ -64,8 +64,8 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        // First sign-in: load fresh role from DB so any signIn-callback
-        // role promotions (e.g. ADMIN_EMAIL) are reflected immediately.
+        // First sign-in: load fresh role from DB so any DB-level role changes
+        // (e.g. via scripts/make-admin.js) are reflected in the new JWT.
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: { role: true },
@@ -81,18 +81,6 @@ export const authOptions: NextAuthOptions = {
         session.user.role = (token.role as string) ?? "USER";
       }
       return session;
-    },
-    async signIn({ user }) {
-      // Promote to admin if email matches env variable.
-      // updateMany avoids a crash when the user record doesn't exist yet
-      // (the adapter creates it after this callback returns).
-      if (user.email && user.email === process.env.ADMIN_EMAIL) {
-        await prisma.user.updateMany({
-          where: { email: user.email },
-          data: { role: "ADMIN" },
-        });
-      }
-      return true;
     },
   },
   pages: {
