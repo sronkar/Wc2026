@@ -20,12 +20,21 @@ export async function sendMatchReminders() {
 
   if (upcomingMatches.length === 0) return;
 
+  // Only users who are approved predictors in at least one group can be reminded.
   const users = await prisma.user.findMany({
-    where: { email: { not: null }, isDemo: { not: true } },
-    select: { id: true, email: true, name: true, emailNotifications: true },
+    where: {
+      email: { not: null }, isDemo: { not: true },
+      groupMemberships: { some: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } } },
+    },
+    select: {
+      id: true, email: true, name: true, emailNotifications: true,
+      groupMemberships: {
+        where: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
+        select: { groupId: true },
+      },
+    },
   });
 
-  // Pre-load match-reminder dedup records and lock_30m notifications for all matches+users
   const matchIds = upcomingMatches.map((m) => m.id);
   const userIds = users.map((u) => u.id);
 
@@ -41,15 +50,17 @@ export async function sendMatchReminders() {
     }),
     prisma.prediction.findMany({
       where: { matchId: { in: matchIds }, userId: { in: userIds } },
-      select: { userId: true, matchId: true },
+      select: { userId: true, matchId: true, groupId: true },
     }),
   ]);
 
   const alreadySentSet = new Set(alreadySentRecords.map((r) => `${r.userId}:${r.matchId}`));
   const lock30mSet     = new Set(lock30mRecords.map((r) => `${r.userId}:${r.matchId}`));
-  const predictedSet   = new Set(existingPredictions.map((r) => `${r.userId}:${r.matchId}`));
+  // (userId, matchId, groupId) — per-group prediction dedup
+  const predictedSet   = new Set(existingPredictions.map((r) => `${r.userId}:${r.matchId}:${r.groupId}`));
 
   for (const user of users) {
+    const userGroupIds = user.groupMemberships.map((gm) => gm.groupId);
     const matchesToRemind: typeof upcomingMatches = [];
 
     for (const match of upcomingMatches) {
@@ -57,8 +68,11 @@ export async function sendMatchReminders() {
       if (alreadySentSet.has(`${user.id}:${match.id}`)) continue;
       // Skip if lock_30m email already sent — prevent double-email in the overlap window
       if (lock30mSet.has(`${user.id}:${match.id}`)) continue;
-      // Skip if user already predicted (in any group)
-      if (predictedSet.has(`${user.id}:${match.id}`)) continue;
+      // Per-group: remind only if at least one of the user's groups has no prediction yet
+      const hasUnpredictedGroup = userGroupIds.some(
+        (gid) => !predictedSet.has(`${user.id}:${match.id}:${gid}`)
+      );
+      if (!hasUnpredictedGroup) continue;
 
       matchesToRemind.push(match);
     }

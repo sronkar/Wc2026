@@ -55,7 +55,7 @@ export default async function AdvancementPage({ params }: { params: { id: string
               Locks{" "}
               {ADVANCEMENT_LOCK_TIME.toLocaleString("en-US", {
                 month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-                timeZone: "UTC", timeZoneName: "short",
+                timeZoneName: "short",
               })}.
             </span>
           )}

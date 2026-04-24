@@ -21,102 +21,139 @@ export async function generateLockNotifications() {
 
   if (w1Matches.length === 0 && w2Matches.length === 0) return;
 
-  const allMatchIdsSet = new Set([...w1Matches.map((m) => m.id), ...w2Matches.map((m) => m.id)]);
-  const allMatchIds = Array.from(allMatchIdsSet);
-  const w2MatchIds = w2Matches.map((m) => m.id);
+  const w1Set = new Set(w1Matches.map((m) => m.id));
+  const w2Set = new Set(w2Matches.map((m) => m.id));
+  const allMatches = [...w1Matches, ...w2Matches.filter((m) => !w1Set.has(m.id))];
+  const allMatchIds = allMatches.map((m) => m.id);
 
+  // Users with their approved, predictor-eligible group memberships.
+  // Per-group reminder logic: a user is reminded about a match for each of their
+  // groups where a prediction hasn't been submitted yet.
   const [users, existing, predictions] = await Promise.all([
-    // Only notify users who are approved members of at least one group
     prisma.user.findMany({
-      where: { isDemo: false, groupMemberships: { some: { status: "APPROVED" } } },
-      select: { id: true },
+      where: {
+        isDemo: false,
+        groupMemberships: { some: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } } },
+      },
+      select: {
+        id: true, email: true, name: true, emailNotifications: true,
+        groupMemberships: {
+          where: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
+          select: { groupId: true, group: { select: { name: true } } },
+        },
+      },
     }),
     prisma.notification.findMany({
       where: { matchId: { in: allMatchIds }, type: { in: ["lock_1h", "lock_30m"] } },
       select: { userId: true, matchId: true, type: true },
     }),
-    // Load predictions for ALL upcoming matches (both lock_1h and lock_30m windows)
-    // so we can skip notifications for users who already predicted
     prisma.prediction.findMany({
       where: { matchId: { in: allMatchIds } },
-      select: { userId: true, matchId: true },
+      select: { userId: true, matchId: true, groupId: true },
     }),
   ]);
 
   const existingSet = new Set(existing.map((n) => `${n.userId}:${n.matchId}:${n.type}`));
-  const predictedSet = new Set(predictions.map((p) => `${p.userId}:${p.matchId}`));
+  // (userId, matchId, groupId) — tracks which specific group each prediction covers
+  const predictedSet = new Set(predictions.map((p) => `${p.userId}:${p.matchId}:${p.groupId}`));
 
   const toCreate: Array<{
     userId: string; type: string; matchId: string; title: string; body: string;
   }> = [];
+  // For lock_30m: { userId, user email/name/prefs, match, groupNames[] }
+  const lock30mTargets: Array<{
+    userId: string; email: string | null; name: string | null; emailNotifications: boolean;
+    match: typeof allMatches[number]; groupNames: string[];
+  }> = [];
+
+  function describeGroups(names: string[]): string {
+    if (names.length === 0) return "";
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  }
 
   for (const user of users) {
-    for (const match of w1Matches) {
-      if (existingSet.has(`${user.id}:${match.id}:lock_1h`)) continue;
-      if (predictedSet.has(`${user.id}:${match.id}`)) continue; // already predicted
-      toCreate.push({
-        userId: user.id,
-        type: "lock_1h",
-        matchId: match.id,
-        title: "Predictions lock in ~1 hour",
-        body: `${match.homeTeam} vs ${match.awayTeam} — get your prediction in!`,
-      });
-    }
+    const userGroups = user.groupMemberships.map((gm) => ({ id: gm.groupId, name: gm.group.name }));
+    if (userGroups.length === 0) continue;
 
-    for (const match of w2Matches) {
-      if (existingSet.has(`${user.id}:${match.id}:lock_30m`)) continue;
-      if (predictedSet.has(`${user.id}:${match.id}`)) continue;
-      toCreate.push({
-        userId: user.id,
-        type: "lock_30m",
-        matchId: match.id,
+    for (const match of allMatches) {
+      const unpredictedGroups = userGroups.filter(
+        (g) => !predictedSet.has(`${user.id}:${match.id}:${g.id}`)
+      );
+      if (unpredictedGroups.length === 0) continue;
+
+      const allOpen = unpredictedGroups.length === userGroups.length;
+      const groupPhrase = describeGroups(unpredictedGroups.map((g) => g.name));
+
+      if (w1Set.has(match.id) && !existingSet.has(`${user.id}:${match.id}:lock_1h`)) {
+        toCreate.push({
+          userId: user.id,
+          type: "lock_1h",
+          matchId: match.id,
+          title: "Predictions lock in ~1 hour",
+          body: allOpen
+            ? `${match.homeTeam} vs ${match.awayTeam} — get your prediction in!`
+            : `${match.homeTeam} vs ${match.awayTeam} — still open in ${groupPhrase}.`,
+        });
+      }
+
+      if (w2Set.has(match.id) && !existingSet.has(`${user.id}:${match.id}:lock_30m`)) {
+        const body = allOpen
+          ? `${match.homeTeam} vs ${match.awayTeam} — you haven't predicted yet!`
+          : `${match.homeTeam} vs ${match.awayTeam} — still open in ${groupPhrase}.`;
+        toCreate.push({
+          userId: user.id,
+          type: "lock_30m",
+          matchId: match.id,
+          title: "Last chance — 30 min to lock",
+          body,
+        });
+        lock30mTargets.push({
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+          emailNotifications: user.emailNotifications,
+          match,
+          groupNames: unpredictedGroups.map((g) => g.name),
+        });
+      }
+    }
+  }
+
+  if (toCreate.length === 0) return;
+
+  await prisma.notification.createMany({ data: toCreate });
+
+  // Push for lock_30m — one per (user, match) with the unpredicted group(s) in the body
+  await Promise.allSettled(
+    lock30mTargets.map((t) => {
+      const body = t.groupNames.length === 1
+        ? `${t.match.homeTeam} vs ${t.match.awayTeam} (${t.groupNames[0]})`
+        : `${t.match.homeTeam} vs ${t.match.awayTeam} — open in ${t.groupNames.length} group${t.groupNames.length === 1 ? "" : "s"}`;
+      return sendPushToUser(t.userId, {
         title: "Last chance — 30 min to lock",
-        body: `${match.homeTeam} vs ${match.awayTeam} — you haven't predicted yet!`,
-      });
-    }
-  }
-
-  if (toCreate.length > 0) {
-    await prisma.notification.createMany({ data: toCreate });
-
-    const lock30mItems = toCreate.filter((n) => n.type === "lock_30m");
-
-    // Send push for lock_30m to users who haven't predicted
-    const pushPromises = lock30mItems.map((n) =>
-      sendPushToUser(n.userId, {
-        title: n.title,
-        body: n.body,
+        body,
         url: "/groups",
-        tag: `lock-30m-${n.matchId}`,
-      }).catch(() => {/* non-fatal */})
-    );
-    await Promise.allSettled(pushPromises);
+        tag: `lock-30m-${t.match.id}`,
+      }).catch(() => { /* non-fatal */ });
+    })
+  );
 
-    // Send email for lock_30m to users with emailNotifications enabled
-    if (lock30mItems.length > 0) {
-      const userIds = Array.from(new Set(lock30mItems.map((n) => n.userId)));
-      const emailUsers = await prisma.user.findMany({
-        where: { id: { in: userIds }, email: { not: null }, emailNotifications: true, isDemo: { not: true } },
-        select: { id: true, email: true, name: true },
-      });
-      const emailMap: Record<string, typeof emailUsers[0]> = {};
-      for (const u of emailUsers) emailMap[u.id] = u;
-
-      const emailPromises = userIds.map(async (userId) => {
-        const user = emailMap[userId];
-        if (!user?.email) return;
-        const userMatches = lock30mItems
-          .filter((n) => n.userId === userId)
-          .map((n) => w2Matches.find((m) => m.id === n.matchId))
-          .filter(Boolean) as typeof w2Matches;
-        if (userMatches.length === 0) return;
-        try {
-          await sendLock30mEmail(user.email, user.name ?? "Predictor", userMatches);
-        } catch { /* non-fatal */ }
-      });
-      await Promise.allSettled(emailPromises);
-    }
+  // Email for lock_30m — aggregate matches per user
+  const byUser = new Map<string, { email: string; name: string | null; matches: typeof allMatches }>();
+  for (const t of lock30mTargets) {
+    if (!t.email || !t.emailNotifications) continue;
+    const entry = byUser.get(t.userId) ?? { email: t.email, name: t.name, matches: [] };
+    if (!entry.matches.find((m) => m.id === t.match.id)) entry.matches.push(t.match);
+    byUser.set(t.userId, entry);
   }
+  await Promise.allSettled(
+    Array.from(byUser.values()).map(async (u) => {
+      try { await sendLock30mEmail(u.email, u.name ?? "Predictor", u.matches); }
+      catch { /* non-fatal */ }
+    })
+  );
 }
 
 export async function generateResultNotification(

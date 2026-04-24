@@ -2,16 +2,26 @@ import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
 
 let initialized = false;
+let initFailed = false;
 
 function init() {
-  if (initialized) return;
-  if (!process.env.VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY === "placeholder") return;
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT!,
-    process.env.VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  );
-  initialized = true;
+  if (initialized || initFailed) return;
+  if (!process.env.VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY === "placeholder") {
+    initFailed = true;
+    return;
+  }
+  try {
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT!,
+      process.env.VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!
+    );
+    initialized = true;
+  } catch (err) {
+    // Invalid VAPID config shouldn't break the whole notification pipeline.
+    console.warn("[webpush] VAPID init failed — push disabled:", err instanceof Error ? err.message : err);
+    initFailed = true;
+  }
 }
 
 interface PushPayload {
