@@ -11,6 +11,18 @@
   body {
     @apply bg-gray-50 text-gray-900;
   }
+
+  /* Prevent iOS Safari from auto-zooming when an input is focused. iOS zooms
+     to any input below 16px font-size. Below the sm breakpoint we force at
+     least 16px so score / login / search inputs stay put on tap. Desktop and
+     ≥sm keep the existing compact text-sm sizing via Tailwind. */
+  @media (max-width: 639px) {
+    input:not([type="checkbox"]):not([type="radio"]),
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer components {
