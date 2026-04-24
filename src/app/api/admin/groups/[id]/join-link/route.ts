@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { randomBytes } from "crypto";
+import { requireGroupAdminAccess } from "@/lib/authz";
 
 type Ctx = { params: { id: string } };
 
 // POST: generate (or regenerate) the open join link for a group
 export async function POST(_req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireGroupAdminAccess(params.id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const token = randomBytes(24).toString("hex");
   const group = await prisma.group.update({
@@ -26,10 +23,8 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
 
 // DELETE: revoke the open join link
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireGroupAdminAccess(params.id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   await prisma.group.update({ where: { id: params.id }, data: { joinToken: null } });
   return NextResponse.json({ ok: true });

@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireGroupAdminAccess } from "@/lib/authz";
 
 type Ctx = { params: { id: string } };
 
-// GET: return all memberships for a group (admin or sub-admin)
+// GET: return all memberships for a group (admin or group-scoped sub-admin)
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireGroupAdminAccess(params.id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const group = await prisma.group.findUnique({
     where: { id: params.id },
     include: {
@@ -32,12 +30,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   );
 }
 
-// POST: add a user directly as an approved member (admin or sub-admin)
+// POST: add a user directly as an approved member (admin or group-scoped sub-admin)
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireGroupAdminAccess(params.id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const { userId, memberRole = "MEMBER" } = await req.json();
   if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });

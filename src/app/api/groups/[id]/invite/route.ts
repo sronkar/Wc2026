@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendGroupInviteEmail } from "@/lib/email";
 import { randomBytes } from "crypto";
+import { requireGroupAdminAccess } from "@/lib/authz";
 
 type Ctx = { params: { id: string } };
 
@@ -17,10 +16,9 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireGroupAdminAccess(params.id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const session = auth.session;
 
   const { email, memberRole = "MEMBER" } = await req.json();
   if (!email?.trim()) return NextResponse.json({ error: "Email is required" }, { status: 400 });
@@ -67,10 +65,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 }
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "SUB_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const auth = await requireGroupAdminAccess(params.id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const invites = await prisma.groupInvite.findMany({
     where: { groupId: params.id, status: "PENDING" },
