@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
+import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface Entry {
   id: string;
@@ -46,7 +48,22 @@ export default function GroupLeaderboardPage() {
   }, [session, status, groupId, router]);
 
   if (!loaded) {
-    return <div className="flex items-center justify-center h-64 text-gray-400">Loading…</div>;
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <Skeleton variant="bar" width="30%" height={28} className="mb-6" />
+        <SkeletonRow label="Loading leaderboard">
+          <div className="space-y-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="card p-3 flex items-center gap-3">
+                <Skeleton variant="circle" width={28} height={28} />
+                <Skeleton variant="bar" className="flex-1" />
+                <Skeleton variant="bar" width={40} height={14} />
+              </div>
+            ))}
+          </div>
+        </SkeletonRow>
+      </div>
+    );
   }
 
   const myId = session?.user?.id;
@@ -76,7 +93,13 @@ export default function GroupLeaderboardPage() {
       </div>
 
       {entries.length === 0 ? (
-        <div className="card text-center py-12 text-gray-400">No predictions submitted yet.</div>
+        <div className="card p-0">
+          <EmptyState
+            icon="📊"
+            title="No scores yet"
+            description="The leaderboard fills up as members predict and match results come in."
+          />
+        </div>
       ) : (
         <>
           {/* Desktop: table layout */}

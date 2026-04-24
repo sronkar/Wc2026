@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { getFlag } from "@/lib/flags";
 import Image from "next/image";
+import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 
 interface CarouselMatch {
   id: string;
@@ -363,7 +364,13 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
           <div className="border-t border-gray-100 pt-2">
             <p className="text-xs text-gray-400 mb-2">Sealed predictions</p>
             {loadingPreds ? (
-              <div className="text-xs text-gray-400 py-1 text-center">Loading…</div>
+              <SkeletonRow label="Loading group predictions">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} variant="rect" height={28} />
+                  ))}
+                </div>
+              </SkeletonRow>
             ) : !groupPreds || groupPreds.length === 0 ? (
               <div className="text-xs text-gray-400 italic text-center py-1">No predictions submitted.</div>
             ) : (

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 interface AppNotification {
   id: string;
@@ -114,9 +115,12 @@ export function NotificationCenter() {
 
           <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
             {notifications.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-400">
-                No notifications yet.
-              </div>
+              <EmptyState
+                icon="🔕"
+                title="No notifications yet"
+                description="We'll ping you when a match is about to lock or a result is in."
+                className="py-6"
+              />
             ) : (
               notifications.map((n) => (
                 <button

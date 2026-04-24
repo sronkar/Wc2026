@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 
 interface GroupRow {
   id: string;
@@ -78,7 +79,24 @@ export default function GroupsPage() {
   const searchResults = groups.filter((g) => g.source === "search");
 
   if (status === "loading" || !loaded) {
-    return <div className="flex items-center justify-center h-64 text-gray-400">Loading…</div>;
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <Skeleton variant="bar" width="40%" height={22} className="mb-6" />
+        <SkeletonRow label="Loading your groups">
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="card flex items-center gap-3 p-3">
+                <Skeleton variant="circle" width={40} height={40} />
+                <div className="flex-1 space-y-2">
+                  <Skeleton variant="bar" width="45%" />
+                  <Skeleton variant="bar" width="70%" height={10} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </SkeletonRow>
+      </div>
+    );
   }
 
   const GroupCard = ({ g }: { g: GroupRow }) => {
