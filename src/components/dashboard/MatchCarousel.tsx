@@ -89,6 +89,32 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
     window.addEventListener("hashchange", syncFromHash);
     return () => window.removeEventListener("hashchange", syncFromHash);
   }, [matches]);
+
+  // Swipe support — touch users expect to flick between matches, not hunt for
+  // the small ‹ › buttons. Tracks both X and Y so vertical scrolling doesn't
+  // accidentally trigger a horizontal swipe.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const SWIPE_THRESHOLD = 50; // px; below this it's a tap, not a swipe
+  function onTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    // Don't capture swipes that start on a form input or button — the user
+    // probably means to focus / press, not navigate.
+    if (target.closest("input, textarea, button, select, a")) {
+      touchStart.current = null;
+      return;
+    }
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function onTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    // Require horizontal-dominant swipe past threshold
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > Math.abs(dx)) return;
+    if (dx > 0 && current > 0) setCurrent((c) => c - 1);
+    else if (dx < 0 && current < matches.length - 1) setCurrent((c) => c + 1);
+  }
   const [preds, setPreds] = useState(initialPredictions);
   const [inputs, setInputs] = useState<Record<string, { home: string; away: string }>>(() => {
     const map: Record<string, { home: string; away: string }> = {};
@@ -233,7 +259,7 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
       : null;
 
   return (
-    <div>
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       {/* Card — mirrors MatchCard layout */}
       <div className="card flex flex-col gap-3">
 

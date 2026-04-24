@@ -217,6 +217,27 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     };
   }, []);
 
+  // Swipe support — see comment in MatchCarousel.tsx for the rationale.
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const SWIPE_THRESHOLD = 50;
+  function onTouchStart(e: React.TouchEvent<HTMLDivElement>) {
+    const target = e.target as HTMLElement;
+    if (target.closest("input, textarea, button, select, a")) {
+      touchStart.current = null;
+      return;
+    }
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function onTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > Math.abs(dx)) return;
+    if (dx > 0 && current > 0) setCurrent((c) => c - 1);
+    else if (dx < 0 && current < predictions.length - 1) setCurrent((c) => c + 1);
+  }
+
   const handleSubmit = useCallback(async (cpId: string) => {
     const option = selected[cpId];
     if (!option?.trim()) return;
@@ -293,7 +314,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
   const isPending = !!withdrawPending[cp.id];
 
   return (
-    <div>
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="card flex flex-col gap-3 relative">
         {/* Predicted badge */}
         {hasPred && !isPending && cp.status === "OPEN" && !cp.isLocked && (
