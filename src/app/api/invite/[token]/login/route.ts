@@ -22,8 +22,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!password?.trim()) {
       return NextResponse.json({ error: "A password is required to join this group" }, { status: 400 });
     }
-    if (password.trim().length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+    if (password.trim().length < 12) {
+      return NextResponse.json({ error: "Password must be at least 12 characters" }, { status: 400 });
     }
   }
 

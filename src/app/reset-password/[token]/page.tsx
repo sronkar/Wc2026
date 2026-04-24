@@ -21,8 +21,8 @@ export default function ResetPasswordPage() {
       setError("Passwords don't match.");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
+    if (password.length < 12) {
+      setError("Password must be at least 12 characters.");
       return;
     }
     setLoading(true);
@@ -69,10 +69,10 @@ export default function ResetPasswordPage() {
                     type={showPassword ? "text" : "password"}
                     required
                     autoFocus
-                    minLength={6}
+                    minLength={12}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 6 characters"
+                    placeholder="Min. 12 characters"
                     className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue pr-16"
                   />
                   <button
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
-                  minLength={6}
+                  minLength={12}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="Repeat your password"

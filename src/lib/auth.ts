@@ -26,14 +26,22 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.EMAIL_FROM,
       sendVerificationRequest: async ({ identifier: email, url }) => {
-        // Always log — dev works without SMTP, and gives a quick copy-paste URL
-        console.log("\n========================================");
-        console.log(`[AUTH] Magic link for: ${email}`);
-        console.log(`[AUTH] Sign-in URL:\n  ${url}`);
-        console.log("========================================\n");
+        const isDev = process.env.NODE_ENV !== "production";
+        if (isDev) {
+          // Developer convenience: full URL is logged so you can sign in
+          // without a working SMTP. In production we only log a redacted
+          // fingerprint — anyone with server-log access otherwise has a
+          // sign-as-anyone primitive.
+          console.log("\n========================================");
+          console.log(`[AUTH] Magic link for: ${email}`);
+          console.log(`[AUTH] Sign-in URL:\n  ${url}`);
+          console.log("========================================\n");
+        } else {
+          // Production: log only that a link was requested, not the link itself.
+          const redactedToken = (url.match(/token=([A-Za-z0-9_-]+)/)?.[1] ?? "")
+            .replace(/^(.{4}).*(.{4})$/, "$1…$2");
+          console.log(`[AUTH] magic link requested for=${email} token≈${redactedToken || "unknown"}`);
 
-        // Send branded email in production
-        if (process.env.NODE_ENV === "production") {
           const { sendEmail, buildMagicLinkHtml } = await import("@/lib/email");
           await sendEmail({
             to: email,

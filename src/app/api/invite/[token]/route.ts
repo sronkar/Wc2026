@@ -59,8 +59,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!dbUser?.password) {
       const body = await req.json().catch(() => ({})) as { password?: string };
       const { password } = body;
-      if (!password?.trim() || password.trim().length < 6) {
-        return NextResponse.json({ error: "This group requires a password (min. 6 characters)." }, { status: 400 });
+      if (!password?.trim() || password.trim().length < 12) {
+        return NextResponse.json({ error: "This group requires a password (min. 12 characters)." }, { status: 400 });
       }
       const hash = await bcrypt.hash(password.trim(), 12);
       await prisma.user.update({ where: { id: session.user.id }, data: { password: hash } });

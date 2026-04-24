@@ -68,8 +68,8 @@ export default function InvitePage() {
 
   const handleAccept = async () => {
     const needsPassword = invite?.requirePassword && !invite.userHasPassword;
-    if (needsPassword && (!password.trim() || password.trim().length < 6)) {
-      setJoinError("Please set a password (min. 6 characters) to join this group.");
+    if (needsPassword && (!password.trim() || password.trim().length < 12)) {
+      setJoinError("Please set a password (min. 12 characters) to join this group.");
       return;
     }
     setAccepting(true);
@@ -171,9 +171,9 @@ export default function InvitePage() {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Create a password (min. 6 characters)"
+                      placeholder="Create a password (min. 12 characters)"
                       required
-                      minLength={6}
+                      minLength={12}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue pr-16"
                     />
                     <button
@@ -203,8 +203,8 @@ export default function InvitePage() {
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Create a password (min. 6 characters)"
-                        minLength={6}
+                        placeholder="Create a password (min. 12 characters)"
+                        minLength={12}
                         className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                       />
                       <p className="text-xs text-gray-400 mt-1">
@@ -254,8 +254,8 @@ export default function InvitePage() {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Create a password (min. 6 characters)"
-                      minLength={6}
+                      placeholder="Create a password (min. 12 characters)"
+                      minLength={12}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue pr-16"
                     />
                     <button
@@ -274,7 +274,7 @@ export default function InvitePage() {
               {joinError && <p className="text-sm text-red-600 mb-3">{joinError}</p>}
               <button
                 onClick={handleAccept}
-                disabled={accepting || (invite!.requirePassword && !invite!.userHasPassword && password.trim().length < 6)}
+                disabled={accepting || (invite!.requirePassword && !invite!.userHasPassword && password.trim().length < 12)}
                 className="btn-primary w-full py-3 disabled:opacity-50"
               >
                 {accepting ? "Joining…" : "Accept & Join Group"}
