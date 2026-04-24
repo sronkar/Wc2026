@@ -55,7 +55,7 @@ export function NotificationCenter() {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition"
+        className="relative w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 transition"
         aria-label="Notifications"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

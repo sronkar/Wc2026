@@ -429,7 +429,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
                   <button
                     onClick={handleWithdraw}
                     disabled={cancelling}
-                    className="w-7 h-7 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition disabled:opacity-40 shrink-0"
+                    className="w-11 h-11 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition disabled:opacity-40 shrink-0"
                     title="Withdraw prediction"
                   >
                     {cancelling ? "…" : "✕"}

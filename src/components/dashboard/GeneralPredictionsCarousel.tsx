@@ -375,7 +375,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
                 <button
                   onClick={() => handleWithdraw(cp.id)}
                   title="Withdraw answer"
-                  className="w-7 h-7 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition shrink-0"
+                  className="w-11 h-11 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition shrink-0"
                 >
                   ✕
                 </button>
@@ -514,7 +514,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
         <button
           onClick={() => setCurrent((c) => Math.max(0, c - 1))}
           disabled={current === 0}
-          className="w-8 h-8 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
+          className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
         >
           ‹
         </button>
@@ -524,7 +524,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
             <button
               key={p.id}
               onClick={() => setCurrent(i)}
-              className="flex items-center justify-center w-6 h-6 rounded-full hover:bg-gray-100 transition shrink-0"
+              className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-gray-100 transition shrink-0"
               aria-label={`Prediction ${i + 1}`}
               title={p.question}
             >
@@ -542,7 +542,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
         <button
           onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}
           disabled={current === total - 1}
-          className="w-8 h-8 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
+          className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
         >
           ›
         </button>
