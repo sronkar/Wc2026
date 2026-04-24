@@ -39,24 +39,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Visitor admins cannot submit predictions" }, { status: 403 });
   }
 
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
-
   await loadVirtualTime();
-  if (isPredictionLocked(match.kickoff)) {
-    return NextResponse.json(
-      { error: "Predictions are locked (< 1 hour before kickoff)" },
-      { status: 403 }
-    );
-  }
 
-  const prediction = await prisma.prediction.upsert({
-    where: { userId_matchId_groupId: { userId: session.user.id, matchId, groupId } },
-    update: { homeScore, awayScore, points: null },
-    create: { userId: session.user.id, matchId, groupId, homeScore, awayScore },
+  // Lock re-check + upsert run inside a single transaction so we can't race
+  // the lock threshold between the check and the write. SQLite serialises
+  // writes, so concurrent upserts for this (userId, matchId, groupId) also
+  // queue behind each other.
+  const result = await prisma.$transaction(async (tx) => {
+    const match = await tx.match.findUnique({ where: { id: matchId } });
+    if (!match) return { status: 404 as const, body: { error: "Match not found" } };
+    if (isPredictionLocked(match.kickoff)) {
+      return {
+        status: 403 as const,
+        body: { error: "Predictions are locked (< 1 hour before kickoff)" },
+      };
+    }
+    const prediction = await tx.prediction.upsert({
+      where: { userId_matchId_groupId: { userId: session.user.id, matchId, groupId } },
+      update: { homeScore, awayScore, points: null },
+      create: { userId: session.user.id, matchId, groupId, homeScore, awayScore },
+    });
+    return { status: 200 as const, body: prediction };
   });
 
-  return NextResponse.json(prediction);
+  return NextResponse.json(result.body, { status: result.status });
 }
 
 export async function DELETE(req: NextRequest) {
@@ -72,19 +78,21 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "matchId and groupId are required" }, { status: 400 });
   }
 
-  const match = await prisma.match.findUnique({ where: { id: matchId } });
-  if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
-
   await loadVirtualTime();
-  if (isPredictionLocked(match.kickoff)) {
-    return NextResponse.json({ error: "Predictions are locked" }, { status: 403 });
-  }
 
-  await prisma.prediction.deleteMany({
-    where: { userId: session.user.id, matchId, groupId },
+  const result = await prisma.$transaction(async (tx) => {
+    const match = await tx.match.findUnique({ where: { id: matchId } });
+    if (!match) return { status: 404 as const, body: { error: "Match not found" } };
+    if (isPredictionLocked(match.kickoff)) {
+      return { status: 403 as const, body: { error: "Predictions are locked" } };
+    }
+    await tx.prediction.deleteMany({
+      where: { userId: session.user.id, matchId, groupId },
+    });
+    return { status: 200 as const, body: { ok: true } };
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json(result.body, { status: result.status });
 }
 
 export async function GET(req: NextRequest) {
