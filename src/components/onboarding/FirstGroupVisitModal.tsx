@@ -52,7 +52,16 @@ export function FirstGroupVisitModal({
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4 py-8 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="first-visit-title">
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4 py-8 overflow-y-auto"
+      // Add notch + home-bar padding when the app is in standalone mode
+      // (iPhone with the home indicator); on browser tabs both insets are 0.
+      style={{
+        paddingTop: "max(2rem, env(safe-area-inset-top))",
+        paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
+      }}
+      role="dialog" aria-modal="true" aria-labelledby="first-visit-title"
+    >
       <div className="bg-white rounded-xl max-w-md w-full shadow-xl">
         <div className="p-6">
           <div className="text-4xl mb-3 text-center">⚽</div>

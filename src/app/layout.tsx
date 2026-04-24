@@ -47,7 +47,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ServiceWorkerRegister />
           <Navbar />
           <LockBanner />
-          <main className="min-h-screen">{children}</main>
+          {/* paddingBottom = home-bar inset (only non-zero in standalone PWA on
+              iPhones with a home indicator); ensures content above the indicator
+              isn't tappable through it. */}
+          <main className="min-h-screen" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+            {children}
+          </main>
         </Providers>
       </body>
     </html>

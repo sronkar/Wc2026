@@ -128,7 +128,13 @@ export function Navbar() {
   };
 
   return (
-    <nav className="bg-fifa-blue text-white shadow-md sticky top-0 z-50">
+    <nav
+      className="bg-fifa-blue text-white shadow-md sticky top-0 z-50"
+      // Pad the navbar's TOP by the iOS notch height when the app is launched
+      // in standalone mode (Add to Home Screen). On regular browser tabs the
+      // safe-area inset is 0 and this is a no-op.
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
       <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
         {/* Logo */}
         <Link
