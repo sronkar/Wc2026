@@ -144,29 +144,28 @@ export async function sendPostGameNotifications(
   // ── Find all groups that have at least one prediction for this match ─────────
   const groupIds = Array.from(new Set(allPredictions.map((p) => p.groupId)));
 
-  // ── Build global push insights (cross-group summary for push only) ───────────
-  const exactScorers: string[] = [];
-  const directionCorrect: string[] = [];
-  const wrong: string[] = [];
-  for (const pred of allPredictions) {
-    const result = calculatePoints(pred.homeScore, pred.awayScore, homeScore, awayScore, exactPoints, directionPoints);
-    const displayName = pred.user.name ?? pred.user.email ?? "Someone";
-    if (result.exact) exactScorers.push(displayName);
-    else if (result.direction) directionCorrect.push(displayName);
-    else wrong.push(displayName);
-  }
-  const insights: { emoji: string; text: string }[] = buildInsights(exactScorers, directionCorrect, wrong, allPredictions.length, exactPoints);
-
-  // ── Per-group email sends ─────────────────────────────────────────────────
+  // ── Per-group email + push sends ──────────────────────────────────────────
+  // Insights and counts are computed per-group so no cross-group info leaks
+  // into a member's email or push (names and totals stay group-scoped).
   for (const groupId of groupIds) {
     const groupPredictions = allPredictions.filter((p) => p.groupId === groupId);
     const predictedUserIds = new Set(groupPredictions.map((p) => p.userId));
     const pointsGainedMap: Record<string, number> = {};
 
+    const exactScorers: string[] = [];
+    const directionCorrect: string[] = [];
+    const wrong: string[] = [];
+
     for (const pred of groupPredictions) {
       const result = calculatePoints(pred.homeScore, pred.awayScore, homeScore, awayScore, exactPoints, directionPoints);
       pointsGainedMap[pred.userId] = result.points;
+      const displayName = pred.user.name ?? pred.user.email ?? "Someone";
+      if (result.exact) exactScorers.push(displayName);
+      else if (result.direction) directionCorrect.push(displayName);
+      else wrong.push(displayName);
     }
+
+    const insights = buildInsights(exactScorers, directionCorrect, wrong, groupPredictions.length, exactPoints);
 
     // Build group-scoped predRows (sorted: exact → direction → miss → no pick)
     const predRows: PredRow[] = groupPredictions

@@ -1,11 +1,11 @@
 # WC2026 Simulation Report
 
-**Started:** 2026-04-24T06:43:58.537Z
-**Finished:** 2026-04-24T06:46:12.947Z
+**Started:** 2026-04-24T07:18:37.987Z
+**Finished:** 2026-04-24T07:21:04.747Z
 **Summary:** 90 pass / 0 fail / 25 notes
 
 ## Phase 0 — Reset existing simulation state
-_2 pass, 0 fail, 1 notes — started 2026-04-24T06:43:58.540Z_
+_2 pass, 0 fail, 1 notes — started 2026-04-24T07:18:37.992Z_
 
 - ✅ Virtual time set via HTTP to 2026-06-10T12:00Z — _{"ok":true,"virtualTime":"2026-06-10T12:00:00.000Z"}_
 - ✅ Loaded 104 matches from DB — _expected 104_
@@ -14,10 +14,10 @@ _2 pass, 0 fail, 1 notes — started 2026-04-24T06:43:58.540Z_
 - Found 104 previously-scored matches; resetting to SCHEDULED
 
 ## Phase 1 — Create test admin and 50 users
-_3 pass, 0 fail, 2 notes — started 2026-04-24T06:43:59.326Z_
+_3 pass, 0 fail, 2 notes — started 2026-04-24T07:18:39.032Z_
 
 - ✅ Test admin exists
-- ✅ Admin can sign in and session reports ADMIN role — _{"name":"MegaSim Admin","email":"megasim-admin@megasim.test","image":null,"id":"cmocjok2o0000wxfqefxiu0vn","role":"ADMIN"}_
+- ✅ Admin can sign in and session reports ADMIN role — _{"name":"MegaSim Admin","email":"megasim-admin@megasim.test","image":null,"id":"cmockx4la0000ye4femlbnpqw","role":"ADMIN"}_
 - ✅ Created 50 test users
 
 **Notes:**
@@ -25,7 +25,7 @@ _3 pass, 0 fail, 2 notes — started 2026-04-24T06:43:59.326Z_
 - Time zones: {"UTC":13,"PST":13,"IST":12,"JST":12}
 
 ## Phase 2 — Create 6 groups with varied settings
-_7 pass, 0 fail, 0 notes — started 2026-04-24T06:43:59.514Z_
+_7 pass, 0 fail, 0 notes — started 2026-04-24T07:18:39.259Z_
 
 - ✅ Created group "MegaSim: Alpha Legion" (3 target, isPublic=true, reqPw=false, joinToken=false)
 - ✅ Created group "MegaSim: Bravo Squad" (5 target, isPublic=true, reqPw=false, joinToken=false)
@@ -36,7 +36,7 @@ _7 pass, 0 fail, 0 notes — started 2026-04-24T06:43:59.514Z_
 - ✅ Admin GET /api/groups returns all MegaSim groups — _got 6_
 
 ## Phase 3 — Joining: direct/email/URL/search + invite edge cases
-_15 pass, 0 fail, 6 notes — started 2026-04-24T06:43:59.695Z_
+_15 pass, 0 fail, 6 notes — started 2026-04-24T07:18:39.399Z_
 
 - ✅ Alpha: direct-insert 3 approved members — _got 4 (includes admin as VISITOR_ADMIN)_
 - ✅ Bravo: 5 users joined via email invite — _got 6 (includes admin)_
@@ -63,16 +63,16 @@ _15 pass, 0 fail, 6 notes — started 2026-04-24T06:43:59.695Z_
 - MegaSim: Foxtrot Phenoms: 24 approved predictors
 
 ## Phase 4 — Advancement predictions (before lock at 2026-06-11T18:00Z)
-_5 pass, 0 fail, 0 notes — started 2026-04-24T06:44:33.144Z_
+_5 pass, 0 fail, 0 notes — started 2026-04-24T07:19:15.453Z_
 
-- ✅ Advancement predictions submitted by 60 (user,group) pairs (8 intentionally skipped)
+- ✅ Advancement predictions submitted by 59 (user,group) pairs (8 intentionally skipped)
 - ✅ Two winners in same WC group rejected (422) — _status=422, body={"error":"Group A: only 1 winner allowed"}_
 - ✅ 9 global 3rd-place picks rejected (422) — _status=422, body={"error":"Group A: only 1 advance-as-3rd allowed"}_
 - ✅ VISITOR_ADMIN submitting advancement rejected (403) — _status=403_
 - ✅ PENDING member submitting advancement rejected (403) — _status=403_
 
 ## Phase 5 — Advancement lock (2026-06-11T18:00Z)
-_4 pass, 0 fail, 0 notes — started 2026-04-24T06:44:39.558Z_
+_4 pass, 0 fail, 0 notes — started 2026-04-24T07:19:21.466Z_
 
 - ✅ setTime to 2026-06-11T18:01Z succeeded — _{"ok":true,"virtualTime":"2026-06-11T18:01:00.000Z"}_
 - ✅ Advancement batch submit after lock rejected (403) — _status=403_
@@ -80,7 +80,7 @@ _4 pass, 0 fail, 0 notes — started 2026-04-24T06:44:39.558Z_
 - ✅ Advancement delete after lock rejected (403) — _status=403_
 
 ## Phase 6 — Group stage (72 matches) with rule-enforcement sampling
-_32 pass, 0 fail, 1 notes — started 2026-04-24T06:44:39.691Z_
+_32 pass, 0 fail, 1 notes — started 2026-04-24T07:19:21.578Z_
 
 - ✅ Group stage match count — _got 72_
 - ✅ M1: Post-lock POST prediction rejected (403) — _status=403, body={"error":"Predictions are locked (< 1 hour before kickoff)"}_
@@ -90,7 +90,7 @@ _32 pass, 0 fail, 1 notes — started 2026-04-24T06:44:39.691Z_
 - ✅ M5: Negative score rejected (400) — _status=400_
 - ✅ M5: Score >20 rejected (400) — _status=400_
 - ✅ M5: Non-integer score rejected (400) — _status=400_
-- ✅ M8: Impersonation attempt — prediction created under attacker's own userId only — _victim.before=0, victim.after=0, attacker has 9-9 pred=true_
+- ✅ M8: Impersonation attempt — prediction created under attacker's own userId only — _victim.before=3, victim.after=3, attacker has 9-9 pred=true_
 - ✅ M10: All 20 predictions received points — _preds=20_
 - ✅ M10: At least one prediction scored non-zero
 - ✅ M12: Non-member prediction rejected (403) — _status=403_
@@ -101,7 +101,7 @@ _32 pass, 0 fail, 1 notes — started 2026-04-24T06:44:39.691Z_
 - ✅ M22: PENDING member prediction rejected (403) — _status=403_
 - ✅ M30: Post-lock POST prediction rejected (403) — _status=403, body={"error":"Predictions are locked (< 1 hour before kickoff)"}_
 - ✅ M30: Post-lock DELETE prediction rejected (403) — _status=403_
-- ✅ M35: Score correction (1-1→2-3) generated 32 notifications — _notifsBefore=0, notifsAfter=32_
+- ✅ M35: Score correction (1-1→2-3) generated 30 notifications — _notifsBefore=0, notifsAfter=30_
 - ✅ M35: All predictions rescored after correction
 - ✅ M36: All 20 predictions received points — _preds=20_
 - ✅ M36: At least one prediction scored non-zero
@@ -111,7 +111,7 @@ _32 pass, 0 fail, 1 notes — started 2026-04-24T06:44:39.691Z_
 - ✅ M72: Post-lock DELETE prediction rejected (403) — _status=403_
 - ✅ M72: All 20 predictions received points — _preds=20_
 - ✅ M72: At least one prediction scored non-zero
-- ✅ Group stage complete: 72/72 matches scored, 3375 predictions written
+- ✅ Group stage complete: 72/72 matches scored, 3444 predictions written
 - ✅ Late joiner has 0 points for matches 1-30 — _sum=null_
 - ✅ Late joiner has 0 predictions for matches 1-30 — _count=0_
 
@@ -119,30 +119,30 @@ _32 pass, 0 fail, 1 notes — started 2026-04-24T06:44:39.691Z_
 - After match 30: 5 mid-tournament joiners added; foxtrot has 30 approved predictors
 
 ## Phase 7 — Group stage advancement resolution (Jun 27)
-_3 pass, 0 fail, 0 notes — started 2026-04-24T06:45:53.953Z_
+_3 pass, 0 fail, 0 notes — started 2026-04-24T07:20:43.757Z_
 
 - ✅ Advancement resolutions posted: 48/48
-- ✅ All advancement predictions now scored: 1800/1800
+- ✅ All advancement predictions now scored: 1768/1768
 - ✅ Advancement scoring matches rules (sample of WINNER picks: 7 exact, 9 direction)
 
 ## Phase 8 — Knockouts (32 matches) with stage-specific scoring
-_5 pass, 0 fail, 5 notes — started 2026-04-24T06:45:55.347Z_
+_5 pass, 0 fail, 5 notes — started 2026-04-24T07:20:44.862Z_
 
 - ✅ Knockout match count — _got 32_
 - ✅ M73 (first knockout): knockouts-only persona now predicts
 - ✅ M97 (Quarter-final): Bravo exact-match points = 8 — _got 8 (expected 8)_
-- ✅ M102 (Semi-final): Bravo exact-match points = 10 — _got 10 (expected 10)_
-- ✅ Knockouts complete: 32/32 matches scored, 1984 predictions written
+- ✅ M101 (Semi-final): Bravo exact-match points = 10 — _got 10 (expected 10)_
+- ✅ Knockouts complete: 32/32 matches scored, 1966 predictions written
 
 **Notes:**
 - M98 (Quarter-final): No Bravo exact predictions to verify (score 3-1)
 - M99 (Quarter-final): No Bravo exact predictions to verify (score 0-1)
 - M100 (Quarter-final): No Bravo exact predictions to verify (score 3-0)
-- M101 (Semi-final): No Bravo exact predictions to verify (score 1-0)
+- M102 (Semi-final): No Bravo exact predictions to verify (score 1-1)
 - M104 (Final): No Bravo exact predictions to verify (score 1-2)
 
 ## Phase 9 — Day after final (Jul 27) + final leaderboards
-_14 pass, 0 fail, 7 notes — started 2026-04-24T06:46:12.578Z_
+_14 pass, 0 fail, 7 notes — started 2026-04-24T07:21:04.574Z_
 
 - ✅ Post-tournament: prediction on match 104 rejected (403) — _status=403_
 - ✅ MegaSim: Alpha Legion: final leaderboard computed (3 members)
@@ -160,19 +160,19 @@ _14 pass, 0 fail, 7 notes — started 2026-04-24T06:46:12.578Z_
 - ✅ /api/leaderboard returns array for alpha — _status=200_
 
 **Notes:**
-- MegaSim: Alpha Legion top 3: MegaSim User 00 (UTC)=115, MegaSim User 10 (IST)=111, MegaSim User 20 (UTC)=103
-- MegaSim: Bravo Squad top 3: MegaSim User 21 (PST)=104, MegaSim User 47 (JST)=102, MegaSim User 01 (PST)=85
-- MegaSim: Charlie Crew top 3: MegaSim User 02 (IST)=105, MegaSim User 22 (IST)=102, MegaSim User 32 (UTC)=102
-- MegaSim: Delta Elite top 3: MegaSim User 11 (JST)=137, MegaSim User 12 (UTC)=116, MegaSim User 25 (PST)=114
-- MegaSim: Echo Ensemble top 3: MegaSim User 22 (IST)=146, MegaSim User 02 (IST)=143, MegaSim User 32 (UTC)=132
-- MegaSim: Foxtrot Phenoms top 3: MegaSim User 32 (UTC)=174, MegaSim User 43 (JST)=174, MegaSim User 02 (IST)=172
-- alpha /api/leaderboard top: MegaSim User 00 (UTC)=115
+- MegaSim: Alpha Legion top 3: MegaSim User 10 (IST)=118, MegaSim User 00 (UTC)=109, MegaSim User 20 (UTC)=109
+- MegaSim: Bravo Squad top 3: MegaSim User 31 (JST)=125, MegaSim User 47 (JST)=100, MegaSim User 01 (PST)=99
+- MegaSim: Charlie Crew top 3: MegaSim User 42 (IST)=106, MegaSim User 23 (JST)=102, MegaSim User 03 (JST)=91
+- MegaSim: Delta Elite top 3: MegaSim User 12 (UTC)=140, MegaSim User 25 (PST)=108, MegaSim User 35 (JST)=93
+- MegaSim: Echo Ensemble top 3: MegaSim User 22 (IST)=122, MegaSim User 30 (IST)=120, MegaSim User 31 (JST)=120
+- MegaSim: Foxtrot Phenoms top 3: MegaSim User 42 (IST)=178, MegaSim User 43 (JST)=174, MegaSim User 03 (JST)=156
+- alpha /api/leaderboard top: MegaSim User 10 (IST)=118
 
 ## Phase 10 — Final tallies and notes
-_0 pass, 0 fail, 3 notes — started 2026-04-24T06:46:12.938Z_
+_0 pass, 0 fail, 3 notes — started 2026-04-24T07:21:04.743Z_
 
 
 **Notes:**
-- Final tallies: {"users":51,"groups":6,"predictions":5359,"advancement":1800,"notifications":2492}
+- Final tallies: {"users":51,"groups":6,"predictions":5410,"advancement":1768,"notifications":2443}
 - DB will be restored from prisma/prisma/dev.db.bak-pre-simulation after this script completes.
 - TIME ZONES: The app does not implement per-user timezone preferences; all lockout/display times are UTC. Users across UTC/PST/IST/JST experience identical lock behavior, which is correct given the current design.
