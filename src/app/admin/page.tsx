@@ -597,11 +597,45 @@ Winner\t\tTeam\t10`;
                 {filtered.map((match, i) => {
                   const isFinished = match.status === "FINISHED";
                   const input = resultInputs[match.id] ?? { home: "", away: "" };
+                  const isKnockoutEditable = match.round !== "Group Stage" && !isFinished;
                   return (
                     <tr key={match.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                       <td className="px-4 py-3 text-gray-400">{match.matchNumber}</td>
                       <td className="px-4 py-3 font-medium">
-                        <div>{getFlag(match.homeTeam)} {match.homeTeam} vs {match.awayTeam} {getFlag(match.awayTeam)}</div>
+                        <div>
+                          {getFlag(match.homeTeam)} {match.homeTeam} vs {match.awayTeam} {getFlag(match.awayTeam)}
+                          {isKnockoutEditable && (
+                            <button
+                              onClick={async () => {
+                                const nh = window.prompt(`Home team for match ${match.matchNumber}:`, match.homeTeam);
+                                if (nh === null) return;
+                                const na = window.prompt(`Away team for match ${match.matchNumber}:`, match.awayTeam);
+                                if (na === null) return;
+                                if (nh === match.homeTeam && na === match.awayTeam) return;
+                                const willWipe = await fetch(`/api/admin/matches/${match.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ homeTeam: nh, awayTeam: na }),
+                                });
+                                if (!willWipe.ok) {
+                                  const err = await willWipe.json().catch(() => ({}));
+                                  alert(`Failed: ${(err as { error?: string }).error ?? willWipe.statusText}`);
+                                  return;
+                                }
+                                const r = await willWipe.json();
+                                if (r.predictionsWiped > 0) {
+                                  alert(`Teams updated. ${r.predictionsWiped} existing predictions were wiped (they referred to the old teams).`);
+                                }
+                                // Reload to reflect changes
+                                window.location.reload();
+                              }}
+                              className="ml-2 text-[11px] text-blue-600 hover:text-blue-800 underline"
+                              title="Edit knockout-match teams (wipes any existing predictions for this match)"
+                            >
+                              edit teams
+                            </button>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-400">{match.city}</div>
                       </td>
                       <td className="px-4 py-3 text-gray-500 text-xs">
