@@ -150,6 +150,15 @@ model DemoSettings {
   simulationMatchIds  String   @default("[]")  // JSON: match IDs scored during simulation
 }
 
+// Exclusive run-lock for cron jobs. One row per job name. withJobLock()
+// creates it on acquire, deletes it on release. Stale rows older than
+// the job's timeout are evicted automatically on the next acquire attempt.
+model JobLock {
+  jobName   String   @id
+  startedAt DateTime @default(now())
+  pid       Int
+}
+
 model Group {
   id                   String              @id @default(cuid())
   name                 String
