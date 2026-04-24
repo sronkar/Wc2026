@@ -7,6 +7,7 @@ import { getFlag } from "@/lib/flags";
 import Image from "next/image";
 import Link from "next/link";
 import { WC_GROUPS } from "@/lib/wcGroups";
+import { AdminSummary } from "@/components/admin/AdminSummary";
 
 interface Match {
   id: string;
@@ -89,6 +90,10 @@ function AdminPage() {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [savedMatches, setSavedMatches] = useState<Set<string>>(new Set());
   const [roundFilter, setRoundFilter] = useState("Group Stage");
+  const [matchSearch, setMatchSearch] = useState("");
+  const [matchStatusFilter, setMatchStatusFilter] = useState<"all" | "scheduled" | "needsScoring" | "finished">("all");
+  const [groupSearch, setGroupSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
 
   // ── Settings tab state (admin only) ─────────────────────────────────────────
   const [settings, setSettings] = useState<Settings>({ exactMatchPoints: 5, directionMatchPoints: 1 });
@@ -346,7 +351,24 @@ Winner\t\tTeam\t10`;
   }
   if (role !== "ADMIN" && role !== "SUB_ADMIN") return null;
 
-  const filtered = matches.filter((m) => m.round === roundFilter);
+  const matchSearchLower = matchSearch.trim().toLowerCase();
+  const nowMsReal = Date.now();
+  const twoHoursAgoMs = nowMsReal - 2 * 60 * 60 * 1000;
+  const filtered = matches.filter((m) => {
+    if (m.round !== roundFilter) return false;
+    if (matchStatusFilter === "scheduled" && m.status !== "SCHEDULED") return false;
+    if (matchStatusFilter === "finished" && m.status !== "FINISHED") return false;
+    if (matchStatusFilter === "needsScoring") {
+      if (m.status !== "SCHEDULED") return false;
+      if (new Date(m.kickoff).getTime() > twoHoursAgoMs) return false;
+    }
+    if (matchSearchLower) {
+      const hay = `${m.homeTeam} ${m.awayTeam} ${m.city}`.toLowerCase();
+      if (!hay.includes(matchSearchLower)) return false;
+    }
+    return true;
+  });
+  const totalInRound = matches.filter((m) => m.round === roundFilter).length;
 
   const parseCsvPredictions = (text: string) => {
     const lines = text.trim().split("\n").slice(1); // skip header
@@ -545,6 +567,15 @@ Winner\t\tTeam\t10`;
         {isAdmin ? "Manage match results, global point defaults and user roles" : "Update match results"}
       </p>
 
+      {/* Action summary — "what should I look at now?" */}
+      <AdminSummary
+        matches={matches}
+        onGo={({ tab, roundFilter }) => {
+          if (tab) setActiveTab(tab);
+          if (roundFilter) setRoundFilter(roundFilter);
+        }}
+      />
+
       {/* Tabs */}
       <div className="flex gap-1 mb-8 border-b border-gray-200">
         {tabs.map((t) => (
@@ -565,7 +596,7 @@ Winner\t\tTeam\t10`;
       {/* ── Match Results tab ──────────────────────────────────────────────────── */}
       {activeTab === "results" && (
         <>
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-3 flex flex-wrap gap-2">
             {ROUNDS.map((r) => (
               <button
                 key={r}
@@ -579,6 +610,39 @@ Winner\t\tTeam\t10`;
                 {r}
               </button>
             ))}
+          </div>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={matchSearch}
+              onChange={(e) => setMatchSearch(e.target.value)}
+              placeholder="Search team or city…"
+              className="flex-1 min-w-[180px] sm:max-w-xs border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+              aria-label="Filter matches by team or city"
+            />
+            <div className="flex rounded-lg border border-gray-300 text-xs overflow-hidden" role="group" aria-label="Filter by status">
+              {([
+                { key: "all", label: "All" },
+                { key: "needsScoring", label: "Needs score" },
+                { key: "scheduled", label: "Scheduled" },
+                { key: "finished", label: "Finished" },
+              ] as const).map((f, i) => (
+                <button
+                  key={f.key}
+                  onClick={() => setMatchStatusFilter(f.key)}
+                  className={`px-3 py-1.5 transition ${i > 0 ? "border-l border-gray-300" : ""} ${
+                    matchStatusFilter === f.key ? "bg-fifa-blue text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-gray-400 ml-auto">
+              {filtered.length === totalInRound
+                ? `${totalInRound} match${totalInRound === 1 ? "" : "es"} in ${roundFilter}`
+                : `${filtered.length} of ${totalInRound} match${totalInRound === 1 ? "" : "es"} in ${roundFilter}`}
+            </span>
           </div>
 
           <div className="card overflow-hidden p-0">
@@ -699,6 +763,19 @@ Winner\t\tTeam\t10`;
                 })}
               </tbody>
             </table>
+            {filtered.length === 0 && (
+              <div className="py-10 text-center text-sm text-gray-400">
+                No matches in {roundFilter} match your filters.
+                {matchSearch || matchStatusFilter !== "all" ? (
+                  <button
+                    onClick={() => { setMatchSearch(""); setMatchStatusFilter("all"); }}
+                    className="ml-2 text-fifa-blue hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -846,12 +923,31 @@ Winner\t\tTeam\t10`;
       {activeTab === "groups" && (() => {
         const allGroupsCard = (
           <div className="card overflow-hidden p-0">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
               <h2 className="font-bold text-gray-800 text-sm">All Groups ({groups.length})</h2>
+              <input
+                type="search"
+                value={groupSearch}
+                onChange={(e) => setGroupSearch(e.target.value)}
+                placeholder="Search…"
+                className="ml-auto w-full sm:max-w-xs border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                aria-label="Search groups by name"
+              />
             </div>
             {groups.length === 0 ? (
               <p className="px-4 py-8 text-center text-gray-400 text-sm">No groups yet.</p>
-            ) : (
+            ) : (() => {
+              const q = groupSearch.trim().toLowerCase();
+              const filteredGroups = q ? groups.filter((g) => g.name.toLowerCase().includes(q) || (g.description ?? "").toLowerCase().includes(q)) : groups;
+              if (filteredGroups.length === 0) {
+                return (
+                  <p className="px-4 py-8 text-center text-gray-400 text-sm">
+                    No groups match “{groupSearch}”.
+                    <button onClick={() => setGroupSearch("")} className="ml-2 text-fifa-blue hover:underline">Clear</button>
+                  </p>
+                );
+              }
+              return (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
@@ -861,7 +957,7 @@ Winner\t\tTeam\t10`;
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map((g, i) => (
+                  {filteredGroups.map((g, i) => (
                     <tr key={g.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-800">{g.name}</p>
@@ -887,7 +983,8 @@ Winner\t\tTeam\t10`;
                   ))}
                 </tbody>
               </table>
-            )}
+              );
+            })()}
           </div>
         );
 
@@ -1070,36 +1167,40 @@ Winner\t\tTeam\t10`;
             )}
           </div>
 
-          {/* CSV bulk import */}
-          <div className="card space-y-3">
-            <div>
-              <h2 className="font-bold text-gray-800 text-sm mb-0.5">Bulk Import via CSV</h2>
+          {/* CSV bulk import — collapsed by default to keep the Groups tab readable */}
+          <details className="card p-0">
+            <summary className="cursor-pointer list-none px-4 py-3 flex items-center gap-2 hover:bg-gray-50">
+              <span className="text-sm font-bold text-gray-800">Bulk Import via CSV</span>
+              <span className="text-xs text-gray-400">— tab-separated global custom predictions</span>
+              <span className="ml-auto text-xs text-gray-400" aria-hidden="true">expand</span>
+            </summary>
+            <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
               <p className="text-xs text-gray-400">
                 Tab-separated: <code className="bg-gray-100 px-1 rounded">Prediction{"\t"}comment{"\t"}Limitation{"\t"}points</code>
                 {" "}· Limitation: Player, Team, or leave blank for fixed options.
                 Existing questions are skipped.
               </p>
+              <textarea
+                value={csvText}
+                onChange={(e) => setCsvText(e.target.value)}
+                rows={10}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-fifa-blue resize-y"
+              />
+              {csvResult && (
+                <p className={`text-xs font-medium ${csvResult.created > 0 ? "text-green-600" : "text-gray-500"}`}>
+                  {csvResult.created > 0 ? `✓ Added ${csvResult.created} prediction${csvResult.created !== 1 ? "s" : ""}` : "No new predictions added"}
+                  {csvResult.skipped > 0 ? ` · ${csvResult.skipped} skipped (already exist)` : ""}
+                </p>
+              )}
+              <button
+                onClick={handleCsvImport}
+                disabled={csvImporting || !csvText.trim()}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                {csvImporting ? "Importing…" : "Import CSV"}
+              </button>
             </div>
-            <textarea
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              rows={14}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-fifa-blue resize-y"
-            />
-            {csvResult && (
-              <p className={`text-xs font-medium ${csvResult.created > 0 ? "text-green-600" : "text-gray-500"}`}>
-                {csvResult.created > 0 ? `✓ Added ${csvResult.created} prediction${csvResult.created !== 1 ? "s" : ""}` : "No new predictions added"}
-                {csvResult.skipped > 0 ? ` · ${csvResult.skipped} skipped (already exist)` : ""}
-              </p>
-            )}
-            <button
-              onClick={handleCsvImport}
-              disabled={csvImporting || !csvText.trim()}
-              className="btn-primary text-sm disabled:opacity-50"
-            >
-              {csvImporting ? "Importing…" : "Import CSV"}
-            </button>
-          </div>
+          </details>
 
           </div>
         );
@@ -1211,9 +1312,33 @@ Winner\t\tTeam\t10`;
 
       {activeTab === "users" && isAdmin && (
         <div className="card overflow-hidden p-0">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+            <h2 className="font-bold text-gray-800 text-sm">All Users ({users.length})</h2>
+            <input
+              type="search"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              placeholder="Search by name or email…"
+              className="ml-auto w-full sm:max-w-xs border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+              aria-label="Search users by name or email"
+            />
+          </div>
           {!usersLoaded ? (
             <div className="p-8 text-center text-gray-400 text-sm">Loading users…</div>
-          ) : (
+          ) : (() => {
+            const q = userSearch.trim().toLowerCase();
+            const filteredUsers = q
+              ? users.filter((u) => (u.name ?? "").toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q))
+              : users;
+            if (filteredUsers.length === 0) {
+              return (
+                <p className="p-8 text-center text-gray-400 text-sm">
+                  No users match “{userSearch}”.
+                  <button onClick={() => setUserSearch("")} className="ml-2 text-fifa-blue hover:underline">Clear</button>
+                </p>
+              );
+            }
+            return (
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200">
@@ -1224,7 +1349,7 @@ Winner\t\tTeam\t10`;
                 </tr>
               </thead>
               <tbody>
-                {users.map((user, i) => (
+                {filteredUsers.map((user, i) => (
                   <tr key={user.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -1271,7 +1396,8 @@ Winner\t\tTeam\t10`;
                 ))}
               </tbody>
             </table>
-          )}
+            );
+          })()}
         </div>
       )}
     </div>
