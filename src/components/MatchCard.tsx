@@ -304,7 +304,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
         {/* Home */}
         <div className="flex items-center gap-2">
           <span className="text-xl shrink-0">{getFlag(match.homeTeam) || "　"}</span>
-          <span className="font-semibold text-gray-800 text-sm flex-1">{match.homeTeam}</span>
+          <span className="font-semibold text-gray-800 text-sm flex-1 min-w-0 truncate">{match.homeTeam}</span>
           {finished ? (
             <span className="w-8 text-center text-lg font-bold text-fifa-blue tabular-nums shrink-0">
               {match.homeScore}
@@ -329,7 +329,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
         {/* Away */}
         <div className="flex items-center gap-2">
           <span className="text-xl shrink-0">{getFlag(match.awayTeam) || "　"}</span>
-          <span className="font-semibold text-gray-800 text-sm flex-1">{match.awayTeam}</span>
+          <span className="font-semibold text-gray-800 text-sm flex-1 min-w-0 truncate">{match.awayTeam}</span>
           {finished ? (
             <span className="w-8 text-center text-lg font-bold text-fifa-blue tabular-nums shrink-0">
               {match.awayScore}

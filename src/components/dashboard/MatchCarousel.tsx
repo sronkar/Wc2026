@@ -258,7 +258,7 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <span className="text-xl shrink-0">{getFlag(match.homeTeam) || "　"}</span>
-            <span className="font-semibold text-gray-800 text-sm flex-1">{match.homeTeam}</span>
+            <span className="font-semibold text-gray-800 text-sm flex-1 min-w-0 truncate">{match.homeTeam}</span>
             {locked && hasPred && (
               <span className="text-sm font-medium text-orange-500 tabular-nums shrink-0">{preds[match.id].homeScore}</span>
             )}
@@ -274,7 +274,7 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xl shrink-0">{getFlag(match.awayTeam) || "　"}</span>
-            <span className="font-semibold text-gray-800 text-sm flex-1">{match.awayTeam}</span>
+            <span className="font-semibold text-gray-800 text-sm flex-1 min-w-0 truncate">{match.awayTeam}</span>
             {locked && hasPred && (
               <span className="text-sm font-medium text-orange-500 tabular-nums shrink-0">{preds[match.id].awayScore}</span>
             )}
