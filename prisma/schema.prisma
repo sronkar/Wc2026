@@ -144,9 +144,10 @@ model Notification {
 }
 
 model DemoSettings {
-  id                  String   @id @default("demo")
-  virtualTime         DateTime @default(now())
-  simulationActive    Boolean  @default(false)
+  id                      String   @id @default("demo")
+  virtualTime             DateTime @default(now())
+  simulationActive        Boolean  @default(false)
+  advancementPicksLocked  Boolean  @default(false)  // sticky once true; cleared on sim reset
 }
 
 // One row per match scored during the current simulation. Replaces the old

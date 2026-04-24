@@ -3,13 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-import { ADVANCEMENT_LOCK_TIME } from "@/lib/wcGroups";
-import { getNow } from "@/lib/time";
 import { ALL_PICKS, validateProjectedPicks, type ValidPick } from "@/lib/advancementValidation";
-
-function isLocked() {
-  return getNow() >= ADVANCEMENT_LOCK_TIME;
-}
+import { isAdvancementLocked } from "@/lib/advancementLock";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -34,7 +29,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (isLocked()) return NextResponse.json({ error: "Advancement picks are locked" }, { status: 403 });
+  if (await isAdvancementLocked()) return NextResponse.json({ error: "Advancement picks are locked" }, { status: 403 });
 
   const { groupId, team, pick } = await req.json() as { groupId: string; team: string; pick: ValidPick };
   if (!groupId || !team || !pick) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -81,7 +76,7 @@ export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (isLocked()) return NextResponse.json({ error: "Advancement picks are locked" }, { status: 403 });
+  if (await isAdvancementLocked()) return NextResponse.json({ error: "Advancement picks are locked" }, { status: 403 });
 
   const groupId = req.nextUrl.searchParams.get("groupId");
   const team = req.nextUrl.searchParams.get("team");

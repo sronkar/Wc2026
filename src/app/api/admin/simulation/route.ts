@@ -183,8 +183,8 @@ async function resetAndDeactivate(): Promise<number> {
   await prisma.simulationScoredMatch.deleteMany({});
   await prisma.demoSettings.upsert({
     where: { id: "demo" },
-    update: { simulationActive: false, virtualTime: new Date() },
-    create: { id: "demo", simulationActive: false, virtualTime: new Date() },
+    update: { simulationActive: false, virtualTime: new Date(), advancementPicksLocked: false },
+    create: { id: "demo", simulationActive: false, virtualTime: new Date(), advancementPicksLocked: false },
   });
   await setSimulationMode(false);
   return reset;

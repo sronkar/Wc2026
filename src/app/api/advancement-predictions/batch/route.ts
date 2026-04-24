@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ADVANCEMENT_LOCK_TIME } from "@/lib/wcGroups";
-import { getNow } from "@/lib/time";
 import { POSITIVE_PICKS, validateProjectedPicks, type PositivePick } from "@/lib/advancementValidation";
+import { isAdvancementLocked } from "@/lib/advancementLock";
 
 // Batch endpoint only accepts WINNER/RUNNER_UP/THIRD; ELIMINATED is the
 // implicit default for any team with no pick.
@@ -14,7 +13,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (getNow() >= ADVANCEMENT_LOCK_TIME) {
+  if (await isAdvancementLocked()) {
     return NextResponse.json({ error: "Advancement picks are locked" }, { status: 403 });
   }
 

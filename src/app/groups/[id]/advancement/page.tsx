@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AdvancementPicksClient } from "./AdvancementPicksClient";
 import { WC_GROUPS, ADVANCEMENT_LOCK_TIME } from "@/lib/wcGroups";
-import { getNow } from "@/lib/time";
+import { isAdvancementLocked } from "@/lib/advancementLock";
 export const revalidate = 0;
 
 export default async function AdvancementPage({ params }: { params: { id: string } }) {
@@ -42,7 +42,7 @@ export default async function AdvancementPage({ params }: { params: { id: string
   const resolvedMap: Record<string, string> = {};
   for (const r of resolutions) resolvedMap[r.team] = r.result;
 
-  const isLocked = getNow() >= ADVANCEMENT_LOCK_TIME;
+  const isLocked = await isAdvancementLocked();
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
