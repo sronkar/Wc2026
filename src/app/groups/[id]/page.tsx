@@ -12,6 +12,7 @@ import { MatchCard } from "@/components/MatchCard";
 import { GeneralPredictionsCarousel } from "@/components/dashboard/GeneralPredictionsCarousel";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
 import { WC_GROUPS, ADVANCEMENT_LOCK_TIME } from "@/lib/wcGroups";
+import { FirstGroupVisitModal } from "@/components/onboarding/FirstGroupVisitModal";
 export const revalidate = 0;
 
 export default async function GroupDashboardPage({
@@ -36,6 +37,13 @@ export default async function GroupDashboardPage({
 
   if (!group) redirect("/groups");
   if (!isAdminRole && membership?.status !== "APPROVED") redirect("/groups");
+
+  // Cheap check for onboarding: does this user have any prediction anywhere?
+  // If not, they're a first-time visitor and the welcome modal will offer to
+  // show once (subject to per-user localStorage dismissal).
+  const totalUserPredictions = await prisma.prediction.count({ where: { userId } });
+  const showFirstVisitOnboarding =
+    membership?.memberRole !== "VISITOR_ADMIN" && totalUserPredictions === 0;
 
   const now = getNow();
 
@@ -233,6 +241,14 @@ export default async function GroupDashboardPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      <FirstGroupVisitModal
+        userId={userId}
+        groupId={groupId}
+        showForNewUsers={showFirstVisitOnboarding}
+        defaultExactPoints={group.exactMatchPoints}
+        defaultDirectionPoints={group.directionMatchPoints}
+      />
+
       {/* Group header */}
       <div className="flex items-center gap-4 mb-6">
         {group.avatar ? (
