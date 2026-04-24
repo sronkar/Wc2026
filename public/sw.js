@@ -10,8 +10,9 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title ?? "WC2026 Predictions", {
       body: payload.body ?? "",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
+      // Generated dynamically by Next.js from src/app/icon.tsx (192×192 PNG)
+      icon: "/icon",
+      badge: "/icon",
       tag: payload.tag ?? "wc2026",
       data: { url: payload.url ?? "/" },
       requireInteraction: false,
