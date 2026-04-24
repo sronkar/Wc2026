@@ -78,55 +78,101 @@ export default function GroupLeaderboardPage() {
       {entries.length === 0 ? (
         <div className="card text-center py-12 text-gray-400">No predictions submitted yet.</div>
       ) : (
-        <div className="card overflow-hidden p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200">
-                <th className="px-4 py-3 w-10">#</th>
-                <th className="px-4 py-3">Player</th>
-                <th className="px-4 py-3 text-right hidden sm:table-cell">Preds</th>
-                <th className="px-4 py-3 text-right" title="Points · correct outcomes in parentheses (used as tiebreaker)">Points (Dir.)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map((e, i) => {
-                const isMe = e.id === myId;
-                return (
-                  <tr
-                    key={e.id}
-                    className={`border-t border-gray-100 ${
-                      isMe ? "bg-yellow-50" : e.rank === 1 ? "bg-yellow-50/30" : i % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`}
-                  >
-                    <td className="px-4 py-3 font-bold text-gray-400">
-                      {MEDAL[e.rank] ?? e.rank}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {e.image ? (
-                          <Image src={e.image} alt="" width={28} height={28} className="rounded-full" />
-                        ) : (
-                          <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
-                            {e.name.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span className={`font-medium ${isMe ? "text-fifa-blue" : "text-gray-800"}`}>
-                          {e.name}
-                          {isMe && <span className="text-xs text-gray-400 ml-1">(you)</span>}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-500 hidden sm:table-cell">{e.predictionsCount}</td>
-                    <td className="px-4 py-3 text-right font-bold text-fifa-blue">
-                      {e.totalPoints}
-                      <span className="text-gray-400 font-normal text-xs ml-1">({e.directHits})</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* Desktop: table layout */}
+          <div className="hidden sm:block card overflow-hidden p-0">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-left border-b border-gray-200">
+                  <th className="px-4 py-3 w-10">#</th>
+                  <th className="px-4 py-3">Player</th>
+                  <th className="px-4 py-3 text-right">Preds</th>
+                  <th className="px-4 py-3 text-right" title="Points · correct outcomes in parentheses (used as tiebreaker)">Points (Dir.)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {entries.map((e, i) => {
+                  const isMe = e.id === myId;
+                  return (
+                    <tr
+                      key={e.id}
+                      className={`border-t border-gray-100 ${
+                        isMe ? "bg-yellow-50" : e.rank === 1 ? "bg-yellow-50/30" : i % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      }`}
+                    >
+                      <td className="px-4 py-3 font-bold text-gray-400">
+                        {MEDAL[e.rank] ?? e.rank}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {e.image ? (
+                            <Image src={e.image} alt="" width={28} height={28} className="rounded-full" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs text-gray-500">
+                              {e.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <span className={`font-medium ${isMe ? "text-fifa-blue" : "text-gray-800"}`}>
+                            {e.name}
+                            {isMe && <span className="text-xs text-gray-400 ml-1">(you)</span>}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-500">{e.predictionsCount}</td>
+                      <td className="px-4 py-3 text-right font-bold text-fifa-blue">
+                        {e.totalPoints}
+                        <span className="text-gray-400 font-normal text-xs ml-1">({e.directHits})</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: card-per-row layout. Keeps all data visible (preds count
+              was hidden in the old table via hidden sm:table-cell). */}
+          <div className="sm:hidden space-y-2">
+            {entries.map((e) => {
+              const isMe = e.id === myId;
+              return (
+                <div
+                  key={e.id}
+                  className={`card p-3 flex items-center gap-3 ${
+                    isMe ? "bg-yellow-50 border-yellow-200" : e.rank === 1 ? "bg-yellow-50/40" : ""
+                  }`}
+                >
+                  <div className="shrink-0 w-9 text-center font-bold text-gray-400 text-sm">
+                    {MEDAL[e.rank] ?? `#${e.rank}`}
+                  </div>
+
+                  {e.image ? (
+                    <Image src={e.image} alt="" width={36} height={36} className="rounded-full shrink-0" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-sm text-gray-500 shrink-0">
+                      {e.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${isMe ? "text-fifa-blue" : "text-gray-800"}`}>
+                      {e.name}
+                      {isMe && <span className="text-xs text-gray-400 ml-1">(you)</span>}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      {e.predictionsCount} prediction{e.predictionsCount === 1 ? "" : "s"} · {e.directHits} correct outcome{e.directHits === 1 ? "" : "s"}
+                    </p>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <div className="text-lg font-bold text-fifa-blue leading-none">{e.totalPoints}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">pts</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
