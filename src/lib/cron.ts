@@ -3,6 +3,7 @@ import { sendMatchReminders } from "@/lib/notifications";
 import { generateLockNotifications } from "@/lib/userNotifications";
 import { pollAndUpdateScores } from "@/lib/scores";
 import { createDailyBackup } from "@/lib/backup";
+import { cleanupStaleNotifications } from "@/lib/cleanup";
 import { withJobLock } from "@/lib/jobLock";
 
 let started = false;
@@ -62,5 +63,27 @@ export function startCronJobs() {
     }
   });
 
-  console.log("[cron] started — reminders every 30 min, scores every 5 min, backup daily at 03:00 UTC");
+  // Daily at 04:00 UTC — prune stale MatchReminder + Notification rows
+  cron.schedule("0 4 * * *", async () => {
+    const result = await withJobLock("notifications-cleanup", async () => {
+      try {
+        const r = await cleanupStaleNotifications();
+        if (r.matchRemindersDeleted > 0 || r.notificationsReadDeleted > 0 || r.notificationSentinelsDeleted > 0) {
+          console.log(
+            `[cron] cleanup: removed ${r.matchRemindersDeleted} MatchReminder, ` +
+            `${r.notificationsReadDeleted} read Notification, ` +
+            `${r.notificationSentinelsDeleted} post_game_email sentinel rows`
+          );
+        }
+        return r;
+      } catch (err) {
+        console.error("[cron] cleanup job failed:", err);
+      }
+    });
+    if (result.skipped) {
+      console.log(`[cron] cleanup skipped — previous run still in flight (pid=${result.heldBy.pid})`);
+    }
+  });
+
+  console.log("[cron] started — reminders every 30 min, scores every 5 min, backup daily at 03:00 UTC, cleanup daily at 04:00 UTC");
 }
