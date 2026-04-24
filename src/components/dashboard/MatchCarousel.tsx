@@ -74,6 +74,20 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Deep-link support: if the URL hash is #match-<id>, scroll the carousel
+  // to that match. Fires on initial mount and on subsequent hashchange events.
+  useEffect(() => {
+    const syncFromHash = () => {
+      const m = window.location.hash.match(/^#match-(.+)$/);
+      if (!m) return;
+      const idx = matches.findIndex((x) => x.id === m[1]);
+      if (idx >= 0) setCurrent(idx);
+    };
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, [matches]);
   const [preds, setPreds] = useState(initialPredictions);
   const [inputs, setInputs] = useState<Record<string, { home: string; away: string }>>(() => {
     const map: Record<string, { home: string; away: string }> = {};

@@ -135,6 +135,7 @@ export async function applyMatchResult(
     userId: string;
     points: number;
     exact: boolean;
+    groupIds: string[];
   }> = [];
 
   const match = await prisma.$transaction(async (tx) => {
@@ -154,7 +155,10 @@ export async function applyMatchResult(
     });
     const round = m?.round ?? "";
 
-    const notified = new Set<string>();
+    // Track per-user: {points, exact, groupIds[]}. We pick the first group's
+    // points for the user-facing "+X pts" text, but collect ALL groupIds so
+    // the notification can deep-link to any group the user predicted in.
+    const userNotif = new Map<string, { points: number; exact: boolean; groupIds: string[] }>();
     for (const pred of predictions) {
       const { exact: exactPts, direction: dirPts } = getPointsForRound(
         pred.group.stagePoints, round, pred.group.exactMatchPoints, pred.group.directionMatchPoints
@@ -164,11 +168,15 @@ export async function applyMatchResult(
       );
       await tx.prediction.update({ where: { id: pred.id }, data: { points } });
 
-      // One result notification per user per match (across groups)
-      if (!notified.has(pred.userId)) {
-        notified.add(pred.userId);
-        toNotify.push({ userId: pred.userId, points, exact });
+      const existing = userNotif.get(pred.userId);
+      if (!existing) {
+        userNotif.set(pred.userId, { points, exact, groupIds: [pred.groupId] });
+      } else if (!existing.groupIds.includes(pred.groupId)) {
+        existing.groupIds.push(pred.groupId);
       }
+    }
+    for (const [userId, info] of userNotif.entries()) {
+      toNotify.push({ userId, ...info });
     }
 
     return m;
@@ -181,7 +189,7 @@ export async function applyMatchResult(
     generateResultNotification(
       n.userId, matchId,
       match.homeTeam, match.awayTeam,
-      homeScore, awayScore, n.points, n.exact
+      homeScore, awayScore, n.points, n.exact, n.groupIds,
     ).catch(() => {});
   }
 

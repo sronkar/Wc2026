@@ -133,10 +133,11 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // "lock_1h" | "lock_30m" | "result"
+  type      String   // "lock_1h" | "lock_30m" | "result" | "score_corrected" | "join_approved" | "post_game_email"
   title     String
   body      String
   matchId   String?
+  groupIds  String?  // JSON array of relevant groupIds (for deep-linking; null = global)
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 

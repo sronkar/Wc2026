@@ -242,23 +242,32 @@ async function handleSetScore(body: Record<string, unknown>) {
   await prisma.match.update({ where: { id: matchId }, data: { status: "SCHEDULED", homeScore: null, awayScore: null } });
   await applyMatchResult(matchId, Number(homeScore), Number(awayScore));
 
-  // If this was a correction, notify all affected predictors
+  // If this was a correction, notify all affected predictors.
+  // Per-user notification is deduped by userId; groupIds is the list of groups
+  // where THAT user had a prediction for this match (lets NotificationCenter
+  // deep-link to one of the affected groups).
   if (wasFinished && (prevHome !== Number(homeScore) || prevAway !== Number(awayScore))) {
     const affectedPreds = await prisma.prediction.findMany({
       where: { matchId },
-      select: { userId: true },
-      distinct: ["userId"],
+      select: { userId: true, groupId: true },
     });
+    const groupIdsByUser = new Map<string, string[]>();
+    for (const p of affectedPreds) {
+      const list = groupIdsByUser.get(p.userId) ?? [];
+      if (!list.includes(p.groupId)) list.push(p.groupId);
+      groupIdsByUser.set(p.userId, list);
+    }
     const label = `${match.homeTeam} vs ${match.awayTeam}`;
     await Promise.allSettled(
-      affectedPreds.map((p) =>
+      Array.from(groupIdsByUser.entries()).map(([userId, gids]) =>
         prisma.notification.create({
           data: {
-            userId: p.userId,
+            userId,
             type: "score_corrected",
             title: "Score corrected",
             body: `${label}: ${prevHome}–${prevAway} → ${homeScore}–${awayScore}. Your points were updated.`,
             matchId,
+            groupIds: JSON.stringify(gids),
             read: false,
           },
         })

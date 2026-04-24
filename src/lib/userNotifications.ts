@@ -58,7 +58,7 @@ export async function generateLockNotifications() {
   const predictedSet = new Set(predictions.map((p) => `${p.userId}:${p.matchId}:${p.groupId}`));
 
   const toCreate: Array<{
-    userId: string; type: string; matchId: string; title: string; body: string;
+    userId: string; type: string; matchId: string; title: string; body: string; groupIds: string;
   }> = [];
   // For lock_30m: { userId, user email/name/prefs, match, groupNames[] }
   const lock30mTargets: Array<{
@@ -85,12 +85,14 @@ export async function generateLockNotifications() {
 
       const allOpen = unpredictedGroups.length === userGroups.length;
       const groupPhrase = describeGroups(unpredictedGroups.map((g) => g.name));
+      const groupIdsJson = JSON.stringify(unpredictedGroups.map((g) => g.id));
 
       if (w1Set.has(match.id) && !existingSet.has(`${user.id}:${match.id}:lock_1h`)) {
         toCreate.push({
           userId: user.id,
           type: "lock_1h",
           matchId: match.id,
+          groupIds: groupIdsJson,
           title: "Predictions lock in ~1 hour",
           body: allOpen
             ? `${match.homeTeam} vs ${match.awayTeam} — get your prediction in!`
@@ -106,6 +108,7 @@ export async function generateLockNotifications() {
           userId: user.id,
           type: "lock_30m",
           matchId: match.id,
+          groupIds: groupIdsJson,
           title: "Last chance — 30 min to lock",
           body,
         });
@@ -164,7 +167,8 @@ export async function generateResultNotification(
   homeScore: number,
   awayScore: number,
   points: number,
-  isExact: boolean
+  isExact: boolean,
+  groupIds?: string[],
 ) {
   const exists = await prisma.notification.findFirst({
     where: { userId, type: "result", matchId },
@@ -188,6 +192,9 @@ export async function generateResultNotification(
   }
 
   await prisma.notification.create({
-    data: { userId, type: "result", matchId, title, body },
+    data: {
+      userId, type: "result", matchId, title, body,
+      groupIds: groupIds && groupIds.length > 0 ? JSON.stringify(groupIds) : null,
+    },
   });
 }

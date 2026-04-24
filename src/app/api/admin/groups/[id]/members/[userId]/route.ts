@@ -36,6 +36,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         type: "join_approved",
         title: "You're in! 🎉",
         body: `Your request to join "${groupName}" was approved. Start predicting!`,
+        groupIds: JSON.stringify([params.id]),
         read: false,
       },
     }).catch(() => {});

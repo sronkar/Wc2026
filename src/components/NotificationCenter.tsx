@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
 
 interface AppNotification {
@@ -9,11 +9,38 @@ interface AppNotification {
   title: string;
   body: string;
   matchId: string | null;
+  groupIds: string | null; // JSON-encoded string[] or null
   read: boolean;
   createdAt: string;
 }
 
+/**
+ * Resolve a click on a notification to a destination URL.
+ *
+ * Preserve context: if the user is already on /groups/X and X is one of the
+ * notification's relevant groups, stay in X (and scroll to the match if any).
+ * Otherwise pick the first group from the list. Fall back to /groups.
+ */
+function resolveHref(n: AppNotification, currentPath: string): string {
+  let groupIds: string[] = [];
+  if (n.groupIds) {
+    try { groupIds = JSON.parse(n.groupIds) as string[]; } catch {}
+  }
+  const matchFrag = n.matchId ? `#match-${n.matchId}` : "";
+
+  if (groupIds.length === 0) return "/groups";
+
+  const m = currentPath.match(/^\/groups\/([^/?#]+)/);
+  const currentGroup = m?.[1];
+  if (currentGroup && groupIds.includes(currentGroup)) {
+    return `/groups/${currentGroup}${matchFrag}`;
+  }
+
+  return `/groups/${groupIds[0]}${matchFrag}`;
+}
+
 export function NotificationCenter() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -92,11 +119,15 @@ export function NotificationCenter() {
               </div>
             ) : (
               notifications.map((n) => (
-                <Link
+                <button
                   key={n.id}
-                  href={typeHref(n.type)}
-                  onClick={() => setOpen(false)}
-                  className={`px-4 py-3 flex gap-3 hover:bg-gray-50 transition ${n.read ? "" : "bg-blue-50/60"}`}
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    const href = resolveHref(n, window.location.pathname);
+                    router.push(href);
+                  }}
+                  className={`w-full text-left px-4 py-3 flex gap-3 hover:bg-gray-50 transition ${n.read ? "" : "bg-blue-50/60"}`}
                 >
                   <div className="pt-0.5 shrink-0 text-base">{typeIcon(n.type)}</div>
                   <div className="flex-1 min-w-0">
@@ -111,7 +142,7 @@ export function NotificationCenter() {
                       <div className="w-2 h-2 rounded-full bg-fifa-blue" />
                     </div>
                   )}
-                </Link>
+                </button>
               ))
             )}
           </div>
@@ -125,13 +156,9 @@ function typeIcon(type: string): string {
   if (type === "lock_1h") return "🔒";
   if (type === "lock_30m") return "⏰";
   if (type === "result") return "⚽";
+  if (type === "score_corrected") return "📝";
+  if (type === "join_approved") return "🎉";
   return "🔔";
-}
-
-function typeHref(type: string): string {
-  if (type === "lock_1h" || type === "lock_30m") return "/groups";
-  if (type === "result") return "/groups";
-  return "/groups";
 }
 
 function relativeTime(iso: string): string {
