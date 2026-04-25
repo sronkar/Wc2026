@@ -39,3 +39,18 @@ Add Tailwind `dark:` variants across the app + a user-facing toggle (or `prefers
 **Recommendation:** defer until post-tournament if shipping to real users for WC2026. Worth doing as a dedicated session with a clear brand decision in advance, not a sneaky retrofit alongside other work.
 
 Estimated effort: 1-2 days realistic.
+
+## Feedback collection
+
+### In-app `/feedback` page
+
+We currently collect user feedback via two Google Forms (`docs/feedback/`). Once response volume regularly exceeds ~50/month per survey, the friction of "users follow an external Google link" becomes the bottleneck — port the same questions to an in-app `/feedback` route that auto-attaches userId, group memberships, prediction count, and user-agent.
+
+**Reward:** richer feedback (no copy-paste of context users would forget to mention), feedback lives in your DB rather than Google's, no external dependency.
+
+**Risk / cost:**
+- Half-day to a full day of build work: schema migration for a `Feedback` table, the `/feedback` page UI, the POST endpoint, and ideally an admin export view.
+- Discovery problem: a footer link is passive and won't get traffic; an in-app prompt after a milestone (e.g. "you've predicted 5 matches") gets responses but is also one more piece of UI to design.
+- Until the questions in `docs/feedback/` have proven useful with real users, building this is premature optimisation — port only after the Forms-based questions are stable.
+
+Estimated effort: ½ – 1 day after the Google Form questions are validated.
