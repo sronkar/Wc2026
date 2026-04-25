@@ -17,3 +17,25 @@ Both `MatchCarousel` and `GeneralPredictionsCarousel` currently render *one* car
 Rollback point if attempted: tag `pre-mobile-polish`.
 
 Estimated effort: 60-90 min, ~100 lines per carousel, contained to two files.
+
+### Dark mode
+
+Add Tailwind `dark:` variants across the app + a user-facing toggle (or `prefers-color-scheme` listener).
+
+**Reward:** table-stakes in 2026; needed for users with light sensitivity. Felt benefit is small for the average user, who only opens the app for ~5 min around kickoff and rarely notices the theme.
+
+**Risk to weigh before tackling:**
+- Touches almost every file — 50+ components and 20+ pages currently use light-only colors. Realistic scope: 1-2 days of mechanical work plus visual QA.
+- Brand redefinition required: FIFA-blue navbar against white is iconic. In dark mode the navbar either stays blue (loses contrast against a dark page) or inverts (stops being the FIFA-blue brand). No obvious right answer — needs a product decision up front.
+- Status colors (red LIVE / green Predicted / orange Locked) were tuned against white; need a tuned dark-mode pair each, not a mechanical brighten.
+- `shadow-sm` cards become invisible against `bg-gray-900` — elevation strategy must switch to borders or glows.
+- User-uploaded avatars / team flag emoji were designed for light bg; can't be fixed server-side.
+- First-paint flash unless an inline `<head>` script reads the preference before the first paint.
+- Decide where the preference lives: system-only (simplest), localStorage (per device), or User column (follows user across devices). Each has product implications.
+- Email templates stay light (Outlook dark mode flips things badly) — minor inconsistency a dark-mode user will live with.
+- Existing 164 regression assertions are data-layer; they'll all stay green even if dark mode looks awful. Pure visual QA, ideally on a real screen at night.
+- Tailwind CSS roughly doubles in color-related class count once dark variants are used.
+
+**Recommendation:** defer until post-tournament if shipping to real users for WC2026. Worth doing as a dedicated session with a clear brand decision in advance, not a sneaky retrofit alongside other work.
+
+Estimated effort: 1-2 days realistic.
