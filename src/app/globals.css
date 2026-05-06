@@ -38,7 +38,38 @@
     @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4;
   }
 
+  .card-interactive {
+    @apply card cursor-pointer transition-all duration-200 hover:shadow-card-hover hover:-translate-y-px hover:border-fifa-blue/30;
+  }
+
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* Page header gradient strip — wrap a page title section with this */
+  .page-hero {
+    @apply bg-navbar-gradient text-white px-4 py-6 mb-6;
+  }
+
+  /* Live indicator dot */
+  .live-dot {
+    @apply inline-block w-2 h-2 rounded-full bg-red-500 animate-live-pulse;
+  }
+
+  /* Points display — big bold number used in leaderboard and score cards */
+  .pts-display {
+    @apply font-black tabular-nums text-fifa-blue;
+  }
+
+  /* Podium card base */
+  .podium-card {
+    @apply flex flex-col items-center rounded-2xl p-4 text-center transition-transform duration-200 hover:scale-105;
+  }
+}
+
+@layer utilities {
+  /* Smooth entrance used on list items */
+  .animate-in {
+    animation: fade-up 0.35s ease-out both;
   }
 }

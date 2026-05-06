@@ -135,7 +135,7 @@ export function Navbar() {
 
   return (
     <nav
-      className="bg-fifa-blue text-white shadow-md sticky top-0 z-50"
+      className="bg-navbar-gradient text-white shadow-lg sticky top-0 z-50"
       // Pad the navbar's TOP by the iOS notch height when the app is launched
       // in standalone mode (Add to Home Screen). On regular browser tabs the
       // safe-area inset is 0 and this is a no-op.
@@ -145,10 +145,10 @@ export function Navbar() {
         {/* Logo */}
         <Link
           href={activeGroupId ? `/groups/${activeGroupId}` : "/groups"}
-          className="flex items-center gap-2 font-bold text-lg"
+          className="flex items-center gap-2 font-black text-lg tracking-tight shrink-0"
         >
-          <span>⚽</span>
-          <span className="hidden sm:inline">WC2026</span>
+          <span className="text-xl">⚽</span>
+          <span>WC<span className="text-fifa-gold">2026</span></span>
         </Link>
 
         {/* Desktop nav */}
@@ -226,9 +226,9 @@ export function Navbar() {
                 <>
                   <Link
                     href={`/groups/${activeGroupId}`}
-                    className={`px-3 py-1.5 rounded-md transition ${
+                    className={`px-3 py-1.5 rounded-md transition font-medium ${
                       pathname === `/groups/${activeGroupId}`
-                        ? "text-white bg-white/15"
+                        ? "text-white bg-white/20 font-semibold"
                         : "text-blue-200 hover:text-white hover:bg-white/10"
                     }`}
                   >
@@ -237,9 +237,9 @@ export function Navbar() {
                   {!isVisitorAdmin && (
                     <Link
                       href={`/groups/${activeGroupId}/matches`}
-                      className={`px-3 py-1.5 rounded-md transition ${
+                      className={`px-3 py-1.5 rounded-md transition font-medium ${
                         pathname.startsWith(`/groups/${activeGroupId}/matches`) || subPage === "matches"
-                          ? "text-white bg-white/15"
+                          ? "text-white bg-white/20 font-semibold"
                           : "text-blue-200 hover:text-white hover:bg-white/10"
                       }`}
                     >
@@ -248,13 +248,13 @@ export function Navbar() {
                   )}
                   <Link
                     href={`/groups/${activeGroupId}/leaderboard`}
-                    className={`px-3 py-1.5 rounded-md transition ${
+                    className={`px-3 py-1.5 rounded-md transition font-medium ${
                       pathname.startsWith(`/groups/${activeGroupId}/leaderboard`) || subPage === "leaderboard"
-                        ? "text-white bg-white/15"
+                        ? "text-white bg-white/20 font-semibold"
                         : "text-blue-200 hover:text-white hover:bg-white/10"
                     }`}
                   >
-                    Leaderboard
+                    🏆 Leaderboard
                   </Link>
                 </>
               )}
@@ -326,7 +326,7 @@ export function Navbar() {
               </button>
             </div>
           ) : (
-            <Link href="/login" className="bg-fifa-gold text-gray-900 px-4 py-1.5 rounded-md text-sm font-semibold hover:brightness-110 transition">
+            <Link href="/login" className="bg-fifa-gold text-gray-900 px-4 py-1.5 rounded-md text-sm font-bold hover:brightness-110 transition shadow-sm">
               Sign In
             </Link>
           )}
@@ -343,7 +343,7 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden bg-blue-900 border-t border-blue-700 px-4 py-3 space-y-1 text-sm">
+        <div className="md:hidden bg-[#001f3f] border-t border-white/10 px-4 py-3 space-y-1 text-sm">
           {session && hasGroups && activeGroupId && (
             <>
               {/* Active group label */}

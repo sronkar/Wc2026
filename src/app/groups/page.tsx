@@ -81,7 +81,7 @@ export default function GroupsPage() {
 
   if (status === "loading" || !loaded) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         <Skeleton variant="bar" width="40%" height={22} className="mb-6" />
         <SkeletonRow label="Loading your groups">
           <div className="space-y-3">
@@ -107,39 +107,50 @@ export default function GroupsPage() {
     const inner = (
       <>
         {isEmojiAvatar(g.avatar) ? (
-          <span className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-2xl ${canOpen ? "bg-blue-50" : "bg-gray-100"}`} aria-hidden>
+          <span
+            className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-2xl ${
+              canOpen ? "bg-blue-50" : "bg-gray-100"
+            }`}
+            aria-hidden
+          >
             {g.avatar}
           </span>
         ) : g.avatar ? (
-          <Image src={g.avatar} alt="" width={40} height={40} className="rounded-full object-cover shrink-0" />
+          <Image src={g.avatar} alt="" width={44} height={44} className="rounded-full object-cover shrink-0" />
         ) : (
-          <div className={`w-10 h-10 rounded-full font-bold flex items-center justify-center shrink-0 text-sm ${canOpen ? "bg-fifa-blue text-white" : "bg-gray-200 text-gray-500"}`}>
+          <div
+            className={`w-11 h-11 rounded-full font-black flex items-center justify-center shrink-0 text-base ${
+              canOpen ? "bg-fifa-blue text-white" : "bg-gray-200 text-gray-500"
+            }`}
+          >
             {g.name.charAt(0).toUpperCase()}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-800 group-hover:text-fifa-blue truncate">{g.name}</p>
-          {g.description && <p className="text-xs text-gray-400 truncate">{g.description}</p>}
-          <p className="text-xs text-gray-400 mt-0.5">{g.memberCount} {g.memberCount === 1 ? "member" : "members"}</p>
+          <p className="font-bold text-gray-800 group-hover:text-fifa-blue truncate">{g.name}</p>
+          {g.description && <p className="text-xs text-gray-400 truncate mt-0.5">{g.description}</p>}
+          <p className="text-xs text-gray-400 mt-0.5">
+            👥 {g.memberCount} {g.memberCount === 1 ? "member" : "members"}
+          </p>
         </div>
         <div className="shrink-0">
           {g.myStatus === "INVITED" && (
             <button
               onClick={(e) => { e.preventDefault(); handleJoin(g.id); }}
               disabled={joining[g.id]}
-              className="badge bg-blue-100 text-blue-700 text-xs hover:bg-blue-200 transition disabled:opacity-50"
+              className="badge bg-pitch-light text-pitch-dark text-xs hover:bg-green-200 transition disabled:opacity-50 font-semibold"
             >
-              {joining[g.id] ? "Accepting…" : "Accept Invite →"}
+              {joining[g.id] ? "Joining…" : "Accept ✓"}
             </button>
           )}
           {g.myStatus === "PENDING" && (
-            <span className="badge bg-yellow-100 text-yellow-700 text-xs">Pending</span>
+            <span className="badge bg-yellow-100 text-yellow-700 text-xs">Pending…</span>
           )}
           {g.myStatus === "REJECTED" && (
             <span className="badge bg-red-100 text-red-700 text-xs">Rejected</span>
           )}
           {canOpen && !g.myStatus?.match(/INVITED|PENDING|REJECTED/) && (
-            <span className="text-gray-300 group-hover:text-fifa-blue">›</span>
+            <span className="text-gray-300 group-hover:text-fifa-blue text-lg font-light">›</span>
           )}
           {!canOpen && g.myStatus === null && (
             <div className="flex flex-col items-end gap-1">
@@ -148,7 +159,7 @@ export default function GroupsPage() {
                 disabled={joining[g.id]}
                 className="btn-primary text-xs px-4 py-1.5 disabled:opacity-50"
               >
-                {joining[g.id] ? "…" : "Request to join"}
+                {joining[g.id] ? "…" : "Join"}
               </button>
               {joinErrors[g.id] && (
                 <p className="text-[10px] text-red-500 max-w-[120px] text-right">{joinErrors[g.id]}</p>
@@ -160,7 +171,7 @@ export default function GroupsPage() {
     );
 
     return canOpen ? (
-      <Link href={`/groups/${g.id}`} className="card flex items-center gap-3 hover:border-fifa-blue transition group">
+      <Link href={`/groups/${g.id}`} className="card-interactive flex items-center gap-3 group">
         {inner}
       </Link>
     ) : (
@@ -170,18 +181,19 @@ export default function GroupsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-bold text-gray-900">Groups</h1>
+      {/* Page header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-black text-gray-900">Your Groups</h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Pick a group to see standings, predict matches, and compete with friends.
+        </p>
       </div>
-      <p className="text-gray-400 text-sm mb-6">
-        Join a group to compete with friends. Your predictions and points are separate in each group.
-      </p>
 
       {/* My approved groups */}
       {myGroups.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">My Groups</h2>
-          <div className="space-y-3">
+        <div className="mb-8 animate-fade-up">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Playing in</h2>
+          <div className="space-y-2">
             {myGroups.map((g) => <GroupCard key={g.id} g={g} />)}
           </div>
         </div>
@@ -189,9 +201,11 @@ export default function GroupsPage() {
 
       {/* Invites */}
       {invitedGroups.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Pending Invites</h2>
-          <div className="space-y-3">
+        <div className="mb-8 animate-fade-up">
+          <h2 className="text-xs font-bold text-pitch-dark uppercase tracking-widest mb-3">
+            📬 Invites waiting for you
+          </h2>
+          <div className="space-y-2">
             {invitedGroups.map((g) => <GroupCard key={g.id} g={g} />)}
           </div>
         </div>
@@ -200,8 +214,8 @@ export default function GroupsPage() {
       {/* Pending requests */}
       {pendingGroups.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Pending Requests</h2>
-          <div className="space-y-3">
+          <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Pending Requests</h2>
+          <div className="space-y-2">
             {pendingGroups.map((g) => <GroupCard key={g.id} g={g} />)}
           </div>
         </div>
@@ -209,25 +223,28 @@ export default function GroupsPage() {
 
       {/* Empty state — no groups yet and not searching */}
       {myGroups.length === 0 && invitedGroups.length === 0 && pendingGroups.length === 0 && !search.trim() && (
-        <div className="card text-center py-10 mb-6">
-          <div className="text-4xl mb-3">⚽</div>
-          <p className="font-semibold text-gray-700 mb-1">You're not in any groups yet</p>
-          <p className="text-sm text-gray-400">Search for a public group below, or ask a friend for their invite link.</p>
+        <div className="card text-center py-12 mb-6 border-dashed border-2 border-gray-200 bg-gray-50/50">
+          <div className="text-5xl mb-3">⚽</div>
+          <p className="font-bold text-gray-700 text-lg mb-1">No groups yet</p>
+          <p className="text-sm text-gray-400 max-w-xs mx-auto">
+            Ask a friend to send you their invite link, or search for a public group below.
+          </p>
         </div>
       )}
 
       {/* Search public groups */}
       <div>
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
           Find Public Groups
         </h2>
         <div className="relative mb-4">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name…"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            className="w-full border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue/40 focus:border-fifa-blue bg-white shadow-sm"
           />
           {searching && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-block w-4 h-4 border-2 border-gray-300 border-t-fifa-blue rounded-full animate-spin" />
@@ -235,13 +252,18 @@ export default function GroupsPage() {
         </div>
 
         {search.trim() && searchResults.length === 0 && !searching ? (
-          <div className="card text-center py-10 text-gray-400">No public groups match your search.</div>
+          <div className="card text-center py-10 text-gray-400">
+            <div className="text-3xl mb-2">🤷</div>
+            No public groups match &ldquo;{search}&rdquo;
+          </div>
         ) : search.trim() && searchResults.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {searchResults.map((g) => <GroupCard key={g.id} g={g} />)}
           </div>
         ) : !search.trim() ? (
-          <p className="text-sm text-gray-400 text-center py-4">Type a name above to search for public groups.</p>
+          <p className="text-sm text-gray-400 text-center py-6">
+            Type a name above to search for public groups.
+          </p>
         ) : null}
       </div>
     </div>
