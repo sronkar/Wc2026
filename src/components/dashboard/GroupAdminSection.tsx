@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
+import { GROUP_EMOJI_OPTIONS, isEmojiAvatar } from "@/lib/groupAvatar";
+import { WC_GROUPS } from "@/lib/wcGroups";
+import { getFlag } from "@/lib/flags";
+import { STAGES, type StagePointsMap, defaultStagePoints, DEFAULT_ADVANCEMENT_POINTS, loadStagePoints, isLegacyUniformFill } from "@/lib/stagePoints";
 
 interface Membership {
   userId: string;
@@ -51,38 +56,13 @@ function formatExpiry(expiresAt: string): string {
   return `Expires in ${hours}h${minutes > 0 ? ` ${minutes}m` : ""}`;
 }
 
-const STAGES = [
-  "Group Stage",
-  "Round of 32",
-  "Round of 16",
-  "Quarter-final",
-  "Semi-final",
-  "Third Place Play-off",
-  "Final",
-] as const;
-
-type StageName = typeof STAGES[number];
-type StagePointsMap = Record<StageName, { exact: number; direction: number }>;
-
-function defaultStagePoints(): StagePointsMap {
-  return {
-    "Group Stage":          { exact: 2, direction: 1 },
-    "Round of 32":          { exact: 3, direction: 2 },
-    "Round of 16":          { exact: 4, direction: 2 },
-    "Quarter-final":        { exact: 6, direction: 3 },
-    "Semi-final":           { exact: 8, direction: 4 },
-    "Third Place Play-off": { exact: 8, direction: 4 },
-    "Final":                { exact: 10, direction: 5 },
-  };
-}
-
-const DEFAULT_ADVANCEMENT_POINTS = { exact: 4, direction: 2 };
 
 interface GroupSettings {
   stagePoints: StagePointsMap;
   advancementPoints: { exact: number; direction: number };
   isPublic: boolean;
   requirePassword: boolean;
+  avatar: string | null;
 }
 
 interface Match {
@@ -103,9 +83,10 @@ interface PredictionRow {
   userId: string;
   userName: string;
   userImage: string | null;
-  homeScore: number;
-  awayScore: number;
+  homeScore: number | null;
+  awayScore: number | null;
   points: number | null;
+  hidden?: boolean; // server hides scores until lock to prevent admin peeking
 }
 
 const ROUNDS = [
@@ -119,6 +100,8 @@ const ROUNDS = [
 ];
 
 export function GroupAdminSection({ groupId }: { groupId: string }) {
+  const { data: session } = useSession();
+  const adminUserId = session?.user?.id;
   // ── Members state ─────────────────────────────────────────────────────────────
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [membersLoaded, setMembersLoaded] = useState(false);
@@ -129,6 +112,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [addMemberInput, setAddMemberInput] = useState("");
   const [addMemberRole, setAddMemberRole] = useState("MEMBER");
+  const [addMemberNotify, setAddMemberNotify] = useState(true);
   const [addMemberSaving, setAddMemberSaving] = useState(false);
   const [addMemberMessage, setAddMemberMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -145,7 +129,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [joinLinkLoading, setJoinLinkLoading] = useState(false);
 
   // ── Settings state ────────────────────────────────────────────────────────────
-  const [settings, setSettings] = useState<GroupSettings>({ stagePoints: defaultStagePoints(), advancementPoints: DEFAULT_ADVANCEMENT_POINTS, isPublic: true, requirePassword: false });
+  const [settings, setSettings] = useState<GroupSettings>({ stagePoints: defaultStagePoints(), advancementPoints: DEFAULT_ADVANCEMENT_POINTS, isPublic: true, requirePassword: false, avatar: null });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -174,6 +158,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [epLoading, setEpLoading] = useState(false);
   const [epSaving, setEpSaving] = useState<Record<string, boolean>>({});
   const [epSaved, setEpSaved] = useState<Set<string>>(new Set());
+  const [epRevealed, setEpRevealed] = useState<Record<string, boolean>>({});
 
   // ── Load data on mount ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -185,34 +170,49 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         setMembersLoaded(true);
       });
 
-    // Load group settings
-    fetch(`/api/groups/${groupId}`)
-      .then((r) => r.json())
-      .then((data: { stagePoints?: string; exactMatchPoints?: number; directionMatchPoints?: number; isPublic?: boolean; requirePassword?: boolean }) => {
-        const loaded = defaultStagePoints();
-        // Parse saved stagePoints JSON, fall back to old global values if a stage is missing
-        const savedMap: Partial<Record<string, { exact: number; direction: number }>> =
-          data.stagePoints ? JSON.parse(data.stagePoints) : {};
-        const fallbackExact = data.exactMatchPoints ?? 2;
-        const fallbackDir = data.directionMatchPoints ?? 1;
-        for (const stage of STAGES) {
-          const s = savedMap[stage];
-          loaded[stage] = {
-            exact: s?.exact ?? fallbackExact,
-            direction: s?.direction ?? fallbackDir,
-          };
-        }
-        const advancementPoints = savedMap["Advancement"]
-          ? { exact: savedMap["Advancement"].exact, direction: savedMap["Advancement"].direction }
+    // Load group settings + global defaults in parallel so the per-stage matrix
+    // overlays the group's explicit values on top of the global Point Defaults.
+    Promise.all([
+      fetch(`/api/groups/${groupId}`).then((r) => r.json()),
+      fetch("/api/admin/settings").then((r) => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([data, globalSettings]: [
+      { stagePoints?: string; exactMatchPoints?: number; directionMatchPoints?: number; isPublic?: boolean; requirePassword?: boolean; avatar?: string | null },
+      { stagePoints?: string } | null,
+    ]) => {
+      // Build the per-stage baseline from the global Point Defaults (or the
+      // suggested static set if global hasn't been set).
+      const globalBase = loadStagePoints(globalSettings?.stagePoints);
+
+      // If the group's stagePoints is empty OR a legacy uniform fill, treat it
+      // as "not customised" — show the global baseline. Otherwise overlay the
+      // group's explicit values on top.
+      const isLegacy = isLegacyUniformFill(
+        data.stagePoints,
+        data.exactMatchPoints ?? 5,
+        data.directionMatchPoints ?? 1,
+      );
+      const stored = isLegacy ? "{}" : data.stagePoints;
+      const loaded = loadStagePoints(stored, globalBase);
+
+      const savedMap: Partial<Record<string, { exact: number; direction: number }>> =
+        stored ? JSON.parse(stored) : {};
+      const globalParsed: Partial<Record<string, { exact: number; direction: number }>> =
+        globalSettings?.stagePoints ? (() => { try { return JSON.parse(globalSettings.stagePoints); } catch { return {}; } })() : {};
+      const advancementPoints = savedMap["Advancement"]
+        ? { exact: savedMap["Advancement"].exact, direction: savedMap["Advancement"].direction }
+        : globalParsed["Advancement"]
+          ? { exact: globalParsed["Advancement"].exact, direction: globalParsed["Advancement"].direction }
           : DEFAULT_ADVANCEMENT_POINTS;
-        setSettings({
-          stagePoints: loaded,
-          advancementPoints,
-          isPublic: data.isPublic ?? true,
-          requirePassword: data.requirePassword ?? false,
-        });
-        setSettingsLoaded(true);
+
+      setSettings({
+        stagePoints: loaded,
+        advancementPoints,
+        isPublic: data.isPublic ?? true,
+        requirePassword: data.requirePassword ?? false,
+        avatar: data.avatar ?? null,
       });
+      setSettingsLoaded(true);
+    });
 
     // Load all users for add-member dropdown
     fetch("/api/admin/users")
@@ -375,7 +375,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     const res = await fetch(`/api/admin/groups/${groupId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, memberRole: addMemberRole }),
+      body: JSON.stringify({ userId, memberRole: addMemberRole, notify: addMemberNotify }),
     });
     if (res.ok) {
       const result = await res.json();
@@ -425,6 +425,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         stagePoints: JSON.stringify({ ...settings.stagePoints, Advancement: settings.advancementPoints }),
         isPublic: settings.isPublic,
         requirePassword: settings.requirePassword,
+        avatar: settings.avatar,
       }),
     });
     setSettingsSaving(false);
@@ -519,16 +520,21 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     if (!epMatchId) {
       setEpPredictions([]);
       setEpInputs({});
+      setEpRevealed({});
       return;
     }
     setEpLoading(true);
+    setEpRevealed({});
     fetch(`/api/admin/matches/${epMatchId}/predictions?groupId=${groupId}`)
       .then((r) => r.json())
       .then((data: PredictionRow[]) => {
         setEpPredictions(data);
         const inputs: Record<string, { home: string; away: string }> = {};
         data.forEach((p) => {
-          inputs[p.userId] = { home: String(p.homeScore), away: String(p.awayScore) };
+          inputs[p.userId] = {
+            home: p.homeScore != null ? String(p.homeScore) : "",
+            away: p.awayScore != null ? String(p.awayScore) : "",
+          };
         });
         setEpInputs(inputs);
       })
@@ -745,10 +751,13 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
           )}
         </div>
 
-        {/* Add existing user directly */}
+        {/* Add a user directly to this group */}
         <div className="mb-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Add Existing User Directly
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+            Add a User to this Group
+          </p>
+          <p className="text-xs text-gray-400 mb-2">
+            Skips the invite flow — the user is added immediately. Tick <em>Notify them</em> to send an in-app + push notification.
           </p>
           <div className="flex gap-2 flex-wrap">
             <select
@@ -784,6 +793,15 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
               {addMemberSaving ? "…" : "Add"}
             </button>
           </div>
+          <label className="flex items-center gap-2 mt-2 text-xs text-gray-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={addMemberNotify}
+              onChange={(e) => setAddMemberNotify(e.target.checked)}
+              className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
+            />
+            ✉️ Notify them they were added
+          </label>
           {addMemberMessage && (
             <p className={`text-xs mt-1 ${addMemberMessage.ok ? "text-green-600" : "text-red-500"}`}>
               {addMemberMessage.text}
@@ -896,7 +914,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       <div className="card">
         <h3 className="font-bold text-gray-800 mb-1">Group Settings</h3>
         <p className="text-xs text-gray-400 mb-4">
-          Points awarded to members of this group for correct predictions.
+          Points awarded to members of this group for correct predictions. Defaults are seeded from the <strong>global Point Defaults</strong> (Admin → Point Defaults) at group creation. Use <em>Reset to global defaults</em> to re-apply them.
         </p>
         {!settingsLoaded ? (
           <div className="text-sm text-gray-400 py-2">Loading…</div>
@@ -993,6 +1011,71 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
               </table>
             </div>
             <div>
+              <label className="block text-xs text-gray-500 mb-1.5">Avatar</label>
+              {settings.avatar && !isEmojiAvatar(settings.avatar) ? (
+                <div className="flex items-center gap-3">
+                  <Image src={settings.avatar} alt="" width={36} height={36} className="rounded-full object-cover" />
+                  <span className="text-xs text-gray-400">Custom image avatar — pick an emoji below to replace it.</span>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {GROUP_EMOJI_OPTIONS.map((emoji) => {
+                  const selected = settings.avatar === emoji;
+                  return (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => setSettings((s) => ({ ...s, avatar: selected ? null : emoji }))}
+                      className={`w-9 h-9 rounded-lg text-xl flex items-center justify-center border transition ${
+                        selected
+                          ? "border-fifa-blue bg-blue-50 ring-2 ring-fifa-blue"
+                          : "border-gray-200 hover:bg-gray-50"
+                      }`}
+                      aria-label={`Avatar ${emoji}`}
+                      aria-pressed={selected}
+                    >
+                      {emoji}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wide mt-3 mb-1.5">Or pick a team flag</p>
+              <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+                {Object.entries(WC_GROUPS).flatMap(([wcGroup, teams]) =>
+                  teams.map((team) => {
+                    const flag = getFlag(team);
+                    const selected = settings.avatar === flag;
+                    return (
+                      <button
+                        key={team}
+                        type="button"
+                        onClick={() => setSettings((s) => ({ ...s, avatar: selected ? null : flag }))}
+                        title={`${team} (Group ${wcGroup})`}
+                        className={`w-9 h-9 rounded-lg text-xl flex items-center justify-center border transition ${
+                          selected
+                            ? "border-fifa-blue bg-blue-50 ring-2 ring-fifa-blue"
+                            : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                        aria-label={`${team} flag`}
+                        aria-pressed={selected}
+                      >
+                        {flag}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              {settings.avatar && (
+                <button
+                  type="button"
+                  onClick={() => setSettings((s) => ({ ...s, avatar: null }))}
+                  className="text-[10px] text-gray-400 hover:text-red-500 mt-1.5"
+                >
+                  Clear avatar
+                </button>
+              )}
+            </div>
+            <div>
               <label className="block text-xs text-gray-500 mb-1.5">Visibility</label>
               <div className="relative group inline-flex">
                 <div className="flex rounded-lg border border-gray-300 text-sm overflow-hidden">
@@ -1030,13 +1113,38 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                 </div>
               </div>
             </div>
-            <button
-              onClick={handleSaveSettings}
-              disabled={settingsSaving}
-              className="btn-primary disabled:opacity-50"
-            >
-              {settingsSaving ? "Saving…" : settingsSaved ? "Saved ✓" : "Save Settings"}
-            </button>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                onClick={handleSaveSettings}
+                disabled={settingsSaving}
+                className="btn-primary disabled:opacity-50"
+              >
+                {settingsSaving ? "Saving…" : settingsSaved ? "Saved ✓" : "Save Settings"}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch("/api/admin/settings");
+                    const data = await res.json();
+                    const stagePoints = loadStagePoints(data.stagePoints);
+                    let advancementPoints = DEFAULT_ADVANCEMENT_POINTS;
+                    try {
+                      const parsed = JSON.parse(data.stagePoints || "{}");
+                      if (parsed?.Advancement?.exact != null && parsed.Advancement.direction != null) {
+                        advancementPoints = { exact: parsed.Advancement.exact, direction: parsed.Advancement.direction };
+                      }
+                    } catch {}
+                    setSettings((s) => ({ ...s, stagePoints, advancementPoints }));
+                  } catch {
+                    setSettings((s) => ({ ...s, stagePoints: defaultStagePoints(), advancementPoints: DEFAULT_ADVANCEMENT_POINTS }));
+                  }
+                }}
+                className="text-xs text-gray-500 hover:text-fifa-blue transition"
+              >
+                Reset to global defaults
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1077,9 +1185,13 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
             : false;
           return (
             <>
-              {isLocked && (
-                <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center gap-2">
-                  🔒 <strong>Predictions locked.</strong> This match is within 1 hour of kickoff or has finished.
+              {!isLocked ? (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm">
+                  🙈 <strong>Predictions are hidden until lock.</strong> To prevent admins from updating their own pick after seeing other members&apos;, scores are revealed only after the match locks (1h before kickoff).
+                </div>
+              ) : (
+                <div className="rounded-lg bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 text-sm">
+                  🔒 <strong>Match is locked.</strong> Predictions are hidden by default — click <em>Reveal</em> on a row only when a member has asked you to change theirs. Your own prediction can&apos;t be edited.
                 </div>
               )}
               <div className="card overflow-hidden p-0">
@@ -1099,7 +1211,13 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                     </thead>
                     <tbody>
                       {epPredictions.map((pred, i) => {
-                        const input = epInputs[pred.userId] ?? { home: String(pred.homeScore), away: String(pred.awayScore) };
+                        const input = epInputs[pred.userId] ?? { home: "", away: "" };
+                        const isSelf = pred.userId === adminUserId;
+                        const revealed = epRevealed[pred.userId];
+                        // Three states:
+                        // - !isLocked → server returned hidden values; admin can't see or edit anyone's
+                        // - isLocked && !revealed → mask as *-* with a Reveal button
+                        // - isLocked && revealed → show values + edit inputs (except own row)
                         return (
                           <tr key={pred.userId} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                             <td className="px-4 py-3">
@@ -1111,28 +1229,30 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                                     {pred.userName.charAt(0).toUpperCase()}
                                   </div>
                                 )}
-                                <span className="font-medium text-gray-800">{pred.userName}</span>
+                                <span className="font-medium text-gray-800">{pred.userName}{isSelf ? " (you)" : ""}</span>
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              {isLocked ? (
-                                <span className="font-semibold text-gray-700">{pred.homeScore} – {pred.awayScore}</span>
+                              {!isLocked || !revealed ? (
+                                <span className="font-mono text-gray-400 select-none">*–*</span>
                               ) : (
                                 <div className="flex items-center gap-1">
                                   <input
                                     type="number" min="0" max="20" value={input.home}
+                                    disabled={isSelf}
                                     onChange={(e) =>
                                       setEpInputs((prev) => ({ ...prev, [pred.userId]: { ...prev[pred.userId], home: e.target.value } }))
                                     }
-                                    className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                                    className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue disabled:bg-gray-100 disabled:text-gray-400"
                                   />
                                   <span className="text-gray-400">–</span>
                                   <input
                                     type="number" min="0" max="20" value={input.away}
+                                    disabled={isSelf}
                                     onChange={(e) =>
                                       setEpInputs((prev) => ({ ...prev, [pred.userId]: { ...prev[pred.userId], away: e.target.value } }))
                                     }
-                                    className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                                    className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue disabled:bg-gray-100 disabled:text-gray-400"
                                   />
                                 </div>
                               )}
@@ -1145,15 +1265,34 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                               )}
                             </td>
                             <td className="px-4 py-3">
-                              {isLocked ? (
-                                <span className="text-xs text-gray-400">🔒</span>
+                              {!isLocked ? (
+                                <span className="text-xs text-gray-400">🙈</span>
+                              ) : !revealed ? (
+                                <button
+                                  onClick={() => {
+                                    // Fetch the actual value once revealed (server returns it post-lock)
+                                    setEpRevealed((p) => ({ ...p, [pred.userId]: true }));
+                                    setEpInputs((p) => ({
+                                      ...p,
+                                      [pred.userId]: {
+                                        home: pred.homeScore != null ? String(pred.homeScore) : "",
+                                        away: pred.awayScore != null ? String(pred.awayScore) : "",
+                                      },
+                                    }));
+                                  }}
+                                  className="text-xs px-3 py-1.5 rounded-lg font-semibold border bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
+                                >
+                                  Reveal
+                                </button>
+                              ) : isSelf ? (
+                                <span className="text-xs text-gray-400">🔒 own</span>
                               ) : (
                                 <button
                                   onClick={() => handleSavePrediction(pred.userId)}
                                   disabled={epSaving[pred.userId]}
                                   className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50 bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
                                 >
-                                  {epSaving[pred.userId] ? "…" : epSaved.has(pred.userId) ? "Saved ✓" : "✎ Edit"}
+                                  {epSaving[pred.userId] ? "…" : epSaved.has(pred.userId) ? "Saved ✓" : "✎ Save"}
                                 </button>
                               )}
                             </td>

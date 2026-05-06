@@ -28,15 +28,16 @@ export async function POST(req: NextRequest) {
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
   if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  // Lock policy: this admin route ENFORCES the same 1-hour-before-kickoff lock
-  // as the user route. Admins are intentionally NOT able to override the lock
-  // here — the entire fairness contract of the app depends on predictions
-  // becoming immutable at the lock threshold for everyone, including admins.
-  // (If a future feature needs admin override, gate it behind a separate route
-  // that writes to an audit log so the override is visible to all members.)
-  if (isPredictionLocked(match.kickoff)) {
+  // Lock policy:
+  // - Pre-lock (the normal window): admin may edit any user's prediction.
+  // - Post-lock: admin may edit *another* user's prediction on the user's
+  //   request, but NOT their own — otherwise an admin could rewrite their own
+  //   pick after seeing how the match unfolded. Every edit (locked or not)
+  //   writes to AdminAuditLog below so post-lock overrides are visible to
+  //   anyone reviewing the audit trail.
+  if (isPredictionLocked(match.kickoff) && userId === session.user.id) {
     return NextResponse.json(
-      { error: "Predictions for this match are locked and cannot be changed" },
+      { error: "Your own prediction is locked and cannot be changed" },
       { status: 409 }
     );
   }

@@ -52,6 +52,7 @@ model User {
   matchReminders           MatchReminder[]
   notifications            Notification[]
   emailNotifications       Boolean                  @default(true)
+  allowDirectAdd           Boolean                  @default(true) // when false, admins cannot direct-add this user to a group
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
 }
@@ -105,6 +106,7 @@ model PointSettings {
   id                   String   @id @default(cuid())
   exactMatchPoints     Int      @default(5)
   directionMatchPoints Int      @default(1)
+  stagePoints          String   @default("{}") // JSON map of StageName -> { exact, direction }; advancement under "Advancement"
   updatedAt            DateTime @updatedAt
 }
 

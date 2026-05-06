@@ -8,6 +8,7 @@ import { MatchCard } from "@/components/MatchCard";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
 import { GroupStandingsPanel } from "@/components/GroupStandingsPanel";
 import { CustomPredictionsPanel } from "@/components/dashboard/CustomPredictionsPanel";
+import { loadStagePoints, isLegacyUniformFill } from "@/lib/stagePoints";
 
 interface Match {
   id: string;
@@ -217,20 +218,24 @@ export default function GroupMatchesPage() {
       if (groupRes.ok) {
         const g = await groupRes.json();
         setGroupName(g.name ?? "");
-        if (g.exactMatchPoints) {
-          const stagePoints: Record<string, { exact: number; direction: number }> = {};
-          try {
-            const raw = JSON.parse(g.stagePoints || "{}");
-            for (const [round, vals] of Object.entries(raw)) {
-              const v = vals as { exact?: number; direction?: number };
-              stagePoints[round] = {
-                exact: v.exact ?? g.exactMatchPoints,
-                direction: v.direction ?? g.directionMatchPoints ?? 1,
-              };
-            }
-          } catch {}
-          setGroupSettings({ exact: g.exactMatchPoints, direction: g.directionMatchPoints ?? 1, stagePoints });
-        }
+        // Pull global Point Defaults to use as the per-stage baseline. Group's
+        // explicit per-stage values overlay on top; legacy uniform 5/1 fills
+        // are ignored so they don't mask the global defaults.
+        const globalSettings = await fetch("/api/admin/settings")
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null);
+        const globalBase = loadStagePoints(globalSettings?.stagePoints);
+        const isLegacy = isLegacyUniformFill(
+          g.stagePoints,
+          g.exactMatchPoints ?? 5,
+          g.directionMatchPoints ?? 1,
+        );
+        const stagePoints = loadStagePoints(isLegacy ? "{}" : g.stagePoints, globalBase);
+        setGroupSettings({
+          exact: g.exactMatchPoints ?? 5,
+          direction: g.directionMatchPoints ?? 1,
+          stagePoints,
+        });
         if (g.myMemberRole === "VISITOR_ADMIN") {
           router.replace(`/groups/${groupId}`);
           return;
@@ -419,11 +424,17 @@ export default function GroupMatchesPage() {
                 exact: groupSettings.exact,
                 direction: groupSettings.direction,
               };
+              const toggleRound = () => setCollapsed((prev) => ({ ...prev, [round]: !prev[round] }));
               return (
                 <div key={round}>
-                  <div className="flex items-center justify-between mb-3">
+                  <button
+                    type="button"
+                    onClick={toggleRound}
+                    aria-expanded={!isCollapsed}
+                    className="w-full flex items-center justify-between mb-3 text-left group"
+                  >
                     <div>
-                      <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2">
+                      <h2 className="text-lg font-bold text-gray-700 flex items-center gap-2 group-hover:text-fifa-blue transition">
                         <span className="w-2 h-2 rounded-full bg-fifa-blue inline-block" />
                         {round}
                       </h2>
@@ -431,13 +442,10 @@ export default function GroupMatchesPage() {
                         Exact score: +{roundPts.exact} pts · Correct result: +{roundPts.direction} pt{roundPts.direction !== 1 ? "s" : ""}
                       </p>
                     </div>
-                    <button
-                      onClick={() => setCollapsed((prev) => ({ ...prev, [round]: !prev[round] }))}
-                      className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 rounded px-2 py-0.5 transition"
-                    >
+                    <span className="text-xs text-gray-400 group-hover:text-gray-600 border border-gray-200 group-hover:border-gray-300 rounded px-2 py-0.5 transition shrink-0">
                       {isCollapsed ? "Show" : "Hide"}
-                    </button>
-                  </div>
+                    </span>
+                  </button>
                   {!isCollapsed && (
                     <div className="grid sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                       {grouped[round].map((match) => (

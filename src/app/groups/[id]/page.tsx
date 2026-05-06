@@ -8,6 +8,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { MatchCarousel } from "@/components/dashboard/MatchCarousel";
 import { MiniLeaderboard } from "@/components/dashboard/MiniLeaderboard";
+import { isEmojiAvatar } from "@/lib/groupAvatar";
+import { LeaveGroupButton } from "@/components/LeaveGroupButton";
 import { MatchCard } from "@/components/MatchCard";
 import { GeneralPredictionsCarousel } from "@/components/dashboard/GeneralPredictionsCarousel";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
@@ -245,13 +247,15 @@ export default async function GroupDashboardPage({
         userId={userId}
         groupId={groupId}
         showForNewUsers={showFirstVisitOnboarding}
-        defaultExactPoints={group.exactMatchPoints}
-        defaultDirectionPoints={group.directionMatchPoints}
       />
 
       {/* Group header */}
       <div className="flex items-center gap-4 mb-6">
-        {group.avatar ? (
+        {isEmojiAvatar(group.avatar) ? (
+          <span className="w-[52px] h-[52px] rounded-full bg-blue-50 text-3xl flex items-center justify-center shrink-0 border-2 border-white shadow" aria-hidden>
+            {group.avatar}
+          </span>
+        ) : group.avatar ? (
           <Image
             src={group.avatar}
             alt={group.name}
@@ -260,11 +264,11 @@ export default async function GroupDashboardPage({
             className="rounded-full object-cover shrink-0 border-2 border-white shadow"
           />
         ) : (
-          <div className="w-13 h-13 w-[52px] h-[52px] rounded-full bg-fifa-blue text-white font-extrabold text-xl flex items-center justify-center shrink-0 shadow">
+          <div className="w-[52px] h-[52px] rounded-full bg-fifa-blue text-white font-extrabold text-xl flex items-center justify-center shrink-0 shadow">
             {group.name.charAt(0).toUpperCase()}
           </div>
         )}
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">{group.name}</h1>
           {group.description && (
             <p className="text-gray-400 text-sm mt-0.5">{group.description}</p>
@@ -273,6 +277,9 @@ export default async function GroupDashboardPage({
             {userRank ? `You're ranked #${userRank} in this group` : "Start predicting to join the rankings"} · {totalPoints} pts
           </p>
         </div>
+        {!isAdminRole && !isVisitor && membership?.status === "APPROVED" && (
+          <LeaveGroupButton groupId={groupId} groupName={group.name} />
+        )}
       </div>
 
       <div className="mb-6">

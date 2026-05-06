@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
+import { isEmojiAvatar } from "@/lib/groupAvatar";
 
 interface GroupRow {
   id: string;
@@ -105,7 +106,11 @@ export default function GroupsPage() {
 
     const inner = (
       <>
-        {g.avatar ? (
+        {isEmojiAvatar(g.avatar) ? (
+          <span className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-2xl ${canOpen ? "bg-blue-50" : "bg-gray-100"}`} aria-hidden>
+            {g.avatar}
+          </span>
+        ) : g.avatar ? (
           <Image src={g.avatar} alt="" width={40} height={40} className="rounded-full object-cover shrink-0" />
         ) : (
           <div className={`w-10 h-10 rounded-full font-bold flex items-center justify-center shrink-0 text-sm ${canOpen ? "bg-fifa-blue text-white" : "bg-gray-200 text-gray-500"}`}>

@@ -17,6 +17,8 @@ function ProfilePageInner() {
   const [error, setError] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [allowDirectAdd, setAllowDirectAdd] = useState(true);
+  const [savingDirectAdd, setSavingDirectAdd] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/login");
@@ -32,6 +34,7 @@ function ProfilePageInner() {
       .then((r) => r.json())
       .then((d) => {
         if (typeof d.emailNotifications === "boolean") setEmailNotifications(d.emailNotifications);
+        if (typeof d.allowDirectAdd === "boolean") setAllowDirectAdd(d.allowDirectAdd);
       })
       .catch(() => {});
   }, [session?.user?.id]);
@@ -47,6 +50,19 @@ function ProfilePageInner() {
       });
     } catch {}
     setSavingEmail(false);
+  };
+
+  const toggleAllowDirectAdd = async (val: boolean) => {
+    setAllowDirectAdd(val);
+    setSavingDirectAdd(true);
+    try {
+      await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowDirectAdd: val }),
+      });
+    } catch {}
+    setSavingDirectAdd(false);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -181,6 +197,34 @@ function ProfilePageInner() {
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
                 emailNotifications ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+      </div>
+
+      {/* Privacy / group settings */}
+      <div className="card mt-4">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Group Privacy</h2>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Allow admins to add me to groups</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              When off, group admins can&apos;t add you directly — they have to send you an invite link you choose to accept.
+            </p>
+          </div>
+          <button
+            onClick={() => toggleAllowDirectAdd(!allowDirectAdd)}
+            disabled={savingDirectAdd}
+            className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+              allowDirectAdd ? "bg-fifa-blue" : "bg-gray-200"
+            }`}
+            aria-checked={allowDirectAdd}
+            role="switch"
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                allowDirectAdd ? "translate-x-6" : "translate-x-1"
               }`}
             />
           </button>

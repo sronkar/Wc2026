@@ -9,7 +9,7 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, image: true, emailNotifications: true },
+    select: { id: true, name: true, email: true, image: true, emailNotifications: true, allowDirectAdd: true },
   });
 
   return NextResponse.json(user);
@@ -34,6 +34,10 @@ export async function PATCH(req: NextRequest) {
     updates.emailNotifications = Boolean(body.emailNotifications);
   }
 
+  if ("allowDirectAdd" in body) {
+    updates.allowDirectAdd = Boolean(body.allowDirectAdd);
+  }
+
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
@@ -41,7 +45,7 @@ export async function PATCH(req: NextRequest) {
   const updated = await prisma.user.update({
     where: { id: session.user.id },
     data: updates,
-    select: { id: true, name: true, email: true, emailNotifications: true },
+    select: { id: true, name: true, email: true, emailNotifications: true, allowDirectAdd: true },
   });
 
   return NextResponse.json(updated);
