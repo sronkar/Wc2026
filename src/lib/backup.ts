@@ -19,6 +19,14 @@ function resolveDbPath(): string | null {
 }
 
 export async function createDailyBackup(): Promise<void> {
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  if (!dbUrl.startsWith("file:")) {
+    // PostgreSQL and other remote databases are backed up by the hosting
+    // provider (e.g. Railway automatic backups). Skip the SQLite-specific job.
+    console.log("[backup] non-SQLite database detected — skipping file backup");
+    return;
+  }
+
   const dbPath = resolveDbPath();
   if (!dbPath) {
     console.warn("[backup] could not locate SQLite database file");
