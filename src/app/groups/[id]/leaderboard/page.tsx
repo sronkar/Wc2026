@@ -8,6 +8,7 @@ import Link from "next/link";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
 import { Skeleton, SkeletonRow } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { isEmojiAvatar } from "@/lib/groupAvatar";
 
 interface Entry {
   id: string;
@@ -79,7 +80,11 @@ export default function GroupLeaderboardPage() {
       </div>
 
       <div className="flex items-center gap-3 mb-6">
-        {groupAvatar ? (
+        {isEmojiAvatar(groupAvatar) ? (
+          <span className="w-10 h-10 rounded-full bg-blue-50 text-2xl flex items-center justify-center" aria-hidden>
+            {groupAvatar}
+          </span>
+        ) : groupAvatar ? (
           <Image src={groupAvatar} alt="" width={40} height={40} className="rounded-full object-cover" />
         ) : (
           <div className="w-10 h-10 rounded-full bg-fifa-blue text-white font-bold flex items-center justify-center text-sm">

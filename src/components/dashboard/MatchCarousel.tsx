@@ -463,25 +463,40 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
           ‹
         </button>
 
-        {/* Dot indicators — wrapped in touch-friendly hit area */}
-        <div className="flex gap-1.5 items-center">
-          {matches.map((m, i) => (
-            <button
-              key={m.id}
-              onClick={() => setCurrent(i)}
-              className="flex items-center justify-center w-11 h-11 rounded-full"
-              aria-label={`Match ${i + 1}`}
-            >
-              <span className={`rounded-full transition-all block ${
-                i === current
-                  ? "bg-fifa-blue w-5 h-2"
-                  : preds[m.id]
-                  ? "bg-green-400 w-2 h-2"
-                  : "bg-gray-200 w-2 h-2"
-              }`} />
-            </button>
-          ))}
-        </div>
+        {/* Dot indicators — rolling window so the row never overflows the card */}
+        {(() => {
+          const MAX_DOTS = 9;
+          const windowStart = matches.length <= MAX_DOTS
+            ? 0
+            : Math.max(0, Math.min(current - Math.floor(MAX_DOTS / 2), matches.length - MAX_DOTS));
+          const windowEnd = Math.min(matches.length, windowStart + MAX_DOTS);
+          const visible = matches.slice(windowStart, windowEnd);
+          return (
+            <div className="flex gap-1.5 items-center">
+              {windowStart > 0 && <span className="text-gray-300 text-xs leading-none">…</span>}
+              {visible.map((m) => {
+                const i = matches.indexOf(m);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setCurrent(i)}
+                    className="flex items-center justify-center w-11 h-11 rounded-full"
+                    aria-label={`Match ${i + 1}`}
+                  >
+                    <span className={`rounded-full transition-all block ${
+                      i === current
+                        ? "bg-fifa-blue w-5 h-2"
+                        : preds[m.id]
+                        ? "bg-green-400 w-2 h-2"
+                        : "bg-gray-200 w-2 h-2"
+                    }`} />
+                  </button>
+                );
+              })}
+              {windowEnd < matches.length && <span className="text-gray-300 text-xs leading-none">…</span>}
+            </div>
+          );
+        })()}
 
         <button
           onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}

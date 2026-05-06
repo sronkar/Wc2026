@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addMonkeyToGroup } from "@/lib/monkey";
+import { addClaudioToGroup } from "@/lib/claudio";
+import { defaultStagePoints } from "@/lib/stagePoints";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -15,6 +17,13 @@ export async function POST(req: NextRequest) {
   const { name, description, avatar, joinAsVisitor, isPublic } = await req.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
+  // Seed the new group's per-stage points from the global PointSettings if
+  // present, otherwise from the per-stage defaults in stagePoints.ts.
+  const globalSettings = await prisma.pointSettings.findUnique({ where: { id: "default" } });
+  const seedStagePoints = globalSettings?.stagePoints && globalSettings.stagePoints !== "{}"
+    ? globalSettings.stagePoints
+    : JSON.stringify(defaultStagePoints());
+
   const group = await prisma.group.create({
     data: {
       name: name.trim(),
@@ -22,6 +31,7 @@ export async function POST(req: NextRequest) {
       avatar: avatar?.trim() || null,
       createdBy: session.user.id,
       isPublic: isPublic !== false, // default true
+      stagePoints: seedStagePoints,
       memberships: {
         create: {
           userId: session.user.id,
@@ -32,7 +42,7 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  await addMonkeyToGroup(group.id);
+  await Promise.all([addMonkeyToGroup(group.id), addClaudioToGroup(group.id)]);
 
   return NextResponse.json(group, { status: 201 });
 }

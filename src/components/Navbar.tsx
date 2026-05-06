@@ -6,6 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { isEmojiAvatar } from "@/lib/groupAvatar";
 
 interface GroupItem {
   id: string;
@@ -122,6 +123,11 @@ export function Navbar() {
   const groupLink = (newGroupId: string) => {
     // On /admin/groups/[id] → switch to the same page for the new group
     if (pathname.match(/^\/admin\/groups\/[^/]+/)) return `/admin/groups/${newGroupId}`;
+    // On the global /admin page (not group-scoped) → stay put with the tab preserved
+    if (pathname === "/admin") {
+      const search = typeof window !== "undefined" ? window.location.search : "";
+      return `/admin${search}`;
+    }
     // On a group sub-page (matches/leaderboard) → preserve it
     if (subPage) return `/groups/${newGroupId}/${subPage}`;
     return `/groups/${newGroupId}`;
@@ -155,7 +161,11 @@ export function Navbar() {
                   onClick={() => setGroupDropOpen((v) => !v)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25 transition text-sm font-semibold border border-white/20"
                 >
-                  {activeGroup?.avatar ? (
+                  {isEmojiAvatar(activeGroup?.avatar) ? (
+                    <span className="w-[18px] h-[18px] rounded-full bg-white/30 flex items-center justify-center text-[12px] leading-none" aria-hidden>
+                      {activeGroup?.avatar}
+                    </span>
+                  ) : activeGroup?.avatar ? (
                     <Image src={activeGroup.avatar} alt="" width={18} height={18} className="rounded-full object-cover" />
                   ) : (
                     <span className="w-4 h-4 rounded-full bg-white/40 flex items-center justify-center text-xs font-bold">
@@ -182,7 +192,11 @@ export function Navbar() {
                             isActive ? "bg-blue-50 text-fifa-blue font-semibold" : "text-gray-800"
                           }`}
                         >
-                          {g.avatar ? (
+                          {isEmojiAvatar(g.avatar) ? (
+                            <span className="w-6 h-6 rounded-full bg-blue-50 text-base flex items-center justify-center shrink-0" aria-hidden>
+                              {g.avatar}
+                            </span>
+                          ) : g.avatar ? (
                             <Image src={g.avatar} alt="" width={24} height={24} className="rounded-full object-cover shrink-0" />
                           ) : (
                             <div className="w-6 h-6 rounded-full bg-fifa-blue text-white text-xs font-bold flex items-center justify-center shrink-0">

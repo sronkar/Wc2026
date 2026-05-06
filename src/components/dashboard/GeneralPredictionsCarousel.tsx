@@ -560,25 +560,40 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
           ‹
         </button>
 
-        <div className="flex gap-1 items-center justify-center flex-1 flex-wrap overflow-hidden">
-          {predictions.map((p, i) => (
-            <button
-              key={p.id}
-              onClick={() => setCurrent(i)}
-              className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-gray-100 transition shrink-0"
-              aria-label={`Prediction ${i + 1}`}
-              title={p.question}
-            >
-              <span className={`rounded-full transition-all block ${
-                i === current
-                  ? "bg-fifa-blue w-4 h-2"
-                  : p.userAnswer
-                  ? "bg-green-400 w-2 h-2"
-                  : "bg-gray-200 w-2 h-2"
-              }`} />
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const MAX_DOTS = 9;
+          const windowStart = predictions.length <= MAX_DOTS
+            ? 0
+            : Math.max(0, Math.min(current - Math.floor(MAX_DOTS / 2), predictions.length - MAX_DOTS));
+          const windowEnd = Math.min(predictions.length, windowStart + MAX_DOTS);
+          const visible = predictions.slice(windowStart, windowEnd);
+          return (
+            <div className="flex gap-1 items-center justify-center flex-1 overflow-hidden">
+              {windowStart > 0 && <span className="text-gray-300 text-xs leading-none">…</span>}
+              {visible.map((p) => {
+                const i = predictions.indexOf(p);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => setCurrent(i)}
+                    className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-gray-100 transition shrink-0"
+                    aria-label={`Prediction ${i + 1}`}
+                    title={p.question}
+                  >
+                    <span className={`rounded-full transition-all block ${
+                      i === current
+                        ? "bg-fifa-blue w-4 h-2"
+                        : p.userAnswer
+                        ? "bg-green-400 w-2 h-2"
+                        : "bg-gray-200 w-2 h-2"
+                    }`} />
+                  </button>
+                );
+              })}
+              {windowEnd < predictions.length && <span className="text-gray-300 text-xs leading-none">…</span>}
+            </div>
+          );
+        })()}
 
         <button
           onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}

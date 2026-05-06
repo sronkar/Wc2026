@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isPredictionLocked } from "@/lib/scoring";
 
 export async function GET(
   _req: NextRequest,
@@ -32,6 +33,18 @@ export async function GET(
     groupFilter = { groupId: { in: allowedGroupIds } };
   }
 
+  const match = await prisma.match.findUnique({
+    where: { id: params.matchId },
+    select: { kickoff: true },
+  });
+  if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
+
+  // Pre-lock, an admin must NOT see other users' prediction values — they
+  // could read them and update their own prediction to be optimal. The endpoint
+  // still returns the membership (so the UI knows who has predicted) but the
+  // scores are nulled until the lock window opens.
+  const locked = isPredictionLocked(match.kickoff);
+
   const predictions = await prisma.prediction.findMany({
     where: { matchId: params.matchId, ...groupFilter },
     include: { user: { select: { id: true, name: true, image: true } } },
@@ -44,9 +57,10 @@ export async function GET(
       userId: p.userId,
       userName: p.user.name ?? "Anonymous",
       userImage: p.user.image,
-      homeScore: p.homeScore,
-      awayScore: p.awayScore,
+      homeScore: locked ? p.homeScore : null,
+      awayScore: locked ? p.awayScore : null,
       points: p.points,
+      hidden: !locked,
     }))
   );
 }

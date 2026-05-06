@@ -8,6 +8,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { WC_GROUPS } from "@/lib/wcGroups";
 import { AdminSummary } from "@/components/admin/AdminSummary";
+import { GROUP_EMOJI_OPTIONS } from "@/lib/groupAvatar";
+import { STAGES, type StagePointsMap, defaultStagePoints, loadStagePoints } from "@/lib/stagePoints";
 
 interface Match {
   id: string;
@@ -27,6 +29,7 @@ interface Match {
 interface Settings {
   exactMatchPoints: number;
   directionMatchPoints: number;
+  stagePoints: StagePointsMap;
 }
 
 interface UserRow {
@@ -96,7 +99,7 @@ function AdminPage() {
   const [userSearch, setUserSearch] = useState("");
 
   // ── Settings tab state (admin only) ─────────────────────────────────────────
-  const [settings, setSettings] = useState<Settings>({ exactMatchPoints: 5, directionMatchPoints: 1 });
+  const [settings, setSettings] = useState<Settings>({ exactMatchPoints: 5, directionMatchPoints: 1, stagePoints: defaultStagePoints() });
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [polling, setPolling] = useState(false);
   const [pollResult, setPollResult] = useState<{
@@ -126,7 +129,9 @@ function AdminPage() {
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupVisitor, setNewGroupVisitor] = useState(false);
   const [newGroupPublic, setNewGroupPublic] = useState(false);
+  const [newGroupAvatar, setNewGroupAvatar] = useState<string | null>(null);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [createGroupError, setCreateGroupError] = useState("");
 
   // ── CSV import state ──────────────────────────────────────────────────────────
   const DEFAULT_CSV = `Prediction\tcomment\tLimitation\tpoints
@@ -160,6 +165,11 @@ Winner\t\tTeam\t10`;
   const [advancementGroupSaving, setAdvancementGroupSaving] = useState<Record<string, boolean>>({});
   const [advancementGroupSaved, setAdvancementGroupSaved] = useState<Record<string, boolean>>({});
   const [advancementGroupErrors, setAdvancementGroupErrors] = useState<Record<string, string>>({});
+
+  // ── Claudio AI state (admin only) ────────────────────────────────────────────
+  const [claudioStats, setClaudioStats] = useState<{ predictionCount: number; groupCount: number; lastGenerated: string | null } | null>(null);
+  const [claudioGenerating, setClaudioGenerating] = useState(false);
+  const [claudioResult, setClaudioResult] = useState<{ generated: number; matchCount: number; groupCount: number; message?: string } | { error: string } | null>(null);
 
   // ── Email preview state (admin only) ─────────────────────────────────────────
   const [previewTemplate, setPreviewTemplate] = useState("invite");
@@ -195,8 +205,14 @@ Winner\t\tTeam\t10`;
 
       if (role === "ADMIN") {
         const sRes = await fetch("/api/admin/settings");
-        const sData: Settings = await sRes.json();
-        if (sData) setSettings(sData);
+        const sData: { exactMatchPoints: number; directionMatchPoints: number; stagePoints?: string } = await sRes.json();
+        if (sData) {
+          setSettings({
+            exactMatchPoints: sData.exactMatchPoints,
+            directionMatchPoints: sData.directionMatchPoints,
+            stagePoints: loadStagePoints(sData.stagePoints),
+          });
+        }
 
         // Load dev/prod flag for banner
         fetch("/api/admin/config")
@@ -207,6 +223,15 @@ Winner\t\tTeam\t10`;
     }
     load();
   }, [session, role]);
+
+  // ── Load Claudio stats when Settings tab opens ───────────────────────────────
+  useEffect(() => {
+    if (activeTab !== "settings" || !isAdmin || claudioStats !== null) return;
+    fetch("/api/admin/claudio")
+      .then((r) => r.json())
+      .then((d) => setClaudioStats(d))
+      .catch(() => {});
+  }, [activeTab, isAdmin, claudioStats]);
 
   // ── Load users when Users tab is first opened ────────────────────────────────
   useEffect(() => {
@@ -291,10 +316,27 @@ Winner\t\tTeam\t10`;
     await fetch("/api/admin/settings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
+      body: JSON.stringify({
+        exactMatchPoints: settings.exactMatchPoints,
+        directionMatchPoints: settings.directionMatchPoints,
+        stagePoints: JSON.stringify(settings.stagePoints),
+      }),
     });
     setSettingsSaved(true);
     setTimeout(() => setSettingsSaved(false), 2000);
+  };
+
+  const handleGenerateClaudio = async () => {
+    setClaudioGenerating(true);
+    setClaudioResult(null);
+    try {
+      const res = await fetch("/api/admin/claudio", { method: "POST" });
+      const data = await res.json();
+      setClaudioResult(data);
+      if (res.ok) setClaudioStats(null); // trigger stats reload
+    } finally {
+      setClaudioGenerating(false);
+    }
   };
 
   const handleEmailPreviewInTab = async () => {
@@ -479,21 +521,31 @@ Winner\t\tTeam\t10`;
     e.preventDefault();
     if (!newGroupName.trim()) return;
     setCreatingGroup(true);
-    const res = await fetch("/api/groups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newGroupName, description: newGroupDesc, joinAsVisitor: newGroupVisitor, isPublic: newGroupPublic }),
-    });
-    if (res.ok) {
-      const g = await res.json();
-      setGroups((prev) => [...prev, { ...g, memberCount: 1, myStatus: "APPROVED" }]);
-      setNewGroupName("");
-      setNewGroupDesc("");
-      setNewGroupVisitor(false);
-      setNewGroupPublic(false);
-      window.dispatchEvent(new Event("wc2026:groups-updated"));
+    setCreateGroupError("");
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newGroupName, description: newGroupDesc, avatar: newGroupAvatar, joinAsVisitor: newGroupVisitor, isPublic: newGroupPublic }),
+      });
+      if (res.ok) {
+        const g = await res.json();
+        setGroups((prev) => [...prev, { ...g, memberCount: 1, myStatus: "APPROVED" }]);
+        setNewGroupName("");
+        setNewGroupDesc("");
+        setNewGroupAvatar(null);
+        setNewGroupVisitor(false);
+        setNewGroupPublic(false);
+        window.dispatchEvent(new Event("wc2026:groups-updated"));
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setCreateGroupError(data?.error ?? `Failed to create group (${res.status})`);
+      }
+    } catch (err) {
+      setCreateGroupError(err instanceof Error ? err.message : "Network error — try again");
+    } finally {
+      setCreatingGroup(false);
     }
-    setCreatingGroup(false);
   };
 
   // Toggle local (no API call yet)
@@ -544,7 +596,7 @@ Winner\t\tTeam\t10`;
     { key: "advancement", label: "Advancement" },
     ...(isAdmin ? [
       { key: "settings" as Tab, label: "Point Defaults" },
-      { key: "users" as Tab, label: "Users" },
+      { key: "users" as Tab, label: "Sub-admins" },
     ] : []),
   ];
 
@@ -786,32 +838,64 @@ Winner\t\tTeam\t10`;
       {activeTab === "settings" && isAdmin && (
         <>
           <div className="card mb-8">
-            <h2 className="font-bold text-gray-800 mb-1">Point Defaults</h2>
+            <h2 className="font-bold text-gray-800 mb-1">Point Defaults <span className="text-xs font-normal text-gray-400 ml-2">Global</span></h2>
             <p className="text-sm text-gray-500 mb-1">
-              Global defaults applied to <strong>new groups</strong> at creation time.
+              These are the <strong>app-wide defaults</strong> seeded into new groups at creation time. Not group-specific.
             </p>
             <p className="text-xs text-gray-400 mb-4">
-              Existing groups are unaffected — each group has its own per-stage settings you can edit from the group&apos;s Manage page.
+              Changing values here only affects <strong>future</strong> groups. To re-apply these to an existing group, open that group&apos;s Manage page → <em>Group Settings</em> → <em>Reset to global defaults</em>.
             </p>
-            <div className="flex flex-wrap gap-6 items-end">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Exact Score (pts)</label>
-                <input
-                  type="number" min="0" value={settings.exactMatchPoints}
-                  onChange={(e) => setSettings((s) => ({ ...s, exactMatchPoints: Number(e.target.value) }))}
-                  className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Correct Winner/Draw (pts)</label>
-                <input
-                  type="number" min="0" value={settings.directionMatchPoints}
-                  onChange={(e) => setSettings((s) => ({ ...s, directionMatchPoints: Number(e.target.value) }))}
-                  className="w-20 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                />
-              </div>
+            <div className="overflow-x-auto -mx-4">
+              <table className="w-full text-sm min-w-[420px]">
+                <thead>
+                  <tr className="text-left text-xs text-gray-400 uppercase tracking-wide">
+                    <th className="px-4 py-1.5 font-semibold">Stage</th>
+                    <th className="px-4 py-1.5 font-semibold w-32">Right pick</th>
+                    <th className="px-4 py-1.5 font-semibold w-32">Exact score</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {STAGES.map((stage) => {
+                    const val = settings.stagePoints[stage];
+                    return (
+                      <tr key={stage}>
+                        <td className="px-4 py-2 text-gray-700">{stage}</td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="number" min="0" value={val.direction}
+                            onChange={(e) => setSettings((s) => ({
+                              ...s,
+                              stagePoints: { ...s.stagePoints, [stage]: { ...s.stagePoints[stage], direction: Number(e.target.value) } },
+                            }))}
+                            className="w-20 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="number" min="0" value={val.exact}
+                            onChange={(e) => setSettings((s) => ({
+                              ...s,
+                              stagePoints: { ...s.stagePoints, [stage]: { ...s.stagePoints[stage], exact: Number(e.target.value) } },
+                            }))}
+                            className="w-20 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-4 flex items-center gap-3">
               <button onClick={handleSaveSettings} className="btn-primary">
                 {settingsSaved ? "Saved ✓" : "Save Defaults"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSettings((s) => ({ ...s, stagePoints: defaultStagePoints() }))}
+                className="text-xs text-gray-400 hover:text-fifa-blue"
+              >
+                Reset to suggested
               </button>
             </div>
           </div>
@@ -872,6 +956,59 @@ Winner\t\tTeam\t10`;
               </div>
             )}
           </div>
+          {/* Claudio AI Bot card */}
+          <div className="card mt-6">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <h2 className="font-bold text-gray-800">🧠 Claudio AI Bot</h2>
+                <p className="text-xs text-gray-400 mt-1 max-w-md">
+                  Claudio is a global bot player that participates in every group. Use AI to generate his predictions for all upcoming matches across all groups.
+                  {claudioStats && (
+                    <span className="ml-1">
+                      Currently in <strong>{claudioStats.groupCount}</strong> group{claudioStats.groupCount !== 1 ? "s" : ""} with <strong>{claudioStats.predictionCount}</strong> predictions.
+                      {claudioStats.lastGenerated && (
+                        <span className="ml-1 text-gray-300">
+                          Last generated: {new Date(claudioStats.lastGenerated).toLocaleString()}
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={handleGenerateClaudio}
+                disabled={claudioGenerating}
+                className="btn-primary flex items-center gap-2 whitespace-nowrap"
+              >
+                {claudioGenerating ? (
+                  <>
+                    <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Generating…
+                  </>
+                ) : (
+                  "✨ Generate Predictions"
+                )}
+              </button>
+            </div>
+            {claudioResult && (
+              <div className={`mt-4 rounded-lg p-3 text-sm ${
+                "error" in claudioResult
+                  ? "bg-red-50 border border-red-200 text-red-700"
+                  : "bg-green-50 border border-green-200 text-green-800"
+              }`}>
+                {"error" in claudioResult ? (
+                  <p>⚠ {claudioResult.error}</p>
+                ) : claudioResult.message ? (
+                  <p>{claudioResult.message}</p>
+                ) : (
+                  <p className="font-semibold">
+                    ✓ Generated predictions for {claudioResult.matchCount} match{claudioResult.matchCount !== 1 ? "es" : ""} across {claudioResult.groupCount} group{claudioResult.groupCount !== 1 ? "s" : ""} ({claudioResult.generated} total records)
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Email Preview card */}
           <div className="card mt-6">
             <h2 className="font-bold text-gray-800 mb-1">Email Preview</h2>
@@ -1017,6 +1154,59 @@ Winner\t\tTeam\t10`;
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                 />
               </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5">Avatar (optional)</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {GROUP_EMOJI_OPTIONS.map((emoji) => {
+                    const selected = newGroupAvatar === emoji;
+                    return (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setNewGroupAvatar(selected ? null : emoji)}
+                        className={`w-9 h-9 rounded-lg text-xl flex items-center justify-center border transition ${
+                          selected
+                            ? "border-fifa-blue bg-blue-50 ring-2 ring-fifa-blue"
+                            : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                        aria-label={`Avatar ${emoji}`}
+                        aria-pressed={selected}
+                      >
+                        {emoji}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide mt-3 mb-1.5">Or pick a team flag</p>
+                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto pr-1">
+                  {Object.entries(WC_GROUPS).flatMap(([wcGroup, teams]) =>
+                    teams.map((team) => {
+                      const flag = getFlag(team);
+                      const selected = newGroupAvatar === flag;
+                      return (
+                        <button
+                          key={team}
+                          type="button"
+                          onClick={() => setNewGroupAvatar(selected ? null : flag)}
+                          title={`${team} (Group ${wcGroup})`}
+                          className={`w-9 h-9 rounded-lg text-xl flex items-center justify-center border transition ${
+                            selected
+                              ? "border-fifa-blue bg-blue-50 ring-2 ring-fifa-blue"
+                              : "border-gray-200 hover:bg-gray-50"
+                          }`}
+                          aria-label={`${team} flag`}
+                          aria-pressed={selected}
+                        >
+                          {flag}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                {newGroupAvatar && (
+                  <p className="text-[10px] text-gray-400 mt-1">Tap again to clear.</p>
+                )}
+              </div>
               <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-600">
                 <input
                   type="checkbox"
@@ -1039,15 +1229,19 @@ Winner\t\tTeam\t10`;
                       🌐 Public
                     </button>
                   </div>
-                  <div className="absolute top-full left-0 mt-1 hidden group-hover:block z-10 w-72 bg-gray-900 text-white text-xs rounded-lg p-3 shadow-lg pointer-events-none">
-                    <p><strong className="text-white">🔒 Private</strong> — Only users with a join link or email invite can access.</p>
-                    <p className="mt-1.5"><strong className="text-white">🌐 Public</strong> — Anyone can find and request to join via the Groups search page.</p>
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden group-hover:flex z-10 gap-3 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap">
+                    <span><strong className="text-white">🔒 Private</strong> — Join link / email invite only.</span>
+                    <span className="text-gray-600">|</span>
+                    <span><strong className="text-white">🌐 Public</strong> — Discoverable on the Groups search page.</span>
                   </div>
                 </div>
               </div>
               <button type="submit" disabled={creatingGroup} className="btn-primary disabled:opacity-50">
                 {creatingGroup ? "Creating…" : "Create Group"}
               </button>
+              {createGroupError && (
+                <p className="text-xs text-red-500 mt-1">{createGroupError}</p>
+              )}
             </form>
           </div>
         );
@@ -1318,16 +1512,21 @@ Winner\t\tTeam\t10`;
 
       {activeTab === "users" && isAdmin && (
         <div className="card overflow-hidden p-0">
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
-            <h2 className="font-bold text-gray-800 text-sm">All Users ({users.length})</h2>
-            <input
-              type="search"
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              placeholder="Search by name or email…"
-              className="ml-auto w-full sm:max-w-xs border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-              aria-label="Search users by name or email"
-            />
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center gap-3">
+              <h2 className="font-bold text-gray-800 text-sm">Sub-admins ({users.length} {users.length === 1 ? "user" : "users"})</h2>
+              <input
+                type="search"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Search by name or email…"
+                className="ml-auto w-full sm:max-w-xs border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                aria-label="Search users by name or email"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5">
+              Promote any user to <strong>Sub-admin</strong> to give them app-wide management access (results, settings, groups) without full admin rights. To remove a user from a specific group, open that group&apos;s Manage page instead.
+            </p>
           </div>
           {!usersLoaded ? (
             <div className="p-8 text-center text-gray-400 text-sm">Loading users…</div>

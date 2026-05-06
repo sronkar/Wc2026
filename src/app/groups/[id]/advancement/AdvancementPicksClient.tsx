@@ -8,7 +8,13 @@ type Pick = "WINNER" | "RUNNER_UP" | "THIRD";
 const PICK_LABELS: Record<Pick, string> = {
   WINNER:    "1st",
   RUNNER_UP: "2nd",
-  THIRD:     "3rd✓",
+  THIRD:     "Advance as 3rd",
+};
+
+const PICK_TOOLTIPS: Record<Pick, string> = {
+  WINNER:    "Team finishes 1st in their group",
+  RUNNER_UP: "Team finishes 2nd in their group",
+  THIRD:     "Team to advance as one of the best 8 3rd-place finishers",
 };
 
 const PICK_SELECTED: Record<Pick, string> = {
@@ -112,7 +118,8 @@ export function AdvancementPicksClient({
 
   const groupIsDirty = useCallback((wcGroup: string) => {
     const teams = wcGroups[wcGroup];
-    return teams.some((t) => localPicks[t] !== savedPicks[t]);
+    // Treat undefined (never picked) and null (picked then cleared) as equivalent.
+    return teams.some((t) => (localPicks[t] ?? null) !== (savedPicks[t] ?? null));
   }, [localPicks, savedPicks, wcGroups]);
 
   // Save all picks for one WC group
@@ -282,7 +289,7 @@ export function AdvancementPicksClient({
         )}
         {!isLocked && !isVisitor && (
           <p className="text-xs text-gray-400 mt-2">
-            <strong>1st</strong> = group winner · <strong>2nd</strong> = runner-up · <strong>3rd✓</strong> = advances as best 3rd. Unselected = eliminated. Tap again to clear.
+            <strong>1st</strong> = group winner · <strong>2nd</strong> = runner-up · <strong>Advance as 3rd</strong> = one of the 8 best 3rd-place finishers that advance to the knockouts. Unselected = eliminated. Tap again to clear.
           </p>
         )}
       </div>
@@ -297,12 +304,12 @@ export function AdvancementPicksClient({
           const groupError = errors[wcGroup];
 
           return (
-            <div key={wcGroup} className="card p-0 overflow-hidden">
+            <div key={wcGroup} className="card p-0">
               {/* Group header */}
-              <div className="bg-fifa-blue text-white text-xs font-bold px-3 py-1.5 flex items-center justify-between">
+              <div className="bg-fifa-blue text-white text-xs font-bold px-3 py-1.5 flex items-center justify-between rounded-t-xl">
                 <span>Group {wcGroup}</span>
                 <span className="font-normal opacity-75 text-[10px]">
-                  {winners}/1 W · {runnerUps}/1 R · {thirds}/1 3rd
+                  {winners}/1 W · {runnerUps}/1 R{thirds > 0 ? " · 3rd ✓" : ""}
                 </span>
               </div>
 
@@ -320,7 +327,7 @@ export function AdvancementPicksClient({
                         <span className="text-sm font-medium text-gray-800 flex-1 truncate">{team}</span>
                         {resolved && (
                           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide shrink-0">
-                            {resolved === "WINNER" ? "✓ 1st" : resolved === "RUNNER_UP" ? "✓ 2nd" : resolved === "THIRD" ? "✓ 3rd" : "✗ Out"}
+                            {resolved === "WINNER" ? "✓ 1st" : resolved === "RUNNER_UP" ? "✓ 2nd" : resolved === "THIRD" ? "✓ Adv. as 3rd" : "✗ Out"}
                           </span>
                         )}
                         {teamPoints !== null && teamPoints !== undefined && (
@@ -336,20 +343,28 @@ export function AdvancementPicksClient({
                           const selected = currentPick === pick;
                           const disabled = (!selected && isDisabled(wcGroup, team, pick)) || isSaving;
                           return (
-                            <button
-                              key={pick}
-                              onClick={() => handleToggle(team, pick)}
-                              disabled={disabled}
-                              className={`flex-1 text-[10px] font-semibold py-1 rounded border transition ${
-                                selected
-                                  ? PICK_SELECTED[pick]
-                                  : disabled
-                                  ? "border-gray-100 text-gray-300 cursor-not-allowed"
-                                  : `border-gray-200 text-gray-500 ${PICK_HOVER[pick]}`
-                              }`}
-                            >
-                              {PICK_LABELS[pick]}
-                            </button>
+                            <div key={pick} className="relative group/pick flex-1">
+                              <button
+                                onClick={() => handleToggle(team, pick)}
+                                disabled={disabled}
+                                aria-label={PICK_TOOLTIPS[pick]}
+                                className={`w-full text-[10px] font-semibold py-1 rounded border transition whitespace-nowrap ${
+                                  selected
+                                    ? PICK_SELECTED[pick]
+                                    : disabled
+                                    ? "border-gray-100 text-gray-300 cursor-not-allowed"
+                                    : `border-gray-200 text-gray-500 ${PICK_HOVER[pick]}`
+                                }`}
+                              >
+                                {PICK_LABELS[pick]}
+                              </button>
+                              <div
+                                role="tooltip"
+                                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/pick:block z-20 whitespace-nowrap bg-gray-900 text-white text-[10px] font-normal rounded px-2 py-1 shadow-lg pointer-events-none"
+                              >
+                                {PICK_TOOLTIPS[pick]}
+                              </div>
+                            </div>
                           );
                         })}
                       </div>

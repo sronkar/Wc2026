@@ -9,26 +9,16 @@ interface Props {
   userId: string;
   groupId: string;
   showForNewUsers: boolean; // server-computed: true when user has 0 predictions across all groups
-  defaultExactPoints: number;
-  defaultDirectionPoints: number;
 }
 
-/**
- * Welcome dialog shown on a user's very first visit to a group dashboard
- * (they haven't predicted anything yet). Explains the scoring rules, the
- * 60-minute prediction lock, and where to find advancement picks.
- *
- * Dismissal is persisted per-user in localStorage — server-side state
- * would need a new DB column for essentially no benefit.
- */
 export function FirstGroupVisitModal({
   userId,
   groupId,
   showForNewUsers,
-  defaultExactPoints,
-  defaultDirectionPoints,
 }: Props) {
   const [visible, setVisible] = useState(false);
+  const [allowDirectAdd, setAllowDirectAdd] = useState(true);
+  const [savingPref, setSavingPref] = useState(false);
 
   useEffect(() => {
     if (!showForNewUsers) return;
@@ -39,6 +29,31 @@ export function FirstGroupVisitModal({
       setVisible(true);
     }
   }, [userId, showForNewUsers]);
+
+  // Load the user's current preference so the toggle reflects reality if they
+  // re-open the modal after editing it elsewhere.
+  useEffect(() => {
+    if (!visible) return;
+    fetch("/api/user/profile")
+      .then((r) => r.json())
+      .then((d) => {
+        if (typeof d.allowDirectAdd === "boolean") setAllowDirectAdd(d.allowDirectAdd);
+      })
+      .catch(() => {});
+  }, [visible]);
+
+  const toggleAllowDirectAdd = async (val: boolean) => {
+    setAllowDirectAdd(val);
+    setSavingPref(true);
+    try {
+      await fetch("/api/user/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowDirectAdd: val }),
+      });
+    } catch { /* non-fatal */ }
+    setSavingPref(false);
+  };
 
   const dismiss = () => {
     try {
@@ -74,18 +89,6 @@ export function FirstGroupVisitModal({
 
           <div className="space-y-4">
             <div className="flex gap-3">
-              <span className="text-xl shrink-0">🎯</span>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Scoring</p>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  <strong>{defaultExactPoints} points</strong> for an exact score.
-                  <strong> {defaultDirectionPoints} point{defaultDirectionPoints === 1 ? "" : "s"}</strong> for picking the right winner (or draw) even if the score is off.
-                  Your group may boost points for later rounds — check the group settings.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
               <span className="text-xl shrink-0">⏰</span>
               <div>
                 <p className="text-sm font-semibold text-gray-900">1-hour lock</p>
@@ -114,6 +117,25 @@ export function FirstGroupVisitModal({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Privacy preference — settable now, also editable later from Profile */}
+          <div className="mt-5 pt-4 border-t border-gray-100">
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allowDirectAdd}
+                onChange={(e) => toggleAllowDirectAdd(e.target.checked)}
+                disabled={savingPref}
+                className="mt-0.5 rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-800">Allow group admins to add me directly</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  When unchecked, admins must send you an invite link instead of adding you straight in. You can change this later in Profile.
+                </p>
+              </div>
+            </label>
           </div>
 
           <div className="mt-6 flex gap-2">
