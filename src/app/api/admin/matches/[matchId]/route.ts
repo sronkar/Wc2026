@@ -27,9 +27,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => ({})) as { homeTeam?: string; awayTeam?: string };
+  const body = await req.json().catch(() => ({})) as {
+    homeTeam?: string;
+    awayTeam?: string;
+    dryRun?: boolean;
+  };
   const homeTeam = body.homeTeam?.trim();
   const awayTeam = body.awayTeam?.trim();
+  const dryRun = body.dryRun === true;
   if (!homeTeam && !awayTeam) {
     return NextResponse.json({ error: "Provide homeTeam and/or awayTeam" }, { status: 400 });
   }
@@ -50,6 +55,24 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ ok: true, match, predictionsWiped: 0, unchanged: true });
+  }
+
+  // Dry run: report how many predictions would be wiped without touching them.
+  // The admin UI calls this first to show an explicit confirmation prompt
+  // ("This will delete N predictions across M groups") before committing.
+  if (dryRun) {
+    const grouped = await prisma.prediction.groupBy({
+      by: ["groupId"],
+      where: { matchId: params.matchId },
+      _count: { _all: true },
+    });
+    const wouldWipe = grouped.reduce((s, g) => s + g._count._all, 0);
+    return NextResponse.json({
+      ok: true,
+      dryRun: true,
+      wouldWipe,
+      affectedGroups: grouped.length,
+    });
   }
 
   // Change + wipe predictions in a single transaction. Any prediction for

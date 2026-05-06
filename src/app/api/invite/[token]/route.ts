@@ -3,10 +3,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { rateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 type Ctx = { params: { token: string } };
 
-export async function GET(_req: NextRequest, { params }: Ctx) {
+export async function GET(req: NextRequest, { params }: Ctx) {
+  const ip = getClientIp(req);
+  const hit = rateLimit(`invite:lookup:${ip}`, 30, 60 * 60 * 1000);
+  if (!hit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: rateLimitHeaders(hit) }
+    );
+  }
   const invite = await prisma.groupInvite.findUnique({
     where: { token: params.token },
     include: { group: { select: { id: true, name: true, requirePassword: true } } },
@@ -36,6 +45,21 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 export async function POST(req: NextRequest, { params }: Ctx) {
+  const ip = getClientIp(req);
+  const ipHit = rateLimit(`invite:claim:${ip}`, 20, 60 * 60 * 1000);
+  if (!ipHit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: rateLimitHeaders(ipHit) }
+    );
+  }
+  const tokenHit = rateLimit(`invite:claim:token:${params.token}`, 10, 60 * 60 * 1000);
+  if (!tokenHit.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts for this invite" },
+      { status: 429, headers: rateLimitHeaders(tokenHit) }
+    );
+  }
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: "Sign in to accept this invite" }, { status: 401 });

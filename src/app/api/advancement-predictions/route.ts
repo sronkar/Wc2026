@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 import { ALL_PICKS, validateProjectedPicks, type ValidPick } from "@/lib/advancementValidation";
 import { isAdvancementLocked } from "@/lib/advancementLock";
+import { WC2026_TEAMS } from "@/lib/teams";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -34,6 +35,12 @@ export async function POST(req: NextRequest) {
   const { groupId, team, pick } = await req.json() as { groupId: string; team: string; pick: ValidPick };
   if (!groupId || !team || !pick) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   if (!ALL_PICKS.includes(pick)) return NextResponse.json({ error: "Invalid pick" }, { status: 400 });
+  // Reject team names that aren't actually in the WC2026 team list — without
+  // this, a malformed client could insert garbage rows that later break
+  // scoring (no TeamAdvancement row to match against).
+  if (!WC2026_TEAMS.includes(team)) {
+    return NextResponse.json({ error: "Invalid team" }, { status: 400 });
+  }
 
   // Verify membership
   const membership = await prisma.groupMembership.findUnique({

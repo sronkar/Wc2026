@@ -69,9 +69,18 @@ export function NotificationCenter() {
         setOpen(false);
       }
     };
+    // Esc closes the panel — keyboard users were trapped before because the
+    // only dismiss path was a click outside.
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && open) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+    };
+  }, [open]);
 
   const markAllRead = async () => {
     await fetch("/api/notifications", { method: "PATCH" });
@@ -83,8 +92,10 @@ export function NotificationCenter() {
     <div className="relative" ref={panelRef}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="relative w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 transition"
+        className="relative w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:outline-none transition"
         aria-label="Notifications"
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path

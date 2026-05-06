@@ -21,6 +21,15 @@ function LoginForm() {
   const [magicEmail, setMagicEmail] = useState("");
   const [emailSent, setEmailSent] = useState(false);
   const [magicLoading, setMagicLoading] = useState(false);
+  // Resend cooldown — discourages users from spamming the magic link button
+  // when their first email is just slow to arrive.
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const t = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendCountdown]);
 
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [credEmail, setCredEmail] = useState("");
@@ -33,6 +42,7 @@ function LoginForm() {
     setMagicLoading(true);
     await signIn("email", { email: magicEmail, callbackUrl, redirect: false });
     setEmailSent(true);
+    setResendCountdown(30);
     setMagicLoading(false);
   };
 
@@ -63,8 +73,16 @@ function LoginForm() {
       )}
 
       {emailSent ? (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 text-sm text-center">
-          Magic link sent! Check your email to complete sign-in.
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 text-sm text-center space-y-2">
+          <p>Magic link sent to <strong>{magicEmail}</strong>! Check your email to complete sign-in.</p>
+          <button
+            type="button"
+            disabled={resendCountdown > 0 || magicLoading}
+            onClick={handleMagicLink}
+            className="text-xs underline underline-offset-2 disabled:no-underline disabled:opacity-60"
+          >
+            {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : "Didn't get it? Resend"}
+          </button>
         </div>
       ) : (
         <>

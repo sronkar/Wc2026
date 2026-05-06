@@ -119,8 +119,11 @@ export function PushSubscribeButton() {
         >
           📲 Notifications on iPhone
         </button>
+        {/* Mobile: center the popover under the trigger so it doesn't clip
+            against the viewport edge on narrow screens. Desktop: right-align
+            under the button as before. */}
         {showA2HSHelp && (
-          <div className="absolute right-0 top-full mt-2 w-[min(20rem,calc(100vw-1rem))] bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-4 text-sm text-gray-700 space-y-2">
+          <div className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 top-full mt-2 w-[min(20rem,calc(100vw-1rem))] bg-white rounded-xl shadow-xl border border-gray-100 z-50 p-4 text-sm text-gray-700 space-y-2">
             <p className="font-semibold text-gray-900">To enable notifications on iPhone</p>
             <ol className="list-decimal pl-5 space-y-1 text-xs">
               <li>Tap the <strong>Share</strong> button at the bottom of Safari (the square with an up-arrow).</li>

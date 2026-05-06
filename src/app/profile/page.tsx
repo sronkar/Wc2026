@@ -107,7 +107,7 @@ function ProfilePageInner() {
               className="rounded-full border-2 border-gray-200"
             />
           ) : (
-            <div className="w-13 w-[52px] h-[52px] rounded-full bg-fifa-blue text-white text-xl font-bold flex items-center justify-center">
+            <div className="w-[52px] h-[52px] rounded-full bg-fifa-blue text-white text-xl font-bold flex items-center justify-center">
               {(session.user?.name ?? session.user?.email ?? "?").charAt(0).toUpperCase()}
             </div>
           )}

@@ -38,9 +38,28 @@ export async function createDailyBackup(): Promise<void> {
       return;
     }
 
-    // VACUUM INTO creates a consistent hot backup (SQLite 3.27+)
-    await prisma.$executeRawUnsafe(`VACUUM INTO '${backupPath}'`);
-    console.log(`[backup] created ${backupPath}`);
+    // Defense-in-depth path validation. The path is internally generated from
+    // a stable prefix + ISO date, but we still re-validate before passing it
+    // through executeRawUnsafe (SQLite's VACUUM INTO can't be parameterised).
+    // This bounds the blast radius if the date stamp ever becomes attacker-
+    // influenced. Allowed shape: backups/backup-YYYY-MM-DD.db.
+    const allowed = /^backup-\d{4}-\d{2}-\d{2}\.db$/;
+    const baseName = path.basename(backupPath);
+    if (!allowed.test(baseName) || baseName.includes("'") || baseName.includes("\\")) {
+      console.error(`[backup] refusing to write suspicious path: ${backupPath}`);
+      return;
+    }
+    const backupDirReal = fs.realpathSync(backupDir);
+    const backupPathReal = path.resolve(backupDirReal, baseName);
+    if (!backupPathReal.startsWith(backupDirReal + path.sep)) {
+      console.error(`[backup] path escaped backup dir: ${backupPathReal}`);
+      return;
+    }
+
+    // VACUUM INTO creates a consistent hot backup (SQLite 3.27+).
+    // Path is validated above; SQLite has no $1-style param for VACUUM INTO.
+    await prisma.$executeRawUnsafe(`VACUUM INTO '${backupPathReal}'`);
+    console.log(`[backup] created ${backupPathReal}`);
 
     // Rotate: keep last 7 daily backups
     const existing = fs

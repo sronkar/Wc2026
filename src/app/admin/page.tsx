@@ -506,33 +506,55 @@ Winner\t\tTeam\t10`;
     });
   };
 
-  // Save one WC group to the DB
+  // Save one WC group to the DB.
+  //
+  // Each team is its own API call (the advancement endpoint is per-team), so
+  // a network blip mid-loop can leave a partial save. We don't abort on the
+  // first failure — instead we attempt every team and report a precise count
+  // ("saved 2 of 4 teams; 2 failed: Brazil, France") so the admin knows what
+  // they need to retry rather than silently believing the group was saved.
   const handleSaveAdvancementGroup = async (wcGroup: string) => {
     const teams = WC_GROUPS[wcGroup];
     setAdvancementGroupSaving((s) => ({ ...s, [wcGroup]: true }));
     setAdvancementGroupErrors((e) => ({ ...e, [wcGroup]: "" }));
+    const failures: { team: string; error: string }[] = [];
+    let attempted = 0;
     try {
       for (const team of teams) {
         const local = advancementLocal[team] ?? null;
         const saved = advancementResolutions[team] ?? null;
         if (local === saved) continue;
-        if (local === null) {
-          await fetch(`/api/admin/advancement?team=${encodeURIComponent(team)}`, { method: "DELETE" });
-          setAdvancementResolutions((r) => { const n = { ...r }; delete n[team]; return n; });
-        } else {
-          const res = await fetch("/api/admin/advancement", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ team, result: local }),
-          });
-          if (!res.ok) throw new Error((await res.json()).error ?? "Failed");
-          setAdvancementResolutions((r) => ({ ...r, [team]: local }));
+        attempted++;
+        try {
+          if (local === null) {
+            const res = await fetch(`/api/admin/advancement?team=${encodeURIComponent(team)}`, { method: "DELETE" });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+            setAdvancementResolutions((r) => { const n = { ...r }; delete n[team]; return n; });
+          } else {
+            const res = await fetch("/api/admin/advancement", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ team, result: local }),
+            });
+            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+            setAdvancementResolutions((r) => ({ ...r, [team]: local }));
+          }
+        } catch (innerErr: unknown) {
+          failures.push({ team, error: (innerErr as Error).message ?? "Failed" });
         }
       }
-      setAdvancementGroupSaved((s) => ({ ...s, [wcGroup]: true }));
-      setTimeout(() => setAdvancementGroupSaved((s) => ({ ...s, [wcGroup]: false })), 2500);
-    } catch (err: unknown) {
-      setAdvancementGroupErrors((e) => ({ ...e, [wcGroup]: (err as Error).message ?? "Save failed" }));
+      if (failures.length === 0) {
+        setAdvancementGroupSaved((s) => ({ ...s, [wcGroup]: true }));
+        setTimeout(() => setAdvancementGroupSaved((s) => ({ ...s, [wcGroup]: false })), 2500);
+      } else {
+        const succeeded = attempted - failures.length;
+        setAdvancementGroupErrors((e) => ({
+          ...e,
+          [wcGroup]:
+            `Saved ${succeeded} of ${attempted} team${attempted === 1 ? "" : "s"}. ` +
+            `Failed: ${failures.map((f) => f.team).join(", ")}.`,
+        }));
+      }
     } finally {
       setAdvancementGroupSaving((s) => ({ ...s, [wcGroup]: false }));
     }
@@ -677,6 +699,36 @@ Winner\t\tTeam\t10`;
                                 const na = window.prompt(`Away team for match ${match.matchNumber}:`, match.awayTeam);
                                 if (na === null) return;
                                 if (nh === match.homeTeam && na === match.awayTeam) return;
+
+                                // Step 1 — dry run to count predictions that would be wiped.
+                                const dry = await fetch(`/api/admin/matches/${match.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ homeTeam: nh, awayTeam: na, dryRun: true }),
+                                });
+                                if (!dry.ok) {
+                                  const err = await dry.json().catch(() => ({}));
+                                  alert(`Failed: ${(err as { error?: string }).error ?? dry.statusText}`);
+                                  return;
+                                }
+                                const dr = await dry.json() as { wouldWipe: number; affectedGroups: number };
+
+                                // Step 2 — explicit confirmation when predictions exist.
+                                if (dr.wouldWipe > 0) {
+                                  const expected = `${nh} vs ${na}`;
+                                  const typed = window.prompt(
+                                    `This will DELETE ${dr.wouldWipe} prediction${dr.wouldWipe === 1 ? "" : "s"} ` +
+                                    `across ${dr.affectedGroups} group${dr.affectedGroups === 1 ? "" : "s"}. ` +
+                                    `\n\nType the new matchup exactly to confirm:\n${expected}`
+                                  );
+                                  if (typed === null) return;
+                                  if (typed.trim() !== expected) {
+                                    alert("Confirmation text didn't match. Aborted — no changes made.");
+                                    return;
+                                  }
+                                }
+
+                                // Step 3 — commit.
                                 const willWipe = await fetch(`/api/admin/matches/${match.id}`, {
                                   method: "PATCH",
                                   headers: { "Content-Type": "application/json" },
@@ -689,9 +741,8 @@ Winner\t\tTeam\t10`;
                                 }
                                 const r = await willWipe.json();
                                 if (r.predictionsWiped > 0) {
-                                  alert(`Teams updated. ${r.predictionsWiped} existing predictions were wiped (they referred to the old teams).`);
+                                  alert(`Teams updated. ${r.predictionsWiped} prediction${r.predictionsWiped === 1 ? " was" : "s were"} wiped.`);
                                 }
-                                // Reload to reflect changes
                                 window.location.reload();
                               }}
                               className="ml-2 text-[11px] text-blue-600 hover:text-blue-800 underline"

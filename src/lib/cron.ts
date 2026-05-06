@@ -24,7 +24,7 @@ export function startCronJobs() {
       }
     });
     if (result.skipped) {
-      console.log(`[cron] reminder tick skipped — previous run still in flight (pid=${result.heldBy.pid}, startedAt=${result.heldBy.startedAt.toISOString()})`);
+      console.log(`[cron] reminder tick skipped — previous run still in flight (pid=${result.heldBy.pid === -1 ? "(unknown)" : result.heldBy.pid}, startedAt=${result.heldBy.startedAt.toISOString()})`);
     }
   });
 
@@ -45,7 +45,7 @@ export function startCronJobs() {
       }
     });
     if (result.skipped) {
-      console.log(`[cron] score-poll tick skipped — previous run still in flight (pid=${result.heldBy.pid})`);
+      console.log(`[cron] score-poll tick skipped — previous run still in flight (pid=${result.heldBy.pid === -1 ? "(unknown)" : result.heldBy.pid})`);
     }
   });
 
@@ -57,9 +57,14 @@ export function startCronJobs() {
       } catch (err) {
         console.error("[cron] backup job failed:", err);
       }
-    }, { staleAfterMs: 60 * 60 * 1000 }); // backups can legitimately take longer
+    // Allow backups up to 4 hours before the lock is considered stale.
+    // VACUUM INTO on a multi-GB SQLite file can take significantly longer
+    // than 1 hour; if the next daily tick arrives while the previous one
+    // is still running, we want it to skip rather than spawn a parallel
+    // backup that races on the same output file.
+    }, { staleAfterMs: 4 * 60 * 60 * 1000 });
     if (result.skipped) {
-      console.log(`[cron] daily-backup skipped — previous run still in flight (pid=${result.heldBy.pid})`);
+      console.log(`[cron] daily-backup skipped — previous run still in flight (pid=${result.heldBy.pid === -1 ? "(unknown)" : result.heldBy.pid})`);
     }
   });
 
@@ -81,7 +86,7 @@ export function startCronJobs() {
       }
     });
     if (result.skipped) {
-      console.log(`[cron] cleanup skipped — previous run still in flight (pid=${result.heldBy.pid})`);
+      console.log(`[cron] cleanup skipped — previous run still in flight (pid=${result.heldBy.pid === -1 ? "(unknown)" : result.heldBy.pid})`);
     }
   });
 

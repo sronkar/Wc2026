@@ -2,10 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { encode } from "next-auth/jwt";
 import { sendWelcomeEmail, sendJoinLinkVerificationEmail } from "@/lib/email";
+import { rateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 type Ctx = { params: { token: string } };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
+  const ip = getClientIp(req);
+  const ipHit = rateLimit(`join:login:ip:${ip}`, 10, 60 * 60 * 1000);
+  if (!ipHit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests, please try again later" },
+      { status: 429, headers: rateLimitHeaders(ipHit) }
+    );
+  }
+  const tokenHit = rateLimit(`join:login:token:${params.token}`, 30, 60 * 60 * 1000);
+  if (!tokenHit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests for this invite" },
+      { status: 429, headers: rateLimitHeaders(tokenHit) }
+    );
+  }
   const { email, name } = await req.json();
 
   if (!email?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {

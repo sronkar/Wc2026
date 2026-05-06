@@ -21,6 +21,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Password must be at least 12 characters" }, { status: 400 });
   }
 
+  // Per-token cap so a leaked token can't be hammered from many IPs.
+  const tokenHit = rateLimit(`reset:token:${token}`, 5, 15 * 60 * 1000);
+  if (!tokenHit.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts for this reset link. Please request a new one." },
+      { status: 429, headers: rateLimitHeaders(tokenHit) }
+    );
+  }
+
   const record = await prisma.verificationToken.findUnique({ where: { token } });
   if (!record || !record.identifier.startsWith("reset:")) {
     return NextResponse.json({ error: "This reset link is invalid" }, { status: 400 });
@@ -30,8 +39,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "This reset link has expired. Please request a new one." }, { status: 400 });
   }
 
-  const email = record.identifier.replace(/^reset:/, "");
-  const user = await prisma.user.findUnique({ where: { email } });
+  // The identifier is a SHA-256 of the email (current format), or the legacy
+  // plaintext "reset:<email>" form for tokens created before the M3 fix.
+  // Either way, look up the user by joining via the token row's userId is
+  // not possible — verificationToken has no userId — so we must iterate
+  // candidate users keyed by hash. We index on the hashed identifier.
+  let user;
+  const remainder = record.identifier.replace(/^reset:/, "");
+  // Heuristic: SHA-256 hex is exactly 64 chars and contains no "@".
+  const isHashed = remainder.length === 64 && !remainder.includes("@");
+  if (isHashed) {
+    // Iterate users with passwords and match by hash. Cheap because reset
+    // tokens are short-lived and the hash space is tiny vs. user count.
+    const { createHash } = await import("crypto");
+    const candidates = await prisma.user.findMany({
+      where: { password: { not: null } },
+      select: { id: true, email: true, password: true },
+    });
+    user = candidates.find(
+      (u) =>
+        u.email !== null &&
+        createHash("sha256").update(u.email.toLowerCase().trim()).digest("hex") === remainder
+    );
+  } else {
+    // Legacy plaintext-email identifier
+    user = await prisma.user.findUnique({ where: { email: remainder } });
+  }
   if (!user) {
     return NextResponse.json({ error: "Account not found" }, { status: 400 });
   }

@@ -203,6 +203,15 @@ async function handleClear() {
 async function handleAdvanceTime(body: Record<string, unknown>) {
   if (!isSimulationMode()) return NextResponse.json({ error: "Simulation not active" }, { status: 400 });
   const minutes = Number(body.minutes ?? 60);
+  // Bound: 90 days (in either direction) prevents an admin typo from
+  // jumping to year 5000 and tripping integer-overflow paths downstream.
+  const MAX_MINUTES = 90 * 24 * 60;
+  if (!Number.isFinite(minutes) || Math.abs(minutes) > MAX_MINUTES) {
+    return NextResponse.json(
+      { error: `minutes must be between -${MAX_MINUTES} and ${MAX_MINUTES}` },
+      { status: 400 }
+    );
+  }
   const next = new Date(getNow().getTime() + minutes * 60_000);
   await setVirtualTime(next);
   // Trigger notifications for matches coming up in the ~2h window
@@ -230,6 +239,15 @@ async function handleSetScore(body: Record<string, unknown>) {
   if (!isSimulationMode()) return NextResponse.json({ error: "Simulation not active" }, { status: 400 });
   const { matchId, homeScore, awayScore } = body as { matchId: string; homeScore: number; awayScore: number };
   if (!matchId) return NextResponse.json({ error: "matchId required" }, { status: 400 });
+  // Bound the inputs so an admin typo doesn't write 999999 points.
+  if (
+    !Number.isInteger(Number(homeScore)) ||
+    !Number.isInteger(Number(awayScore)) ||
+    Number(homeScore) < 0 || Number(homeScore) > 20 ||
+    Number(awayScore) < 0 || Number(awayScore) > 20
+  ) {
+    return NextResponse.json({ error: "Scores must be whole numbers between 0 and 20" }, { status: 400 });
+  }
 
   const match = await prisma.match.findUnique({ where: { id: matchId } });
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });

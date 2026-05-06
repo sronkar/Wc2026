@@ -32,15 +32,24 @@ export function GroupSwitcher({ activeGroupId, subPage }: Props) {
 
   const dest = (id: string) => subPage ? `/groups/${id}/${subPage}` : `/groups/${id}`;
 
+  // On narrow screens we scroll horizontally instead of wrapping into a
+  // multi-row mess. On sm+ we still flex-wrap so users with many groups can
+  // see them all without horizontal scroll.
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div
+      className="flex items-center gap-1.5 overflow-x-auto sm:flex-wrap -mx-2 px-2 snap-x scrollbar-thin"
+      role="tablist"
+      aria-label="Switch group"
+    >
       {groups.map((g) => {
         const isActive = g.id === activeGroupId;
         return (
           <button
             key={g.id}
+            role="tab"
+            aria-selected={isActive}
             onClick={() => { if (!isActive) router.push(dest(g.id)); }}
-            className={`px-3 py-1 rounded-full text-sm font-medium transition border ${
+            className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-sm font-medium transition border ${
               isActive
                 ? "bg-fifa-blue text-white border-fifa-blue"
                 : "bg-white text-gray-600 border-gray-300 hover:border-fifa-blue hover:text-fifa-blue"

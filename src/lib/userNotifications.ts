@@ -166,8 +166,12 @@ export async function generateResultNotification(
   awayTeam: string,
   homeScore: number,
   awayScore: number,
+  // Total points across every group the user predicted in.
   points: number,
-  isExact: boolean,
+  // Number of groups in which the score was exact (0 if none).
+  exactCount: number,
+  // Total number of groups the user predicted in for this match.
+  groupCount: number,
   groupIds?: string[],
 ) {
   const exists = await prisma.notification.findFirst({
@@ -176,15 +180,23 @@ export async function generateResultNotification(
   if (exists) return;
 
   const matchLabel = `${homeTeam} ${homeScore}–${awayScore} ${awayTeam}`;
+  // Only annotate cross-group totals when the user predicted in >1 group, so
+  // the common (single-group) case stays terse.
+  const groupSuffix = groupCount > 1 ? ` across ${groupCount} groups` : "";
 
   let title: string;
   let body: string;
 
-  if (isExact) {
-    title = `Exact score! +${points} pts`;
+  if (exactCount === groupCount && exactCount > 0) {
+    // All-groups exact
+    title = `Exact score! +${points} pts${groupSuffix}`;
+    body = matchLabel;
+  } else if (exactCount > 0) {
+    // Partial exact (some groups exact, others direction-only)
+    title = `Exact in ${exactCount}/${groupCount} groups — +${points} pts`;
     body = matchLabel;
   } else if (points > 0) {
-    title = `+${points} pts — right result`;
+    title = `+${points} pts — right result${groupSuffix}`;
     body = matchLabel;
   } else {
     title = `Miss — ${matchLabel}`;

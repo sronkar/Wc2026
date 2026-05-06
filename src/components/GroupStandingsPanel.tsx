@@ -128,10 +128,10 @@ function GroupTable({
 }) {
   return (
     <div className="card p-0 overflow-hidden">
-      <div className="bg-fifa-blue text-white text-xs font-bold px-3 py-1.5">Group {name}</div>
-      <table className="w-full text-xs">
+      <div className="bg-fifa-blue text-white text-sm sm:text-xs font-bold px-3 py-1.5">Group {name}</div>
+      <table className="w-full text-sm sm:text-xs">
         <thead>
-          <tr className="border-b border-gray-100 text-gray-400">
+          <tr className="border-b border-gray-100 text-gray-500">
             <th className="text-left px-3 py-1.5 font-medium w-full">Team</th>
             <th className="px-2 py-1.5 font-medium text-center text-fifa-blue">P</th>
             <th className="px-1 py-1.5 font-medium text-center">W</th>
@@ -156,7 +156,7 @@ function GroupTable({
                   <div className="flex items-center gap-1">
                     <span className="text-sm leading-none shrink-0">{getFlag(row.team)}</span>
                     <span
-                      className={`truncate text-[11px] leading-tight ${
+                      className={`truncate text-sm sm:text-[11px] leading-tight ${
                         isTop2 ? "font-semibold text-gray-800" : isQualifiedThird ? "font-semibold text-amber-800" : "text-gray-600"
                       }`}
                     >

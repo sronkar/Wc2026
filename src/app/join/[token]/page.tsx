@@ -137,7 +137,7 @@ export default function JoinByLinkPage() {
               placeholder="you@example.com"
               required
               autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
             />
           </div>
           <div>
@@ -148,7 +148,9 @@ export default function JoinByLinkPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your name"
               required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+              autoComplete="name"
+              maxLength={80}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
             />
           </div>
           {joinError && <p className="text-sm text-red-600">{joinError}</p>}

@@ -91,13 +91,13 @@ export function LockBanner() {
 
     return (
       <div
-        className={`w-full text-xs font-medium py-1.5 px-4 flex items-center justify-center gap-3 ${
+        className={`w-full text-xs font-medium py-1.5 px-4 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 ${
           hasUnpredicted
             ? "bg-orange-500 text-white"
             : "bg-amber-50 border-b border-amber-200 text-amber-800"
         }`}
       >
-        <span>{message}</span>
+        <span className="text-center">{message}</span>
         {hasUnpredicted && (
           <Link href={predictHref} className="underline font-bold text-white shrink-0">
             Predict →

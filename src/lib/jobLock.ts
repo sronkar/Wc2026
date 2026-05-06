@@ -67,6 +67,10 @@ export async function withJobLock<T>(
         await release(jobName);
       }
     }
+    // Sentinel: lock vanished + we couldn't re-acquire. The caller logs this,
+    // so use a clearly-unreal pid (-1) and a stable epoch so anyone reading
+    // the log can recognise "(unknown)" rather than misreading it as a real
+    // process held the lock.
     return { skipped: true, heldBy: { pid: -1, startedAt: new Date(0) } };
   }
 

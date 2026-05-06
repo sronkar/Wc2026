@@ -296,3 +296,27 @@ model CustomPredictionAnswer {
 
   @@unique([userId, customPredictionId, groupId])
 }
+
+// Audit trail for admin mutations. Every privileged action that changes state
+// (resolve a prediction, edit a member's prediction, delete a group, set a
+// match score, change a team's advancement) writes a row here so a member
+// who notices "wait, my points changed" can see who/when/what.
+//
+// Intentionally schemaless on `before`/`after` — JSON-encoded snapshots —
+// because the shape varies per action and a structured table would be
+// premature. Use the helper in src/lib/auditLog.ts to write rows.
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String
+  actorEmail   String?  // captured at write time so log survives user deletion
+  action       String   // e.g. "match.score.set" | "group.delete" | "prediction.edit"
+  targetType   String?  // "match" | "group" | "prediction" | "user" | "advancement"
+  targetId     String?
+  before       String?  // JSON-encoded prior state (optional)
+  after        String?  // JSON-encoded new state (optional)
+  context      String?  // free-form note for human readability
+  createdAt    DateTime @default(now())
+
+  @@index([actorUserId, createdAt])
+  @@index([targetType, targetId])
+}

@@ -3,13 +3,21 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Hard cap to keep memory bounded as the group set grows. Caller can
+  // page with ?cursor=<groupId> if needed; the admin UI loads page 1 today.
+  const MAX_PAGE = 200;
+  const { searchParams } = new URL(req.url);
+  const cursor = searchParams.get("cursor") || undefined;
+
   const groups = await prisma.group.findMany({
+    take: MAX_PAGE + 1,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     orderBy: { createdAt: "asc" },
     include: {
       memberships: {
@@ -21,8 +29,12 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json(
-    groups.map((g) => ({
+  const hasMore = groups.length > MAX_PAGE;
+  const page = hasMore ? groups.slice(0, MAX_PAGE) : groups;
+  const nextCursor = hasMore ? page[page.length - 1].id : null;
+
+  return NextResponse.json({
+    groups: page.map((g) => ({
       id: g.id,
       name: g.name,
       description: g.description,
@@ -36,8 +48,10 @@ export async function GET() {
         createdAt: m.createdAt.toISOString(),
         user: m.user,
       })),
-    }))
-  );
+    })),
+    nextCursor,
+    hasMore,
+  });
 }
 
 export async function POST(req: NextRequest) {

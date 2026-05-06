@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getNow, setVirtualTime, isDemoMode } from "@/lib/time";
 import { isPredictionLocked, calculatePoints } from "@/lib/scoring";
@@ -6,9 +8,26 @@ import { applyMatchResult } from "@/lib/scores";
 import { sendMatchReminders } from "@/lib/notifications";
 import { pollAndUpdateScores } from "@/lib/scores";
 
-function guard() {
+// Defense-in-depth: even when DEMO_MODE is on, refuse to run in production
+// unless the operator explicitly opts in with ALLOW_DEMO_IN_PROD=true. The
+// demo endpoint exposes destructive operations (reset DB, mutate scores,
+// trigger notifications) so it must never be world-reachable.
+async function guard() {
   if (!isDemoMode()) {
-    return NextResponse.json({ error: "Demo mode not enabled. Set DEMO_MODE=true in .env" }, { status: 403 });
+    return NextResponse.json(
+      { error: "Demo mode not enabled. Set DEMO_MODE=true in .env" },
+      { status: 403 }
+    );
+  }
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_IN_PROD !== "true") {
+    return NextResponse.json(
+      { error: "Demo endpoint is disabled in production" },
+      { status: 403 }
+    );
+  }
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   return null;
 }
@@ -23,7 +42,7 @@ function relativeLabel(kickoff: Date, now: Date): string {
 // ── GET: return full demo state ───────────────────────────────────────────────
 
 export async function GET() {
-  const g = guard(); if (g) return g;
+  const g = await guard(); if (g) return g;
 
   const now = getNow();
 
@@ -84,7 +103,7 @@ export async function GET() {
 // ── POST: action dispatch ─────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const g = guard(); if (g) return g;
+  const g = await guard(); if (g) return g;
 
   const body = await req.json();
   switch (body.action) {

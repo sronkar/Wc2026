@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireGroupAdminAccess } from "@/lib/authz";
+import { logAdminAction } from "@/lib/auditLog";
 
 type Ctx = { params: { id: string } };
 
@@ -34,6 +35,25 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // Capture a snapshot for the audit log BEFORE the cascade delete fires.
+  const snapshot = await prisma.group.findUnique({
+    where: { id: params.id },
+    include: { _count: { select: { memberships: true } } },
+  });
+
   await prisma.group.delete({ where: { id: params.id } });
+
+  if (snapshot) {
+    await logAdminAction({
+      actorUserId: session.user.id,
+      actorEmail: session.user.email,
+      action: "group.delete",
+      targetType: "group",
+      targetId: params.id,
+      before: { name: snapshot.name, memberCount: snapshot._count.memberships, createdAt: snapshot.createdAt },
+      context: `Deleted group "${snapshot.name}" (${snapshot._count.memberships} members)`,
+    });
+  }
+
   return NextResponse.json({ ok: true });
 }

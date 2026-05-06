@@ -102,13 +102,26 @@ export async function POST(req: NextRequest) {
     const { groupId, isGlobal, predictions, skipExisting = false } = body;
     if (!groupId && !isGlobal) return NextResponse.json({ error: "groupId or isGlobal required" }, { status: 400 });
 
+    // Cap batch import size — guard against admin OOM via huge paste.
+    const MAX_BATCH = 1000;
+    if (predictions.length > MAX_BATCH) {
+      return NextResponse.json(
+        { error: `Too many predictions in one batch (got ${predictions.length}, max ${MAX_BATCH})` },
+        { status: 413 }
+      );
+    }
+
     const defaultLockTime = await getDefaultLockTime();
 
-    // When skipExisting: fetch existing question texts for dedup
+    // Build dedup set for both global and group-scoped imports — previously
+    // the dedup logic only ran for `skipExisting && isGlobal`, so a group
+    // import with skipExisting=true silently created duplicate questions.
     let existingQuestions = new Set<string>();
-    if (skipExisting && isGlobal) {
+    if (skipExisting) {
       const existing = await prisma.customPrediction.findMany({
-        where: { isGlobal: true },
+        where: isGlobal
+          ? { isGlobal: true }
+          : { OR: [{ groupId }, { isGlobal: true }] },
         select: { question: true },
       });
       existingQuestions = new Set(existing.map((e) => e.question.trim().toLowerCase()));

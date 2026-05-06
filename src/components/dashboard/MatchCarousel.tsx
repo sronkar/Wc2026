@@ -463,25 +463,34 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
           ‹
         </button>
 
-        {/* Dot indicators — wrapped in touch-friendly hit area */}
-        <div className="flex gap-1.5 items-center">
-          {matches.map((m, i) => (
-            <button
-              key={m.id}
-              onClick={() => setCurrent(i)}
-              className="flex items-center justify-center w-11 h-11 rounded-full"
-              aria-label={`Match ${i + 1}`}
-            >
-              <span className={`rounded-full transition-all block ${
-                i === current
-                  ? "bg-fifa-blue w-5 h-2"
-                  : preds[m.id]
-                  ? "bg-green-400 w-2 h-2"
-                  : "bg-gray-200 w-2 h-2"
-              }`} />
-            </button>
-          ))}
-        </div>
+        {/* Dot indicators — wrapped in touch-friendly hit area.
+            Skip dots once we have a lot of matches: they become a thin
+            unreadable line, and the "N of M" label below + arrow buttons
+            already give enough orientation. */}
+        {total <= 12 ? (
+          <div className="flex gap-1.5 items-center">
+            {matches.map((m, i) => (
+              <button
+                key={m.id}
+                onClick={() => setCurrent(i)}
+                className="flex items-center justify-center w-11 h-11 rounded-full"
+                aria-label={`Match ${i + 1}`}
+              >
+                <span className={`rounded-full transition-all block ${
+                  i === current
+                    ? "bg-fifa-blue w-5 h-2.5"
+                    : preds[m.id]
+                    ? "bg-green-400 w-2.5 h-2.5"
+                    : "bg-gray-200 w-2.5 h-2.5"
+                }`} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm font-medium text-gray-500 tabular-nums">
+            {current + 1} <span className="text-gray-300">/</span> {total}
+          </div>
+        )}
 
         <button
           onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}

@@ -88,7 +88,11 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     const isMatch = (answer: string) => {
       const a = answer.trim().toLowerCase();
-      return correctValues.some((v) => v.toLowerCase() === a);
+      // Whitespace-only answers should never count as a match, even if the
+      // admin's correctOption is also whitespace (which would otherwise let
+      // a user submit " " and earn points).
+      if (!a) return false;
+      return correctValues.some((v) => v.trim().toLowerCase() === a);
     };
 
     await Promise.all(

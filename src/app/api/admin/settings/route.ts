@@ -4,6 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
+  // Gate behind a session — the scoring formula was previously readable
+  // anonymously, which is harmless on its own but unnecessarily exposes
+  // configuration to anyone scraping the API surface.
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const settings = await prisma.pointSettings.findUnique({
     where: { id: "default" },
   });

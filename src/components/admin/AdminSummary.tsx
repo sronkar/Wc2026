@@ -31,11 +31,17 @@ export function AdminSummary({ matches, onGo }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/admin/pending-count")
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled) setPendingCount(d.count ?? 0); })
-      .catch(() => { if (!cancelled) setPendingCount(0); });
-    return () => { cancelled = true; };
+    const load = () => {
+      fetch("/api/admin/pending-count")
+        .then((r) => r.json())
+        .then((d) => { if (!cancelled) setPendingCount(d.count ?? 0); })
+        .catch(() => { if (!cancelled) setPendingCount((c) => c ?? 0); });
+    };
+    load();
+    // Refresh every 30s so a join request that arrives while the admin is
+    // looking at this panel doesn't sit unseen until they reload the page.
+    const t = setInterval(load, 30_000);
+    return () => { cancelled = true; clearInterval(t); };
   }, []);
 
   const now = Date.now();

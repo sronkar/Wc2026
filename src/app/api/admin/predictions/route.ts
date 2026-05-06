@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculatePoints, getPointsForRound, isPredictionLocked } from "@/lib/scoring";
 import { notifyAdminOfSubAdminAction } from "@/lib/notifications";
+import { logAdminAction } from "@/lib/auditLog";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -27,7 +28,12 @@ export async function POST(req: NextRequest) {
   if (!match) return NextResponse.json({ error: "Match not found" }, { status: 404 });
   if (!targetUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  // Immutability: predictions lock 1 hour before kickoff and cannot be changed after
+  // Lock policy: this admin route ENFORCES the same 1-hour-before-kickoff lock
+  // as the user route. Admins are intentionally NOT able to override the lock
+  // here — the entire fairness contract of the app depends on predictions
+  // becoming immutable at the lock threshold for everyone, including admins.
+  // (If a future feature needs admin override, gate it behind a separate route
+  // that writes to an audit log so the override is visible to all members.)
   if (isPredictionLocked(match.kickoff)) {
     return NextResponse.json(
       { error: "Predictions for this match are locked and cannot be changed" },
@@ -48,10 +54,26 @@ export async function POST(req: NextRequest) {
     points = result.points;
   }
 
+  const prior = await prisma.prediction.findUnique({
+    where: { userId_matchId_groupId: { userId, matchId, groupId } },
+    select: { homeScore: true, awayScore: true },
+  });
+
   const prediction = await prisma.prediction.upsert({
     where: { userId_matchId_groupId: { userId, matchId, groupId } },
     update: { homeScore, awayScore, points },
     create: { userId, matchId, groupId, homeScore, awayScore, points },
+  });
+
+  await logAdminAction({
+    actorUserId: session.user.id,
+    actorEmail: session.user.email,
+    action: prior ? "prediction.edit" : "prediction.create",
+    targetType: "prediction",
+    targetId: prediction.id,
+    before: prior ? { homeScore: prior.homeScore, awayScore: prior.awayScore } : undefined,
+    after: { homeScore, awayScore, points },
+    context: `${match.homeTeam} vs ${match.awayTeam} (#${match.matchNumber}) for user ${targetUser.name ?? userId} in group ${groupId}`,
   });
 
   if (role === "SUB_ADMIN") {

@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { applyMatchResult } from "@/lib/scores";
 import { notifyAdminOfSubAdminAction } from "@/lib/notifications";
+import { logAdminAction } from "@/lib/auditLog";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -30,6 +31,16 @@ export async function POST(req: NextRequest) {
   }
 
   await applyMatchResult(matchId, homeScore, awayScore);
+
+  logAdminAction({
+    actorUserId: session.user.id,
+    actorEmail: session.user.email,
+    action: "match.score.set",
+    targetType: "match",
+    targetId: matchId,
+    after: { homeScore, awayScore, homeTeam: match.homeTeam, awayTeam: match.awayTeam, matchNumber: match.matchNumber },
+    context: `Set result for ${match.homeTeam} vs ${match.awayTeam} (#${match.matchNumber})`,
+  });
 
   if (role === "SUB_ADMIN") {
     notifyAdminOfSubAdminAction(

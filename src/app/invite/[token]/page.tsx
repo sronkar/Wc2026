@@ -142,7 +142,7 @@ export default function InvitePage() {
                   type="email"
                   value={invite!.email}
                   readOnly
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-base sm:text-sm bg-gray-50 text-gray-500 cursor-not-allowed"
                 />
               </div>
 
@@ -156,7 +156,7 @@ export default function InvitePage() {
                   placeholder="Enter your display name"
                   required
                   autoFocus
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                 />
               </div>
 
@@ -174,7 +174,7 @@ export default function InvitePage() {
                       placeholder="Create a password (min. 12 characters)"
                       required
                       minLength={12}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue pr-16"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue pr-16"
                     />
                     <button
                       type="button"
@@ -205,7 +205,7 @@ export default function InvitePage() {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Create a password (min. 12 characters)"
                         minLength={12}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                       />
                       <p className="text-xs text-gray-400 mt-1">
                         Optional — lets you sign in with email &amp; password later.
@@ -256,7 +256,7 @@ export default function InvitePage() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Create a password (min. 12 characters)"
                       minLength={12}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue pr-16"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue pr-16"
                     />
                     <button
                       type="button"

@@ -131,10 +131,17 @@ export async function applyMatchResult(
   //
   // Notifications are intentionally collected here and sent AFTER the commit
   // so that a push/email failure can't roll back the score.
+  // points = sum across every group the user predicted in for this match
+  // (their leaderboards are per-group but the notification is a single,
+  // human summary; "you got +5 pts" should reflect their actual total).
+  // exactCount = number of groups in which the user nailed the exact score —
+  // used so the notification title can correctly say "Exact!" only when at
+  // least one group was an exact match.
   const toNotify: Array<{
     userId: string;
     points: number;
-    exact: boolean;
+    exactCount: number;
+    groupCount: number;
     groupIds: string[];
   }> = [];
 
@@ -155,10 +162,14 @@ export async function applyMatchResult(
     });
     const round = m?.round ?? "";
 
-    // Track per-user: {points, exact, groupIds[]}. We pick the first group's
-    // points for the user-facing "+X pts" text, but collect ALL groupIds so
-    // the notification can deep-link to any group the user predicted in.
-    const userNotif = new Map<string, { points: number; exact: boolean; groupIds: string[] }>();
+    // Track per-user totals across every group they predicted in. Each group
+    // can have its own scoring config (exactMatchPoints / directionMatchPoints),
+    // so per-group points may differ — we sum them so the notification reflects
+    // what the user actually earned this match.
+    const userNotif = new Map<
+      string,
+      { points: number; exactCount: number; groupIds: string[] }
+    >();
     for (const pred of predictions) {
       const { exact: exactPts, direction: dirPts } = getPointsForRound(
         pred.group.stagePoints, round, pred.group.exactMatchPoints, pred.group.directionMatchPoints
@@ -170,13 +181,27 @@ export async function applyMatchResult(
 
       const existing = userNotif.get(pred.userId);
       if (!existing) {
-        userNotif.set(pred.userId, { points, exact, groupIds: [pred.groupId] });
-      } else if (!existing.groupIds.includes(pred.groupId)) {
-        existing.groupIds.push(pred.groupId);
+        userNotif.set(pred.userId, {
+          points,
+          exactCount: exact ? 1 : 0,
+          groupIds: [pred.groupId],
+        });
+      } else {
+        existing.points += points;
+        if (exact) existing.exactCount += 1;
+        if (!existing.groupIds.includes(pred.groupId)) {
+          existing.groupIds.push(pred.groupId);
+        }
       }
     }
     for (const [userId, info] of userNotif.entries()) {
-      toNotify.push({ userId, ...info });
+      toNotify.push({
+        userId,
+        points: info.points,
+        exactCount: info.exactCount,
+        groupCount: info.groupIds.length,
+        groupIds: info.groupIds,
+      });
     }
 
     return m;
@@ -189,7 +214,7 @@ export async function applyMatchResult(
     generateResultNotification(
       n.userId, matchId,
       match.homeTeam, match.awayTeam,
-      homeScore, awayScore, n.points, n.exact, n.groupIds,
+      homeScore, awayScore, n.points, n.exactCount, n.groupCount, n.groupIds,
     ).catch(() => {});
   }
 
@@ -249,8 +274,13 @@ export async function pollAndUpdateScores(): Promise<PollResult> {
   }
 
   const updated: PollResult["matches"] = [];
+  // Defensive dedup: if the external list ever contains the same fixture
+  // twice (e.g., a future change that merges results from multiple sources,
+  // or an upstream returning overlapping date batches), don't double-apply.
+  const appliedMatchIds = new Set<string>();
 
   for (const match of pending) {
+    if (appliedMatchIds.has(match.id)) continue;
     const ourHome = norm(match.homeTeam);
     const ourAway = norm(match.awayTeam);
 
@@ -274,6 +304,7 @@ export async function pollAndUpdateScores(): Promise<PollResult> {
     );
 
     await applyMatchResult(match.id, homeScore, awayScore);
+    appliedMatchIds.add(match.id);
 
     updated.push({
       matchNumber: match.matchNumber,

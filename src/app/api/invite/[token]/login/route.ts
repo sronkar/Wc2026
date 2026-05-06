@@ -3,10 +3,26 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { encode } from "next-auth/jwt";
 import { sendWelcomeEmail } from "@/lib/email";
+import { rateLimit, getClientIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 type Ctx = { params: { token: string } };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
+  const ip = getClientIp(req);
+  const ipHit = rateLimit(`invite:login:ip:${ip}`, 10, 60 * 60 * 1000);
+  if (!ipHit.ok) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: rateLimitHeaders(ipHit) }
+    );
+  }
+  const tokenHit = rateLimit(`invite:login:token:${params.token}`, 20, 60 * 60 * 1000);
+  if (!tokenHit.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts for this invite" },
+      { status: 429, headers: rateLimitHeaders(tokenHit) }
+    );
+  }
   const { name, password } = await req.json();
 
   const invite = await prisma.groupInvite.findUnique({

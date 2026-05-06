@@ -57,10 +57,34 @@ export async function POST(
     return NextResponse.json({ error: "Option is required" }, { status: 400 });
   }
 
-  const answer = await prisma.customPredictionAnswer.upsert({
-    where: { userId_customPredictionId_groupId: { userId: session.user.id, customPredictionId: params.id, groupId: effectiveGroupId ?? "" } },
-    update: { option: option.trim() },
-    create: { userId: session.user.id, customPredictionId: params.id, groupId: effectiveGroupId, option: option.trim() },
+  // NOTE: We can't use Prisma upsert here for global predictions because
+  // `groupId` is nullable and SQLite treats two NULLs as distinct under a
+  // composite unique index. An upsert with `groupId: ""` would never match the
+  // existing row (which stores NULL) and would create a duplicate every call.
+  // Use findFirst + update/create inside a transaction instead.
+  const answer = await prisma.$transaction(async (tx) => {
+    const existing = await tx.customPredictionAnswer.findFirst({
+      where: {
+        userId: session.user.id,
+        customPredictionId: params.id,
+        groupId: effectiveGroupId,
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      return tx.customPredictionAnswer.update({
+        where: { id: existing.id },
+        data: { option: option.trim() },
+      });
+    }
+    return tx.customPredictionAnswer.create({
+      data: {
+        userId: session.user.id,
+        customPredictionId: params.id,
+        groupId: effectiveGroupId,
+        option: option.trim(),
+      },
+    });
   });
 
   return NextResponse.json(answer);

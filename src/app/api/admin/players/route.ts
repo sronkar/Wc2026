@@ -31,6 +31,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No players provided" }, { status: 400 });
   }
 
+  // Bound the request size. Even an authenticated admin shouldn't be able to
+  // OOM the node process by accidentally pasting a million-row CSV.
+  const MAX_PLAYERS = 5000;
+  if (players.length > MAX_PLAYERS) {
+    return NextResponse.json(
+      { error: `Too many players in one request (got ${players.length}, max ${MAX_PLAYERS})` },
+      { status: 413 }
+    );
+  }
+
   let created = 0;
   let updated = 0;
 

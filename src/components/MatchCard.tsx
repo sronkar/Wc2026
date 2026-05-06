@@ -318,10 +318,12 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
+              maxLength={2}
               value={homeInput}
-              onChange={(e) => setHomeInput(e.target.value)}
-              className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
+              onChange={(e) => setHomeInput(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+              className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
               placeholder="0"
+              aria-label={`${match.homeTeam} predicted score`}
             />
           ) : null}
         </div>
@@ -343,10 +345,12 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
               type="text"
               inputMode="numeric"
               pattern="[0-9]*"
+              maxLength={2}
               value={awayInput}
-              onChange={(e) => setAwayInput(e.target.value)}
-              className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
+              onChange={(e) => setAwayInput(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+              className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
               placeholder="0"
+              aria-label={`${match.awayTeam} predicted score`}
             />
           ) : null}
         </div>
@@ -420,8 +424,11 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSave}
-                  disabled={saving || !onSave}
-                  className="btn-primary text-xs px-3 py-1.5 flex-1"
+                  // Save is blocked while a warning is showing — the user must
+                  // either acknowledge by adjusting the score, or the API check
+                  // will reject anyway.
+                  disabled={saving || !onSave || warning !== null || !inputsValid}
+                  className="btn-primary text-xs px-3 py-1.5 flex-1 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
                 >
                   {saving ? "..." : saved ? "Saved ✓" : "Save"}
                 </button>
@@ -429,7 +436,8 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
                   <button
                     onClick={handleWithdraw}
                     disabled={cancelling}
-                    className="w-11 h-11 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition disabled:opacity-40 shrink-0"
+                    aria-label="Clear prediction"
+                    className="w-12 h-12 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 active:scale-95 transition disabled:opacity-40 shrink-0 text-lg leading-none"
                     title="Withdraw prediction"
                   >
                     {cancelling ? "…" : "✕"}

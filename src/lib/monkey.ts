@@ -31,18 +31,30 @@ export async function addMonkeyToGroup(groupId: string): Promise<void> {
     create: { userId: monkeyId, groupId, status: "APPROVED", memberRole: "MEMBER" },
   });
 
-  // Generate predictions for all group stage matches that don't already exist
+  // Generate predictions for all group stage matches that don't already exist.
+  // We also prune any monkey predictions that point at a matchId no longer in
+  // the current Group Stage set — that handles the case where the match table
+  // was wiped and re-seeded with new IDs (e.g., demo reset, schema migration).
+  // Without this prune, the leaderboard would show monkey points against
+  // dangling matches.
   const matches = await prisma.match.findMany({
     where: { round: "Group Stage" },
     select: { id: true },
   });
+  const validMatchIds = new Set(matches.map((m) => m.id));
 
   const existing = await prisma.prediction.findMany({
     where: { userId: monkeyId, groupId },
-    select: { matchId: true },
+    select: { id: true, matchId: true },
   });
-  const existingIds = new Set(existing.map((p) => p.matchId));
+  const stale = existing.filter((p) => !validMatchIds.has(p.matchId)).map((p) => p.id);
+  if (stale.length > 0) {
+    await prisma.prediction.deleteMany({ where: { id: { in: stale } } });
+  }
 
+  const existingIds = new Set(
+    existing.filter((p) => validMatchIds.has(p.matchId)).map((p) => p.matchId)
+  );
   const toCreate = matches.filter((m) => !existingIds.has(m.id));
   if (toCreate.length === 0) return;
 
