@@ -195,64 +195,67 @@ export default function GroupLeaderboardPage() {
             </div>
           )}
 
-          {/* Rank 4+ */}
-          {rest.length > 0 && (
-            <div className="space-y-2">
-              {rest.map((e, i) => {
-                const isMe = e.id === myId;
-                return (
-                  <div
-                    key={e.id}
-                    className={`card flex items-center gap-3 transition-all animate-fade-up ${
-                      isMe
-                        ? "border-fifa-blue/40 bg-blue-50/60 shadow-card-hover"
-                        : "hover:shadow-card-hover hover:border-gray-200"
-                    }`}
-                    style={{ animationDelay: `${i * 40}ms` }}
-                  >
-                    <div className="shrink-0 w-9 text-center font-black text-gray-400 text-sm">
-                      #{e.rank}
-                    </div>
-
-                    {e.image ? (
-                      <Image src={e.image} alt="" width={36} height={36} className="rounded-full shrink-0 ring-1 ring-gray-200" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-500 shrink-0">
-                        {e.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-semibold truncate ${isMe ? "text-fifa-blue" : "text-gray-800"}`}>
-                        {e.name}
-                        {isMe && <span className="text-[10px] text-gray-400 ml-1.5 font-normal">(you)</span>}
-                      </p>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
-                        {e.predictionsCount} prediction{e.predictionsCount !== 1 ? "s" : ""} · {e.directHits} correct
-                      </p>
-                    </div>
-
-                    <div className="shrink-0 text-right">
-                      <div className={`text-xl font-black leading-none ${isMe ? "text-fifa-blue" : "text-gray-700"}`}>
-                        {e.totalPoints}
-                      </div>
-                      <div className="text-[10px] text-gray-400 mt-0.5">pts</div>
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Full standings table */}
+          {entries.length > 0 && (
+            <div className="card overflow-hidden p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="py-2 px-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide w-10">#</th>
+                    <th className="py-2 px-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">Player</th>
+                    <th className="py-2 px-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide">Pts</th>
+                    <th className="py-2 px-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide hidden sm:table-cell">Exact</th>
+                    <th className="py-2 px-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wide hidden sm:table-cell">Played</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((e) => {
+                    const isMe = e.id === myId;
+                    const medal = e.rank === 1 ? "🥇" : e.rank === 2 ? "🥈" : e.rank === 3 ? "🥉" : null;
+                    return (
+                      <tr
+                        key={e.id}
+                        className={`border-b border-gray-50 last:border-0 transition-colors ${
+                          isMe ? "bg-blue-50" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <td className="py-2.5 px-3 text-center">
+                          {medal ? (
+                            <span className="text-base leading-none">{medal}</span>
+                          ) : (
+                            <span className="text-xs font-bold text-gray-400">#{e.rank}</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {e.image ? (
+                              <Image src={e.image} alt="" width={28} height={28} className="rounded-full shrink-0 ring-1 ring-gray-200" />
+                            ) : (
+                              <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">
+                                {e.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <span className={`font-semibold truncate ${isMe ? "text-fifa-blue" : "text-gray-800"}`}>
+                              {e.name}
+                            </span>
+                            {isMe && (
+                              <span className="shrink-0 text-[9px] font-black bg-fifa-blue text-white px-1.5 py-0.5 rounded-full">YOU</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className={`py-2.5 px-3 text-right font-black text-base ${isMe ? "text-fifa-blue" : "text-gray-800"}`}>
+                          {e.totalPoints}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-gray-500 hidden sm:table-cell">{e.directHits}</td>
+                        <td className="py-2.5 px-3 text-right text-gray-500 hidden sm:table-cell">{e.predictionsCount}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {/* My position callout if outside top visible */}
-          {myEntry && myRank && myRank > 3 && (
-            <p className="text-center text-xs text-gray-400">
-              You&apos;re ranked <span className="font-bold text-fifa-blue">#{myRank}</span> out of {entries.length} players.
-              {myRank > 3 && entries[myRank - 2] && (
-                <> {entries[myRank - 2].totalPoints - myEntry.totalPoints} pts behind #{myRank - 1}.</>
-              )}
-            </p>
-          )}
         </div>
       )}
     </div>
