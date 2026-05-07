@@ -34,12 +34,20 @@ const nextConfig = {
       { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }] },
     ];
   },
+  // Allow phones / tablets on the local network to access the dev server.
+  // The wildcard covers any 192.168.x.x device on a standard home/office LAN.
+  allowedDevOrigins: ["192.168.*.*"],
   experimental: {
     instrumentationHook: true,
     serverComponentsExternalPackages: ["nodemailer", "web-push", "node-cron"],
   },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
+  webpack: (config, { isServer, nextRuntime }) => {
+    // Apply Node built-in stubs for bundles that don't have them:
+    //   nextRuntime === 'edge'  → Edge runtime (middleware / edge API routes)
+    //   !isServer               → browser bundle
+    // The regular Node.js server bundle (isServer && nextRuntime !== 'edge')
+    // has real built-ins and needs no stubs.
+    if (!isServer || nextRuntime === "edge") {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         http: false,
