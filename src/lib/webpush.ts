@@ -18,7 +18,6 @@ function init() {
     );
     initialized = true;
   } catch (err) {
-    // Invalid VAPID config shouldn't break the whole notification pipeline.
     console.warn("[webpush] VAPID init failed — push disabled:", err instanceof Error ? err.message : err);
     initFailed = true;
   }
@@ -44,7 +43,6 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
           JSON.stringify(payload)
         );
       } catch (err: unknown) {
-        // Remove stale subscriptions (410 Gone)
         const status = (err as { statusCode?: number })?.statusCode;
         if (status === 410 || status === 404) {
           await prisma.pushSubscription.deleteMany({ where: { endpoint: sub.endpoint } });

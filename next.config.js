@@ -42,12 +42,20 @@ const nextConfig = {
     serverComponentsExternalPackages: ["nodemailer", "web-push", "node-cron"],
   },
   webpack: (config, { isServer, nextRuntime }) => {
-    // Apply Node built-in stubs for bundles that don't have them:
-    //   nextRuntime === 'edge'  → Edge runtime (middleware / edge API routes)
-    //   !isServer               → browser bundle
-    // The regular Node.js server bundle (isServer && nextRuntime !== 'edge')
-    // has real built-ins and needs no stubs.
+    // In the Edge runtime and the browser bundle, Node built-ins don't exist.
+    // web-push → https-proxy-agent → agent-base → require('http') would fail.
+    // Alias every server-only package to an empty stub so webpack stops
+    // trying to bundle their Node-specific dependency trees.
     if (!isServer || nextRuntime === "edge") {
+      const noop = require("path").resolve(__dirname, "src/lib/stubs/noop.js");
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        "web-push": noop,
+        "nodemailer": noop,
+        "node-cron": noop,
+        "https-proxy-agent": noop,
+        "agent-base": noop,
+      };
       config.resolve.fallback = {
         ...config.resolve.fallback,
         http: false,
