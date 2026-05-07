@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
-  await transporter.sendMail({ from: process.env.EMAIL_FROM, to, subject, html });
+  await transporter.sendMail({ from: process.env.EMAIL_FROM, to, subject, html, encoding: "utf-8" });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,7 +30,7 @@ const FOOTER = `
   </div>`;
 
 const WRAP = (inner: string, maxWidth = 540) =>
-  `<div style="font-family:sans-serif;max-width:${maxWidth}px;margin:0 auto;background:#fff">${inner}</div>`;
+  `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f3f4f6"><div style="font-family:sans-serif;max-width:${maxWidth}px;margin:0 auto;background:#fff">${inner}</div></body></html>`;
 
 const CTA = (href: string, label: string, bg = "#003366") =>
   `<div style="text-align:center;margin-bottom:28px">
