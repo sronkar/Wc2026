@@ -1,13 +1,17 @@
-/**
- * Next.js instrumentation hook — runs once on server startup.
- *
- * Server-only startup work (cron, db state) lives in instrumentation.node.ts.
- * Splitting it out means webpack only compiles that file for the Node.js
- * runtime, so packages like web-push / nodemailer / node-cron (which import
- * Node built-ins like 'http') never end up in the Edge runtime bundle.
- */
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") {
-    await import("./instrumentation.node");
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  try {
+    const { startCronJobs } = await import("@/lib/cron");
+    startCronJobs();
+  } catch (e) {
+    console.error("[instrumentation] startCronJobs failed — server is running WITHOUT scheduled jobs:", e);
+  }
+
+  try {
+    const { loadVirtualTime } = await import("@/lib/time");
+    await loadVirtualTime();
+  } catch (e) {
+    console.error("[instrumentation] loadVirtualTime failed — virtual/sim time is NOT restored:", e);
   }
 }
