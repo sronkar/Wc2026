@@ -131,8 +131,13 @@ export async function GET(req: NextRequest) {
 
   if (shouldSend) {
     if (!to) return NextResponse.json({ error: "No recipient email" }, { status: 400 });
-    await sendEmail({ to, subject: `[Preview] ${template} — WC2026`, html });
-    return NextResponse.json({ ok: true, sentTo: to });
+    try {
+      await sendEmail({ to, subject: `[Preview] ${template} — WC2026`, html });
+      return NextResponse.json({ ok: true, sentTo: to });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return NextResponse.json({ error: `Send failed: ${msg}` }, { status: 500 });
+    }
   }
 
   return new NextResponse(html, {

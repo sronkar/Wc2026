@@ -175,6 +175,7 @@ Winner\t\tTeam\t10`;
   const [previewTemplate, setPreviewTemplate] = useState("invite");
   const [previewSending, setPreviewSending] = useState(false);
   const [previewSent, setPreviewSent] = useState(false);
+  const [previewError, setPreviewError] = useState("");
   const [isDev, setIsDev] = useState(false);
 
   // ── Auth guard ───────────────────────────────────────────────────────────────
@@ -351,10 +352,21 @@ Winner\t\tTeam\t10`;
   const handleSendTestEmail = async () => {
     setPreviewSending(true);
     setPreviewSent(false);
-    await fetch(`/api/admin/email-preview?template=${previewTemplate}&send=true`);
-    setPreviewSending(false);
-    setPreviewSent(true);
-    setTimeout(() => setPreviewSent(false), 3000);
+    setPreviewError("");
+    try {
+      const res = await fetch(`/api/admin/email-preview?template=${previewTemplate}&send=true`);
+      const data = await res.json();
+      if (!res.ok) {
+        setPreviewError(data.error ?? `HTTP ${res.status}`);
+      } else {
+        setPreviewSent(true);
+        setTimeout(() => setPreviewSent(false), 3000);
+      }
+    } catch (e: unknown) {
+      setPreviewError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPreviewSending(false);
+    }
   };
 
   const handleRoleToggle = async (userId: string, currentRole: string) => {
@@ -1102,6 +1114,11 @@ Winner\t\tTeam\t10`;
               {previewSending ? "Sending…" : previewSent ? "Sent ✓" : "Send to me"}
             </button>
           </div>
+          {previewError && (
+            <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 break-all">
+              <strong>Send failed:</strong> {previewError}
+            </p>
+          )}
           {isDev && (
             <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               🛠 <strong>Dev mode:</strong> "Send to me" will attempt SMTP delivery. Magic link emails in this environment are logged to the server console only.
