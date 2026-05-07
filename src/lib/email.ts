@@ -16,9 +16,36 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 15_000,
 });
 
+// If RESEND_API_KEY is set, send via Resend's HTTP API instead of SMTP.
+// Cloud hosts (Railway, Fly, etc.) often block outbound SMTP entirely;
+// HTTPS to api.resend.com works everywhere.
+async function sendViaResend({ to, subject, html }: { to: string; subject: string; html: string }) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: process.env.EMAIL_FROM,
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Resend API ${res.status}: ${body}`);
+  }
+}
+
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
   try {
-    await transporter.sendMail({ from: process.env.EMAIL_FROM, to, subject, html, encoding: "utf-8" });
+    if (process.env.RESEND_API_KEY) {
+      await sendViaResend({ to, subject, html });
+    } else {
+      await transporter.sendMail({ from: process.env.EMAIL_FROM, to, subject, html, encoding: "utf-8" });
+    }
   } catch (e) {
     console.error("[email] sendMail failed:", { to, subject, error: e });
     throw e;
