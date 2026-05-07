@@ -2,7 +2,7 @@
 set -e
 
 echo "[start] Running prisma db push..."
-npx prisma db push --accept-data-loss
+npx prisma db push
 
 echo "[start] Checking if database needs seeding..."
 MATCH_COUNT=$(node -e "
