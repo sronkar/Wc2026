@@ -58,13 +58,13 @@ const nextConfig = {
       };
       config.resolve.fallback = {
         ...config.resolve.fallback,
-        http: false,
-        https: false,
-        net: false,
-        tls: false,
-        fs: false,
-        dns: false,
-        child_process: false,
+        // Node.js built-ins unavailable in Edge/browser — stub them all out
+        http: false, https: false, net: false, tls: false,
+        fs: false, path: false, os: false, crypto: false,
+        stream: false, zlib: false, util: false, url: false,
+        events: false, buffer: false, assert: false,
+        dns: false, child_process: false, worker_threads: false,
+        querystring: false, string_decoder: false, readline: false,
       };
     }
     return config;
