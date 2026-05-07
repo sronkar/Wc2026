@@ -36,6 +36,22 @@ const nextConfig = {
   },
   experimental: {
     instrumentationHook: true,
+    serverComponentsExternalPackages: ["nodemailer", "web-push", "node-cron"],
+  },
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        http: false,
+        https: false,
+        net: false,
+        tls: false,
+        fs: false,
+        dns: false,
+        child_process: false,
+      };
+    }
+    return config;
   },
   images: {
     remotePatterns: [
