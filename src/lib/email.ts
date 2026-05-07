@@ -87,8 +87,8 @@ export function buildGroupInviteHtml({ groupName, roleLabel, inviteUrl, requireP
       ${inviterLine}
       <div style="background:#f8f9fa;border:1px solid #e5e7eb;border-radius:12px;padding:20px 24px;margin-bottom:24px">
         <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#888;font-weight:600">Group</p>
-        <p style="margin:0 0 12px;font-size:22px;font-weight:900;color:#003366">${groupName}</p>
-        <p style="margin:0;font-size:13px;color:#555">Your role: <strong style="color:#003366">${roleLabel}</strong></p>
+        <p style="margin:0${roleLabel !== "Member" ? " 0 12px" : ""};font-size:22px;font-weight:900;color:#003366">${groupName}</p>
+        ${roleLabel !== "Member" ? `<p style="margin:0;font-size:13px;color:#555">Your role: <strong style="color:#003366">${roleLabel}</strong></p>` : ""}
       </div>
       <p style="font-size:13px;color:#666;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:28px">
         ℹ️ ${joinNote}

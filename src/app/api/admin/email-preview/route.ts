@@ -39,7 +39,7 @@ function buildPreviewHtml(template: Template): string {
         groupName: "World Cup Legends 2026",
         roleLabel: "Member",
         inviteUrl: `${appUrl}/invite/preview-token-abc123`,
-        requirePassword: false,
+        requirePassword: true,
         inviterName: "Jamie (Admin)",
       });
 
