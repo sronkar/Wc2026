@@ -32,6 +32,13 @@ export default function InvitePage() {
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
 
+  // Step 2: password setup after joining
+  const [joinedGroupId, setJoinedGroupId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
   useEffect(() => {
     fetch(`/api/invite/${token}`)
       .then((r) => r.json())
@@ -63,7 +70,12 @@ export default function InvitePage() {
       setJoining(false);
       return;
     }
-    router.push(`/groups/${data.groupId}`);
+    // Only show password step if the group didn't already require one
+    if (!invite?.requirePassword) {
+      setJoinedGroupId(data.groupId);
+    } else {
+      router.push(`/groups/${data.groupId}`);
+    }
   };
 
   const handleAccept = async () => {
@@ -85,8 +97,26 @@ export default function InvitePage() {
       setAccepting(false);
     } else {
       setAccepted(true);
-      setTimeout(() => router.push(`/groups/${data.groupId}`), 1200);
+      if (!invite?.requirePassword && !invite?.userHasPassword) {
+        setTimeout(() => setJoinedGroupId(data.groupId), 800);
+      } else {
+        setTimeout(() => router.push(`/groups/${data.groupId}`), 1200);
+      }
     }
+  };
+
+  const handleSetPassword = async () => {
+    if (newPassword.length < 8) { setPasswordError("Password must be at least 8 characters"); return; }
+    if (newPassword !== newPasswordConfirm) { setPasswordError("Passwords don't match"); return; }
+    setSettingPassword(true);
+    setPasswordError("");
+    const res = await fetch("/api/user/set-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword }),
+    });
+    if (!res.ok) { setPasswordError("Failed to set password"); setSettingPassword(false); return; }
+    router.push(`/groups/${joinedGroupId}`);
   };
 
   if (!invite && !loadError) {
@@ -108,6 +138,57 @@ export default function InvitePage() {
 
   const roleLabel =
     invite!.memberRole === "VISITOR_ADMIN" ? "Visitor Admin (no predictions)" : "Member";
+
+  if (joinedGroupId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="card text-center">
+            <div className="text-4xl mb-3">🎉</div>
+            <h1 className="text-xl font-bold text-gray-900 mb-1">You&apos;re in!</h1>
+            <p className="text-gray-500 text-sm mb-6">Set a password so you can sign in easily next time.</p>
+            <div className="text-left space-y-3 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoFocus
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Confirm password</label>
+                <input
+                  type="password"
+                  value={newPasswordConfirm}
+                  onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                  placeholder="Repeat your password"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+            </div>
+            <button
+              onClick={handleSetPassword}
+              disabled={settingPassword || !newPassword || !newPasswordConfirm}
+              className="btn-primary w-full py-3 disabled:opacity-50 mb-3"
+            >
+              {settingPassword ? "Saving…" : "Set Password & Go to Group"}
+            </button>
+            <button
+              onClick={() => router.push(`/groups/${joinedGroupId}`)}
+              className="w-full text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
+            >
+              Skip — I&apos;ll use magic link to sign in
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">

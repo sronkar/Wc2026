@@ -31,6 +31,13 @@ export default function JoinByLinkPage() {
   const [done, setDone] = useState(false);
   const [alreadyMember, setAlreadyMember] = useState(false);
 
+  // Step 2: password setup
+  const [joinedGroupId, setJoinedGroupId] = useState<string | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+
   // Load group info (no auth required)
   useEffect(() => {
     fetch(`/api/join/${token}`)
@@ -53,6 +60,7 @@ export default function JoinByLinkPage() {
         if (d.error) { setJoinError("Something went wrong."); return; }
         setAlreadyMember(!!d.alreadyMember);
         setDone(true);
+        if (!d.alreadyMember) setJoinedGroupId(d.groupId);
       })
       .catch(() => setJoinError("Something went wrong."))
       .finally(() => setAutoJoining(false));
@@ -75,7 +83,21 @@ export default function JoinByLinkPage() {
       setJoining(false);
       return;
     }
-    router.push(`/groups/${data.groupId}`);
+    setJoinedGroupId(data.groupId);
+  };
+
+  const handleSetPassword = async () => {
+    if (newPassword.length < 8) { setPasswordError("Password must be at least 8 characters"); return; }
+    if (newPassword !== newPasswordConfirm) { setPasswordError("Passwords don't match"); return; }
+    setSettingPassword(true);
+    setPasswordError("");
+    const res = await fetch("/api/user/set-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: newPassword }),
+    });
+    if (!res.ok) { setPasswordError("Failed to set password"); setSettingPassword(false); return; }
+    router.push(`/groups/${joinedGroupId}`);
   };
 
   if (loadError) {
@@ -98,18 +120,66 @@ export default function JoinByLinkPage() {
     );
   }
 
-  // Authenticated + done
-  if (done) {
+  // Authenticated + done (already a member — skip password step)
+  if (done && alreadyMember) {
     return (
       <div className="max-w-md mx-auto px-4 py-16 text-center">
         <p className="text-5xl mb-4">⚽</p>
-        <h1 className="text-xl font-bold text-gray-900 mb-2">
-          {alreadyMember ? `You're already in ${group.groupName}!` : `You've joined ${group.groupName}!`}
-        </h1>
-        <p className="text-gray-400 text-sm mb-6">
-          {alreadyMember ? "You're already an approved member." : "You're in! Start predicting now."}
-        </p>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">You&apos;re already in {group.groupName}!</h1>
+        <p className="text-gray-400 text-sm mb-6">You&apos;re already an approved member.</p>
         <Link href={`/groups/${group.groupId}`} className="btn-primary">Go to Group Dashboard</Link>
+      </div>
+    );
+  }
+
+  // Password step — shown after any successful join
+  if (joinedGroupId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="card text-center">
+            <div className="text-4xl mb-3">🎉</div>
+            <h1 className="text-xl font-bold text-gray-900 mb-1">You&apos;re in!</h1>
+            <p className="text-gray-500 text-sm mb-6">Set a password so you can sign in easily next time.</p>
+            <div className="text-left space-y-3 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                  autoFocus
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Confirm password</label>
+                <input
+                  type="password"
+                  value={newPasswordConfirm}
+                  onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                  placeholder="Repeat your password"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                />
+              </div>
+              {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+            </div>
+            <button
+              onClick={handleSetPassword}
+              disabled={settingPassword || !newPassword || !newPasswordConfirm}
+              className="btn-primary w-full py-3 disabled:opacity-50 mb-3"
+            >
+              {settingPassword ? "Saving…" : "Set Password & Go to Group"}
+            </button>
+            <button
+              onClick={() => router.push(`/groups/${joinedGroupId}`)}
+              className="w-full text-sm text-gray-400 hover:text-gray-600 underline underline-offset-2"
+            >
+              Skip — I&apos;ll use magic link to sign in
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
