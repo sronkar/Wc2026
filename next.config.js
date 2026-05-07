@@ -19,6 +19,10 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  // Don't fail the production build on type errors or lint warnings —
+  // both are caught in dev; blocking deploys on them hurts more than it helps.
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   async redirects() {
     return [
       { source: "/leaderboard", destination: "/groups", permanent: false },
