@@ -444,8 +444,11 @@ export function buildPostGameHtml({ match, insights, top3, predRows, userEntry }
     .join("");
 
   const userRow = userEntry && userEntry.rank > 3
-    ? `<tr style="background:#fffde7;border-top:2px dashed #eee">
-        <td style="padding:8px 12px;color:#666">#${userEntry.rank}</td>
+    ? `<tr>
+        <td colspan="4" style="padding:4px 12px;text-align:center;color:#9ca3af;font-size:13px;letter-spacing:2px">· · ·</td>
+      </tr>
+      <tr style="background:#fffde7">
+        <td style="padding:8px 12px;color:#666;font-weight:bold">#${userEntry.rank}</td>
         <td style="padding:8px 12px;font-weight:bold">You</td>
         <td style="padding:8px 12px;text-align:right;font-weight:bold;color:#003366">${userEntry.totalPoints} pts</td>
         <td style="padding:8px 12px;text-align:right;color:#22c55e">${userEntry.pointsGained ? `+${userEntry.pointsGained}` : ""}</td>
