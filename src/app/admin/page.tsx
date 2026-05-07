@@ -60,7 +60,7 @@ interface GlobalPrediction {
   answerCount: number;
 }
 
-type Tab = "results" | "settings" | "users" | "groups" | "advancement";
+type Tab = "results" | "settings" | "users" | "groups" | "advancement" | "email";
 
 const ROUNDS = [
   "Group Stage",
@@ -155,7 +155,7 @@ Winner\t\tTeam\t10`;
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const t = searchParams.get("tab");
-    return (t === "groups" || t === "settings" || t === "users" || t === "results" || t === "advancement") ? t as Tab : "results";
+    return (t === "groups" || t === "settings" || t === "users" || t === "results" || t === "advancement" || t === "email") ? t as Tab : "results";
   });
 
   // ── Advancement tab state ─────────────────────────────────────────────────────
@@ -618,6 +618,7 @@ Winner\t\tTeam\t10`;
     { key: "advancement", label: "Advancement" },
     ...(isAdmin ? [
       { key: "settings" as Tab, label: "Point Defaults" },
+      { key: "email" as Tab, label: "Email" },
       { key: "users" as Tab, label: "Sub-admins" },
     ] : []),
   ];
@@ -1060,53 +1061,53 @@ Winner\t\tTeam\t10`;
             )}
           </div>
 
-          {/* Email Preview card */}
-          <div className="card mt-6">
-            <h2 className="font-bold text-gray-800 mb-1">Email Preview</h2>
-            <p className="text-xs text-gray-400 mb-4">
-              Preview or test-send any transactional email template. &quot;Send to me&quot; delivers to your admin email address.
-            </p>
-            <div className="flex flex-wrap gap-3 items-center">
-              <select
-                value={previewTemplate}
-                onChange={(e) => { setPreviewTemplate(e.target.value); setPreviewSent(false); }}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-              >
-                {[
-                  { value: "invite", label: "Group invite" },
-                  { value: "welcome", label: "Welcome (post-join)" },
-                  { value: "magic", label: "Magic link sign-in" },
-                  { value: "reset", label: "Password reset" },
-                  { value: "verification", label: "Join-link verification" },
-                  { value: "reminder", label: "1-hour lock reminder" },
-                  { value: "lock30m", label: "30-min lock warning" },
-                  { value: "postgame", label: "Post-game result" },
-                  { value: "subadmin", label: "Sub-admin action alert" },
-                ].map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-              <button
-                onClick={handleEmailPreviewInTab}
-                className="btn-secondary text-sm"
-              >
-                Preview in tab
-              </button>
-              <button
-                onClick={handleSendTestEmail}
-                disabled={previewSending}
-                className="btn-primary text-sm disabled:opacity-50"
-              >
-                {previewSending ? "Sending…" : previewSent ? "Sent ✓" : "Send to me"}
-              </button>
-            </div>
-            {isDev && (
-              <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                🛠 <strong>Dev mode:</strong> "Send to me" will attempt SMTP delivery. Magic link emails in this environment are logged to the server console only.
-              </p>
-            )}
-          </div>
         </>
+      )}
+
+      {/* ── Email tab (admin only) ────────────────────────────────────────────── */}
+      {activeTab === "email" && isAdmin && (
+        <div className="card">
+          <h2 className="font-bold text-gray-800 mb-1">Email Preview</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Preview or test-send any transactional email template. &quot;Send to me&quot; delivers to your admin email address.
+          </p>
+          <div className="flex flex-wrap gap-3 items-center">
+            <select
+              value={previewTemplate}
+              onChange={(e) => { setPreviewTemplate(e.target.value); setPreviewSent(false); }}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            >
+              {[
+                { value: "invite", label: "Group invite" },
+                { value: "welcome", label: "Welcome (post-join)" },
+                { value: "magic", label: "Magic link sign-in" },
+                { value: "reset", label: "Password reset" },
+                { value: "verification", label: "Join-link verification" },
+                { value: "reminder", label: "1-hour lock reminder" },
+                { value: "lock30m", label: "30-min lock warning" },
+                { value: "postgame", label: "Post-game result" },
+                { value: "subadmin", label: "Sub-admin action alert" },
+              ].map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <button onClick={handleEmailPreviewInTab} className="btn-secondary text-sm">
+              Preview in tab
+            </button>
+            <button
+              onClick={handleSendTestEmail}
+              disabled={previewSending}
+              className="btn-primary text-sm disabled:opacity-50"
+            >
+              {previewSending ? "Sending…" : previewSent ? "Sent ✓" : "Send to me"}
+            </button>
+          </div>
+          {isDev && (
+            <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              🛠 <strong>Dev mode:</strong> "Send to me" will attempt SMTP delivery. Magic link emails in this environment are logged to the server console only.
+            </p>
+          )}
+        </div>
       )}
 
       {/* ── Groups tab ───────────────────────────────────────────────────────── */}
