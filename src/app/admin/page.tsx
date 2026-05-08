@@ -90,7 +90,7 @@ function AdminPage() {
 
   // ── Results tab state ────────────────────────────────────────────────────────
   const [matches, setMatches] = useState<Match[]>([]);
-  const [resultInputs, setResultInputs] = useState<Record<string, { home: string; away: string }>>({});
+  const [resultInputs, setResultInputs] = useState<Record<string, { home: string; away: string }>>({}); 
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [savedMatches, setSavedMatches] = useState<Set<string>>(new Set());
   const [roundFilter, setRoundFilter] = useState("Group Stage");
@@ -125,7 +125,7 @@ function AdminPage() {
   const [unresolvingPred, setUnresolvingPred] = useState<Record<string, boolean>>({});
   const [resolveInputs, setResolveInputs] = useState<Record<string, string>>({});
   const [resolvingPred, setResolvingPred] = useState<Record<string, boolean>>({});
-  const [resolveResults, setResolveResults] = useState<Record<string, { awarded: number } | { error: string }>>({});
+  const [resolveResults, setResolveResults] = useState<Record<string, { awarded: number } | { error: string }>>({}); 
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [newGroupVisitor, setNewGroupVisitor] = useState(false);
