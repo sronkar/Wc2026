@@ -37,7 +37,7 @@ export function GroupSwitcher({ activeGroupId, subPage }: Props) {
   // see them all without horizontal scroll.
   return (
     <div
-      className="flex items-center gap-1.5 overflow-x-auto sm:flex-wrap -mx-2 px-2 snap-x scrollbar-thin"
+      className="flex items-center gap-1.5 overflow-x-auto sm:flex-wrap snap-x scrollbar-thin"
       role="tablist"
       aria-label="Switch group"
     >
