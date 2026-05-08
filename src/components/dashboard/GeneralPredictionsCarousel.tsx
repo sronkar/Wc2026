@@ -122,10 +122,22 @@ function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<PlayerResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
+  // Sync when parent navigates to a new prediction; fetch country for saved answers
   useEffect(() => {
     setQuery(value);
     setOpen(false);
+    if (!value) { setSelectedCountry(null); return; }
+    fetch(`/api/players?q=${encodeURIComponent(value)}`)
+      .then((r) => r.json())
+      .then((data: PlayerResult[]) => {
+        if (Array.isArray(data)) {
+          const match = data.find((p) => p.name.toLowerCase() === value.toLowerCase());
+          setSelectedCountry(match?.country ?? null);
+        }
+      })
+      .catch(() => {});
   }, [value]);
 
   useEffect(() => {
@@ -139,6 +151,20 @@ function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string
     }, 300);
     return () => clearTimeout(timer);
   }, [query, open]);
+
+  // When a valid player is selected and dropdown is closed, show a flag pill
+  if (value && selectedCountry && !open) {
+    return (
+      <button
+        onClick={() => { setQuery(""); setOpen(true); }}
+        className="w-full border border-fifa-blue bg-blue-50 rounded-lg px-3 py-2 text-sm text-fifa-blue font-medium flex items-center gap-2"
+      >
+        <span className="shrink-0 text-lg leading-none">{getFlag(selectedCountry) || "🏳️"}</span>
+        <span className="flex-1 text-left">{value}</span>
+        <span className="text-gray-400 text-xs shrink-0">change</span>
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-2">
@@ -164,7 +190,7 @@ function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string
             results.map((p) => (
               <button
                 key={p.id}
-                onClick={() => { setQuery(p.name); onChange(p.name); setOpen(false); }}
+                onClick={() => { setQuery(p.name); onChange(p.name); setSelectedCountry(p.country); setOpen(false); }}
                 className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${value === p.name ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
               >
                 <span className="shrink-0 text-base leading-none">{getFlag(p.country) || "🏳️"}</span>
