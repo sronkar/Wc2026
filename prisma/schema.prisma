@@ -259,6 +259,7 @@ model CustomPrediction {
   description   String?
   optionType    String                   @default("FIXED")  // FIXED | TEAM | PLAYER
   options       String                   // JSON-encoded string[]
+  teamSort      String                   @default("ALPHABETICAL") // ALPHABETICAL | BY_GROUP | BY_GAME_ORDER (TEAM type only)
   points        Int                      @default(3)
   lockTime      DateTime
   correctOption String?

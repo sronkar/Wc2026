@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { WC2026_TEAMS } from "@/lib/teams";
+import { WC_GROUPS, TEAMS_BY_GAME_ORDER } from "@/lib/wcGroups";
 import { getFlag } from "@/lib/flags";
 
 interface CustomPrediction {
@@ -9,6 +10,7 @@ interface CustomPrediction {
   question: string;
   description: string | null;
   optionType: string;
+  teamSort: string;
   options: string[];
   points: number;
   lockTime: string;
@@ -40,36 +42,76 @@ function Countdown({ lockTime }: { lockTime: string }) {
   return <span>{label}</span>;
 }
 
-function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TeamPicker({ value, onChange, sort = "ALPHABETICAL" }: { value: string; onChange: (v: string) => void; sort?: string }) {
   const [query, setQuery] = useState(value);
-  const filtered = query.trim()
-    ? WC2026_TEAMS.filter((t) => t.toLowerCase().includes(query.toLowerCase()))
-    : WC2026_TEAMS;
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => { setQuery(value); setOpen(false); }, [value]);
+
+  const isValidTeam = value ? WC2026_TEAMS.includes(value) : false;
+  const q = query.trim().toLowerCase();
+  const baseList = sort === "BY_GAME_ORDER" ? TEAMS_BY_GAME_ORDER : [...WC2026_TEAMS].sort((a, b) => a.localeCompare(b));
+  const filtered = q ? baseList.filter((t) => t.toLowerCase().includes(q)) : [];
+
+  const renderTeamButton = (t: string) => (
+    <button
+      key={t}
+      onClick={() => { setQuery(t); onChange(t); setOpen(false); }}
+      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 border-b border-gray-100 last:border-0 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
+    >
+      <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
+      {value === t ? "✓ " : ""}{t}
+    </button>
+  );
+
+  if (isValidTeam && !open) {
+    return (
+      <button
+        onClick={() => { setQuery(""); setOpen(true); }}
+        className="w-full border border-fifa-blue bg-blue-50 rounded-lg px-3 py-2 text-sm text-fifa-blue font-medium flex items-center gap-2"
+      >
+        <span className="shrink-0 text-lg leading-none">{getFlag(value)}</span>
+        <span className="flex-1 text-left">{value}</span>
+        <span className="text-gray-400 text-xs shrink-0">change</span>
+      </button>
+    );
+  }
+
+  const placeholder =
+    sort === "BY_GROUP" ? "Search or browse by group…" :
+    sort === "BY_GAME_ORDER" ? "Search or browse by game order…" :
+    "Search team…";
 
   return (
     <div className="space-y-2">
       <input
         type="text"
         value={query}
-        onChange={(e) => { setQuery(e.target.value); if (!e.target.value) onChange(""); }}
-        placeholder="Search team…"
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange(""); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder}
+        autoFocus={open}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
       />
-      {query.trim() && (
-        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-          {filtered.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-gray-400">No teams match</p>
-          ) : (
-            filtered.map((t) => (
-              <button
-                key={t}
-                onClick={() => { setQuery(t); onChange(t); }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
-              >
-                <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
-                {value === t ? "✓ " : ""}{t}
-              </button>
+      {open && (
+        <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+          {q ? (
+            filtered.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-gray-400">No teams match</p>
+            ) : (
+              <div className="divide-y divide-gray-100">{filtered.map(renderTeamButton)}</div>
+            )
+          ) : sort === "BY_GROUP" ? (
+            Object.entries(WC_GROUPS).map(([group, teams]) => (
+              <div key={group}>
+                <div className="px-3 py-1 bg-gray-50 text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                  Group {group}
+                </div>
+                {teams.map(renderTeamButton)}
+              </div>
             ))
+          ) : (
+            <div className="divide-y divide-gray-100">{baseList.map(renderTeamButton)}</div>
           )}
         </div>
       )}
@@ -279,6 +321,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                       <TeamPicker
                         value={selected[cp.id] ?? ""}
                         onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
+                        sort={cp.teamSort}
                       />
                     )}
                     {isPlayer && (

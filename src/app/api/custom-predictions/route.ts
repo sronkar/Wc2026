@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
         question: cp.question,
         description: cp.description ?? null,
         optionType: cp.optionType,
+        teamSort: cp.teamSort,
         isGlobal: cp.isGlobal,
         options,
         points: cp.points,

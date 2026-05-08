@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
         question: cp.question,
         description: cp.description ?? null,
         optionType: cp.optionType,
+        teamSort: cp.teamSort,
         options: JSON.parse(cp.options) as string[],
         points: cp.points,
         lockTime: cp.lockTime.toISOString(),
@@ -167,7 +168,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Single create ─────────────────────────────────────────────────────────────
-  const { groupId, isGlobal, question, description, optionType: rawType, options: rawOptions, points, lockTime } = body;
+  const { groupId, isGlobal, question, description, optionType: rawType, options: rawOptions, points, lockTime, teamSort } = body;
   const optionType: string = (rawType ?? "FIXED").toUpperCase();
 
   if (!groupId && !isGlobal) {
@@ -200,6 +201,7 @@ export async function POST(req: NextRequest) {
       description: description ? String(description).trim() || null : null,
       optionType,
       options: JSON.stringify(options),
+      teamSort: optionType === "TEAM" && ["ALPHABETICAL","BY_GROUP","BY_GAME_ORDER"].includes(teamSort) ? teamSort : "ALPHABETICAL",
       points: typeof points === "number" ? points : 3,
       lockTime: lockTime ? new Date(lockTime) : defaultLockTime,
     },

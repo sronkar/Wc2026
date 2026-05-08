@@ -53,6 +53,7 @@ interface GlobalPrediction {
   id: string;
   question: string;
   optionType: string;
+  teamSort: string;
   points: number;
   lockTime: string;
   status: string;
@@ -1376,7 +1377,28 @@ Winner\t\tTeam\t10`;
                           <p className="truncate">{pred.question}</p>
                         </td>
                         <td className="px-4 py-3 text-gray-500">
-                          {pred.optionType === "TEAM" ? "⚽ Team" : pred.optionType === "PLAYER" ? "🧑 Player" : "Custom"}
+                          <div className="flex flex-col gap-1">
+                            <span>{pred.optionType === "TEAM" ? "⚽ Team" : pred.optionType === "PLAYER" ? "🧑 Player" : "Custom"}</span>
+                            {pred.optionType === "TEAM" && (
+                              <select
+                                value={pred.teamSort ?? "ALPHABETICAL"}
+                                onChange={async (e) => {
+                                  const val = e.target.value;
+                                  setGlobalPreds((prev) => prev.map((p) => p.id === pred.id ? { ...p, teamSort: val } : p));
+                                  await fetch(`/api/admin/custom-predictions/${pred.id}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ teamSort: val }),
+                                  });
+                                }}
+                                className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-fifa-blue"
+                              >
+                                <option value="ALPHABETICAL">A–Z</option>
+                                <option value="BY_GROUP">By Group</option>
+                                <option value="BY_GAME_ORDER">By Game Order</option>
+                              </select>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-gray-500">{pred.points}</td>
                         <td className="px-4 py-3 text-gray-500">{pred.answerCount}</td>

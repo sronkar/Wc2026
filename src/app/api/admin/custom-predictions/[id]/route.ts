@@ -107,6 +107,16 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ ok: true, awarded: answers.filter((a) => isMatch(a.option)).length });
   }
 
+  // ── teamSort: display preference, can be changed anytime ──
+  if ("teamSort" in body) {
+    const valid = ["ALPHABETICAL", "BY_GROUP", "BY_GAME_ORDER"];
+    if (!valid.includes(body.teamSort)) {
+      return NextResponse.json({ error: "Invalid teamSort value" }, { status: 400 });
+    }
+    await prisma.customPrediction.update({ where: { id: params.id }, data: { teamSort: body.teamSort } });
+    return NextResponse.json({ ok: true });
+  }
+
   // ── Edit metadata (only allowed before lock time) ──
   if (getNow() >= cp.lockTime) {
     return NextResponse.json({ error: "Cannot edit a locked prediction" }, { status: 409 });

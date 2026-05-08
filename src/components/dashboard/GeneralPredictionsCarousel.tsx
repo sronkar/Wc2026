@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getFlag } from "@/lib/flags";
 import { WC2026_TEAMS } from "@/lib/teams";
-import { WC_GROUPS } from "@/lib/wcGroups";
+import { WC_GROUPS, TEAMS_BY_GAME_ORDER } from "@/lib/wcGroups";
 
 interface CustomPrediction {
   id: string;
   question: string;
   description: string | null;
   optionType: string;
+  teamSort: string;
   options: string[];
   points: number;
   lockTime: string;
@@ -43,7 +44,7 @@ function Countdown({ lockTime }: { lockTime: string }) {
 }
 
 // TeamPicker: closes dropdown after selection, syncs with value prop when carousel navigates
-function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function TeamPicker({ value, onChange, sort = "ALPHABETICAL" }: { value: string; onChange: (v: string) => void; sort?: string }) {
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
 
@@ -55,7 +56,20 @@ function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) 
 
   const isValidTeam = value ? WC2026_TEAMS.includes(value) : false;
   const q = query.trim().toLowerCase();
-  const filtered = q ? WC2026_TEAMS.filter((t) => t.toLowerCase().includes(q)) : [];
+
+  const baseList = sort === "BY_GAME_ORDER" ? TEAMS_BY_GAME_ORDER : [...WC2026_TEAMS].sort((a, b) => a.localeCompare(b));
+  const filtered = q ? baseList.filter((t) => t.toLowerCase().includes(q)) : [];
+
+  const renderTeamButton = (t: string, extraClass = "") => (
+    <button
+      key={t}
+      onClick={() => { setQuery(t); onChange(t); setOpen(false); }}
+      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 border-b border-gray-100 last:border-0 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"} ${extraClass}`}
+    >
+      <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
+      {value === t ? "✓ " : ""}{t}
+    </button>
+  );
 
   // When a valid team is selected and dropdown is closed, show a flag pill
   if (isValidTeam && !open) {
@@ -71,6 +85,11 @@ function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) 
     );
   }
 
+  const placeholder =
+    sort === "BY_GROUP" ? "Search or browse by group…" :
+    sort === "BY_GAME_ORDER" ? "Search or browse by game order…" :
+    "Search team…";
+
   return (
     <div className="space-y-2">
       <input
@@ -82,49 +101,36 @@ function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) 
           if (!e.target.value) onChange("");
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Search team or tap to browse by group…"
+        placeholder={placeholder}
         autoFocus={open}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
       />
       {open && (
         <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-lg">
           {q ? (
-            // Filtered flat list
+            // Filtered flat list — always available regardless of sort mode
             filtered.length === 0 ? (
               <p className="px-3 py-2 text-sm text-gray-400">No teams match</p>
             ) : (
               <div className="divide-y divide-gray-100">
-                {filtered.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => { setQuery(t); onChange(t); setOpen(false); }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
-                  >
-                    <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
-                    {value === t ? "✓ " : ""}{t}
-                  </button>
-                ))}
+                {filtered.map((t) => renderTeamButton(t))}
               </div>
             )
-          ) : (
+          ) : sort === "BY_GROUP" ? (
             // Grouped by WC group
             Object.entries(WC_GROUPS).map(([group, teams]) => (
               <div key={group}>
                 <div className="px-3 py-1 bg-gray-50 text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
                   Group {group}
                 </div>
-                {teams.map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => { setQuery(t); onChange(t); setOpen(false); }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 border-b border-gray-100 last:border-0 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
-                  >
-                    <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
-                    {value === t ? "✓ " : ""}{t}
-                  </button>
-                ))}
+                {teams.map((t) => renderTeamButton(t))}
               </div>
             ))
+          ) : (
+            // Flat list — alphabetical or game-order
+            <div className="divide-y divide-gray-100">
+              {baseList.map((t) => renderTeamButton(t))}
+            </div>
           )}
         </div>
       )}
@@ -447,6 +453,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
                 <TeamPicker
                   value={selected[cp.id] ?? ""}
                   onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
+                  sort={cp.teamSort}
                 />
               )}
               {isPlayer && (
