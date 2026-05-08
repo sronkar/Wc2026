@@ -301,9 +301,8 @@ export default async function GroupDashboardPage({
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-        {/* Right column — first in DOM so it appears first on mobile.
-            md:order-2 moves it to the right column on desktop. */}
-        <div className="space-y-4 md:space-y-6 md:order-2">
+        {/* Right column — first in DOM so it appears first on mobile. */}
+        <div className="space-y-4 md:space-y-6 min-w-0">
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-gray-800">Group Leaderboard</h2>
@@ -362,9 +361,8 @@ export default async function GroupDashboardPage({
           </div>
         </div>
 
-        {/* Left column — second in DOM (below leaderboard on mobile).
-            md:order-1 moves it to the left column on desktop. */}
-        <div className="flex flex-col gap-4 md:gap-6 md:order-1">
+        {/* Left column — second in DOM (below leaderboard on mobile). */}
+        <div className="flex flex-col gap-4 md:gap-6 min-w-0">
           {!isVisitor && upcomingMatches.length > 0 && (
             <div>
               <div className="flex items-center justify-between mb-1">
