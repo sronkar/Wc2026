@@ -301,65 +301,9 @@ export default async function GroupDashboardPage({
       </div>
 
       <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-        {/* Left column. On mobile we promote "Next Up to Predict" above
-            "General Predictions" — the time-sensitive thing should lead when
-            the user is more likely to be on a phone, 5 min before kickoff.
-            On md+ the desktop reading order is preserved. */}
-        <div className="flex flex-col gap-4 md:gap-6 order-2 md:order-1">
-          {/* General predictions carousel */}
-          <div className="order-2 md:order-1">
-            <h2 className="font-bold text-gray-800 mb-3">General Predictions</h2>
-            <GeneralPredictionsCarousel groupId={groupId} />
-          </div>
-
-          {!isVisitor && upcomingMatches.length > 0 && (
-            <div className="order-1 md:order-2">
-              <div className="flex items-center justify-between mb-1">
-                <h2 className="font-bold text-gray-800">Next Up to Predict</h2>
-                <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline shrink-0 whitespace-nowrap ml-2">All matches →</Link>
-              </div>
-              {todayMatchIds.length > 0 && (
-                <p className="text-xs text-gray-400 mb-3">
-                  {todayPredictedCount} of {todayMatchIds.length} today predicted
-                </p>
-              )}
-              <MatchCarousel
-                groupId={groupId}
-                matches={carouselMatches as Parameters<typeof MatchCarousel>[0]["matches"]}
-                predictions={predMap}
-                nowMs={getNow().getTime()}
-              />
-            </div>
-          )}
-          {isVisitor && (
-            <div className="order-1 md:order-2 card text-center py-6 text-gray-400 text-sm">
-              You are a Visitor Admin — predictions are disabled for your account in this group.
-            </div>
-          )}
-
-          {/* Live match card */}
-          {liveMatchSerialized && (
-            <div className="order-3">
-              <h2 className="font-bold text-gray-800 mb-3">
-                {liveMatchSerialized.status === "FINISHED" ? "Last Match" : "Live Now"}
-              </h2>
-              <MatchCard
-                match={liveMatchSerialized}
-                prediction={
-                  livePrediction
-                    ? { homeScore: livePrediction.homeScore, awayScore: livePrediction.awayScore, points: livePrediction.points }
-                    : undefined
-                }
-                isLoggedIn={true}
-                groupId={groupId}
-                nowMs={getNow().getTime()}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Right column — shown first on mobile so leaderboard is visible early */}
-        <div className="space-y-4 md:space-y-6 order-1 md:order-2">
+        {/* Right column — first in DOM so it appears first on mobile.
+            md:order-2 moves it to the right column on desktop. */}
+        <div className="space-y-4 md:space-y-6 md:order-2">
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-gray-800">Group Leaderboard</h2>
@@ -416,6 +360,59 @@ export default async function GroupDashboardPage({
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* Left column — second in DOM (below leaderboard on mobile).
+            md:order-1 moves it to the left column on desktop. */}
+        <div className="flex flex-col gap-4 md:gap-6 md:order-1">
+          {!isVisitor && upcomingMatches.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="font-bold text-gray-800">Next Up to Predict</h2>
+                <Link href={`/groups/${groupId}/matches`} className="text-xs text-fifa-blue hover:underline shrink-0 whitespace-nowrap ml-2">All matches →</Link>
+              </div>
+              {todayMatchIds.length > 0 && (
+                <p className="text-xs text-gray-400 mb-3">
+                  {todayPredictedCount} of {todayMatchIds.length} today predicted
+                </p>
+              )}
+              <MatchCarousel
+                groupId={groupId}
+                matches={carouselMatches as Parameters<typeof MatchCarousel>[0]["matches"]}
+                predictions={predMap}
+                nowMs={getNow().getTime()}
+              />
+            </div>
+          )}
+          {isVisitor && (
+            <div className="card text-center py-6 text-gray-400 text-sm">
+              You are a Visitor Admin — predictions are disabled for your account in this group.
+            </div>
+          )}
+
+          <div>
+            <h2 className="font-bold text-gray-800 mb-3">General Predictions</h2>
+            <GeneralPredictionsCarousel groupId={groupId} />
+          </div>
+
+          {liveMatchSerialized && (
+            <div>
+              <h2 className="font-bold text-gray-800 mb-3">
+                {liveMatchSerialized.status === "FINISHED" ? "Last Match" : "Live Now"}
+              </h2>
+              <MatchCard
+                match={liveMatchSerialized}
+                prediction={
+                  livePrediction
+                    ? { homeScore: livePrediction.homeScore, awayScore: livePrediction.awayScore, points: livePrediction.points }
+                    : undefined
+                }
+                isLoggedIn={true}
+                groupId={groupId}
+                nowMs={getNow().getTime()}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
