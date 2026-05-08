@@ -61,15 +61,27 @@ export async function GET(req: NextRequest) {
     // Admins see all groups
     const groups = await prisma.group.findMany({
       orderBy: { createdAt: "asc" },
-      include: { memberships: { select: { userId: true, status: true } } },
+      include: {
+        memberships: { select: { userId: true, status: true } },
+      },
     });
+    // Fetch creator names in one query
+    const creatorIds = [...new Set(groups.map((g) => g.createdBy))];
+    const creators = await prisma.user.findMany({
+      where: { id: { in: creatorIds } },
+      select: { id: true, name: true, email: true },
+    });
+    const creatorMap = Object.fromEntries(creators.map((c) => [c.id, c]));
+
     return NextResponse.json(groups.map((g) => {
       const mine = g.memberships.find((m) => m.userId === userId);
+      const creator = creatorMap[g.createdBy];
       return {
         id: g.id, name: g.name, description: g.description, avatar: g.avatar,
         isPublic: g.isPublic,
         memberCount: g.memberships.filter((m) => m.status === "APPROVED").length,
         myStatus: mine?.status ?? null,
+        createdByName: creator?.name ?? creator?.email ?? null,
         source: "member",
       };
     }));

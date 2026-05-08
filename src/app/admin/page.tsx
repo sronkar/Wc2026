@@ -1168,6 +1168,7 @@ Winner\t\tTeam\t10`;
                 <thead>
                   <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
                     <th className="px-4 py-2">Name</th>
+                    <th className="px-4 py-2">Created by</th>
                     <th className="px-4 py-2">Members</th>
                     <th className="px-4 py-2"></th>
                   </tr>
@@ -1176,9 +1177,14 @@ Winner\t\tTeam\t10`;
                   {filteredGroups.map((g, i) => (
                     <tr key={g.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-800">{g.name}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-medium text-gray-800">{g.name}</p>
+                          {!g.isPublic && <span className="badge bg-gray-100 text-gray-500 text-[10px]">🔒 Private</span>}
+                          {!g.myStatus && <span className="badge bg-amber-50 text-amber-600 text-[10px]">Not member</span>}
+                        </div>
                         {g.description && <p className="text-xs text-gray-400">{g.description}</p>}
                       </td>
+                      <td className="px-4 py-3 text-xs text-gray-400">{(g as {createdByName?: string}).createdByName ?? "—"}</td>
                       <td className="px-4 py-3 text-gray-500">{g.memberCount}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
