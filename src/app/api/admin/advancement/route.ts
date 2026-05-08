@@ -24,7 +24,7 @@ function calcPoints(
 export async function GET() {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -35,7 +35,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

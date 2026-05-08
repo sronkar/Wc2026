@@ -101,7 +101,7 @@ export default function GroupsPage() {
   }
 
   const GroupCard = ({ g }: { g: GroupRow }) => {
-    const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN";
+    const isAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "GROUP_ADMIN";
     const canOpen = g.myStatus === "APPROVED" || isAdmin;
 
     const inner = (

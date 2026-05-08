@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUB_ADMIN";
+  const isAdmin = session.user.role === "ADMIN" || session.user.role === "GROUP_ADMIN";
 
   try {
     if (isAdmin) {

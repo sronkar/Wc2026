@@ -39,7 +39,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   if (!group) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const isAdminRole = role === "ADMIN" || role === "SUB_ADMIN";
+  const isAdminRole = role === "ADMIN" || role === "GROUP_ADMIN";
   const myMembership = await prisma.groupMembership.findUnique({
     where: { userId_groupId: { userId, groupId } },
   });

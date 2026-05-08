@@ -19,14 +19,14 @@ export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
   const groupId = searchParams.get("groupId");
 
-  // Group-scoped fetch: SUB_ADMIN must be an approved member of that group.
+  // Group-scoped fetch: GROUP_ADMIN must be an approved member of that group.
   // Global ADMIN always allowed; globals-only listing (no groupId) allowed for both.
   if (groupId) {
     const auth = await requireGroupAdminAccess(groupId);
@@ -76,14 +76,14 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
 
   // Authorization rule: creating a GLOBAL custom prediction requires global ADMIN;
-  // creating a group-scoped one requires ADMIN or SUB_ADMIN who's an approved
+  // creating a group-scoped one requires ADMIN or GROUP_ADMIN who's an approved
   // member of that specific group. Applied uniformly to single + batch POSTs.
   const requestedGroupId: string | undefined = body.groupId;
   const requestedIsGlobal: boolean = Boolean(body.isGlobal);

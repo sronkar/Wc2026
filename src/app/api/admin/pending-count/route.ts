@@ -7,7 +7,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ count: 0 });
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") return NextResponse.json({ count: 0 });
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") return NextResponse.json({ count: 0 });
 
   try {
     const count = await prisma.groupMembership.count({ where: { status: "PENDING" } });

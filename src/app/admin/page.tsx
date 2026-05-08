@@ -171,6 +171,11 @@ Winner\t\tTeam\t10`;
   const [claudioGenerating, setClaudioGenerating] = useState(false);
   const [claudioResult, setClaudioResult] = useState<{ generated: number; matchCount: number; groupCount: number; message?: string } | { error: string } | null>(null);
 
+  // ── Platform invite state (admin only) ───────────────────────────────────────
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ ok?: boolean; error?: string } | null>(null);
+
   // ── Email preview state (admin only) ─────────────────────────────────────────
   const [previewTemplate, setPreviewTemplate] = useState("invite");
   const [previewSending, setPreviewSending] = useState(false);
@@ -181,14 +186,14 @@ Winner\t\tTeam\t10`;
   // ── Auth guard ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (status === "loading") return;
-    if (!session || (role !== "ADMIN" && role !== "SUB_ADMIN")) {
+    if (!session || (role !== "ADMIN" && role !== "GROUP_ADMIN")) {
       router.replace("/");
     }
   }, [session, status, router, role]);
 
   // ── Initial data load ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!session || (role !== "ADMIN" && role !== "SUB_ADMIN")) return;
+    if (!session || (role !== "ADMIN" && role !== "GROUP_ADMIN")) return;
 
     async function load() {
       const mRes = await fetch("/api/matches");
@@ -370,7 +375,7 @@ Winner\t\tTeam\t10`;
   };
 
   const handleRoleToggle = async (userId: string, currentRole: string) => {
-    const newRole = currentRole === "SUB_ADMIN" ? "USER" : "SUB_ADMIN";
+    const newRole = currentRole === "GROUP_ADMIN" ? "USER" : "GROUP_ADMIN";
     setRoleUpdating((prev) => ({ ...prev, [userId]: true }));
     const res = await fetch(`/api/admin/users/${userId}`, {
       method: "PATCH",
@@ -403,7 +408,7 @@ Winner\t\tTeam\t10`;
   if (status === "loading" || !session) {
     return <div className="flex items-center justify-center h-64 text-gray-400">Loading...</div>;
   }
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") return null;
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") return null;
 
   const matchSearchLower = matchSearch.trim().toLowerCase();
   const nowMsReal = Date.now();
@@ -631,7 +636,7 @@ Winner\t\tTeam\t10`;
     ...(isAdmin ? [
       { key: "settings" as Tab, label: "Point Defaults" },
       { key: "email" as Tab, label: "Email" },
-      { key: "users" as Tab, label: "Sub-admins" },
+      { key: "users" as Tab, label: "Group Admins" },
     ] : []),
   ];
 
@@ -1100,7 +1105,7 @@ Winner\t\tTeam\t10`;
                 { value: "reminder", label: "1-hour lock reminder" },
                 { value: "lock30m", label: "30-min lock warning" },
                 { value: "postgame", label: "Post-game result" },
-                { value: "subadmin", label: "Sub-admin action alert" },
+                { value: "subadmin", label: "Group Admin action alert" },
               ].map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
@@ -1582,10 +1587,48 @@ Winner\t\tTeam\t10`;
       )}
 
       {activeTab === "users" && isAdmin && (
+        <>
+        {/* Platform invite — send someone an invite to create their own group */}
+        <div className="card mb-4">
+          <h2 className="font-bold text-gray-800 text-sm mb-1">Invite someone to create their own group</h2>
+          <p className="text-xs text-gray-400 mb-3">They&apos;ll receive an email with a link. When they click it they&apos;ll be promoted to Group Admin and land on the group creation page. You won&apos;t be added to their group.</p>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setInviteSending(true);
+              setInviteResult(null);
+              const res = await fetch("/api/admin/platform-invites", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: inviteEmail.trim() }),
+              });
+              const data = await res.json();
+              setInviteResult(res.ok ? { ok: true } : { error: data.error ?? "Failed to send" });
+              if (res.ok) setInviteEmail("");
+              setInviteSending(false);
+            }}
+            className="flex gap-2 items-center"
+          >
+            <input
+              type="email"
+              required
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="friend@example.com"
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+            />
+            <button type="submit" disabled={inviteSending} className="btn-primary text-sm px-4 py-2 shrink-0">
+              {inviteSending ? "Sending…" : "Send Invite"}
+            </button>
+          </form>
+          {inviteResult?.ok && <p className="text-xs text-green-600 mt-2">✓ Invite sent!</p>}
+          {inviteResult?.error && <p className="text-xs text-red-500 mt-2">{inviteResult.error}</p>}
+        </div>
+
         <div className="card overflow-hidden p-0">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <h2 className="font-bold text-gray-800 text-sm">Sub-admins ({users.length} {users.length === 1 ? "user" : "users"})</h2>
+              <h2 className="font-bold text-gray-800 text-sm">Group Admins ({users.length} {users.length === 1 ? "user" : "users"})</h2>
               <input
                 type="search"
                 value={userSearch}
@@ -1596,7 +1639,7 @@ Winner\t\tTeam\t10`;
               />
             </div>
             <p className="text-xs text-gray-400 mt-1.5">
-              Promote any user to <strong>Sub-admin</strong> to give them app-wide management access (results, settings, groups) without full admin rights. To remove a user from a specific group, open that group&apos;s Manage page instead.
+              Promote any user to <strong>Group Admin</strong> to give them app-wide management access (results, settings, groups) without full admin rights. To remove a user from a specific group, open that group&apos;s Manage page instead.
             </p>
           </div>
           {!usersLoaded ? (
@@ -1644,10 +1687,10 @@ Winner\t\tTeam\t10`;
                     <td className="px-4 py-3">
                       <span className={`badge ${
                         user.role === "ADMIN" ? "bg-purple-100 text-purple-700" :
-                        user.role === "SUB_ADMIN" ? "bg-blue-100 text-blue-700" :
+                        user.role === "GROUP_ADMIN" ? "bg-blue-100 text-blue-700" :
                         "bg-gray-100 text-gray-500"
                       }`}>
-                        {user.role === "ADMIN" ? "Admin" : user.role === "SUB_ADMIN" ? "Sub-admin" : "User"}
+                        {user.role === "ADMIN" ? "Admin" : user.role === "GROUP_ADMIN" ? "Group Admin" : "User"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -1656,16 +1699,16 @@ Winner\t\tTeam\t10`;
                           onClick={() => handleRoleToggle(user.id, user.role)}
                           disabled={roleUpdating[user.id]}
                           className={`text-xs px-3 py-1.5 rounded-lg font-semibold border transition disabled:opacity-50 ${
-                            user.role === "SUB_ADMIN"
+                            user.role === "GROUP_ADMIN"
                               ? "bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200"
                               : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                           }`}
                         >
                           {roleUpdating[user.id]
                             ? "…"
-                            : user.role === "SUB_ADMIN"
-                            ? "Remove sub-admin"
-                            : "Make sub-admin"}
+                            : user.role === "GROUP_ADMIN"
+                            ? "Remove Group Admin"
+                            : "Make Group Admin"}
                         </button>
                       )}
                     </td>
@@ -1677,6 +1720,7 @@ Winner\t\tTeam\t10`;
             );
           })()}
         </div>
+        </>
       )}
     </div>
   );

@@ -66,7 +66,7 @@ export function Navbar() {
 
   const fetchPendingCount = () => {
     const role = session?.user?.role;
-    if (role !== "ADMIN" && role !== "SUB_ADMIN") return;
+    if (role !== "ADMIN" && role !== "GROUP_ADMIN") return;
     fetch("/api/admin/pending-count")
       .then((r) => r.json())
       .then((d) => { if (typeof d?.count === "number") setPendingCount(d.count); })
@@ -268,7 +268,7 @@ export function Navbar() {
             </Link>
           )}
 
-          {(session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN") && (
+          {(session?.user?.role === "ADMIN" || session?.user?.role === "GROUP_ADMIN") && (
             <>
               <Link
                 href="/admin?tab=groups"
@@ -382,7 +382,7 @@ export function Navbar() {
             <Link href="/groups" className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Browse Groups</Link>
           )}
 
-          {(session?.user?.role === "ADMIN" || session?.user?.role === "SUB_ADMIN") && (
+          {(session?.user?.role === "ADMIN" || session?.user?.role === "GROUP_ADMIN") && (
             <>
               <Link href="/admin?tab=groups" className="block py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>Manage Groups</Link>
               <Link href="/admin" className="flex items-center gap-2 py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>

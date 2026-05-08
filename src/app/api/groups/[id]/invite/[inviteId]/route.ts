@@ -10,7 +10,7 @@ type Ctx = { params: { id: string; inviteId: string } };
 const ROLE_LABELS: Record<string, string> = {
   MEMBER: "Member",
   ADMIN: "Admin",
-  SUB_ADMIN: "Sub Admin",
+  GROUP_ADMIN: "Group Admin",
   VISITOR_ADMIN: "Visitor Admin (no predictions)",
 };
 

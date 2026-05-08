@@ -7,8 +7,8 @@ import { prisma } from "@/lib/prisma";
  * Group-scoped admin access check.
  *
  * - Global `ADMIN` → always allowed.
- * - Global `SUB_ADMIN` → allowed only when they are an APPROVED member
- *   of the specific group. Previously any SUB_ADMIN could modify/read any
+ * - Global `GROUP_ADMIN` → allowed only when they are an APPROVED member
+ *   of the specific group. Previously any GROUP_ADMIN could modify/read any
  *   group (cross-tenant IDOR on /api/admin/groups/[id]/**).
  * - Everyone else → 403.
  * - Unauthenticated → 401.
@@ -27,7 +27,7 @@ export async function requireGroupAdminAccess(groupId: string): Promise<GroupAcc
   const role = session.user.role;
   if (role === "ADMIN") return { ok: true, session, isGlobalAdmin: true };
 
-  if (role === "SUB_ADMIN") {
+  if (role === "GROUP_ADMIN") {
     const membership = await prisma.groupMembership.findUnique({
       where: { userId_groupId: { userId: session.user.id, groupId } },
       select: { status: true },

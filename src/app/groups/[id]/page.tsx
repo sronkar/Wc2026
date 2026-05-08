@@ -28,7 +28,7 @@ export default async function GroupDashboardPage({
   const groupId = params.id;
   const userId = session.user.id;
   const role = session.user.role;
-  const isAdminRole = role === "ADMIN" || role === "SUB_ADMIN";
+  const isAdminRole = role === "ADMIN" || role === "GROUP_ADMIN";
 
   const [group, membership] = await Promise.all([
     prisma.group.findUnique({ where: { id: groupId } }),

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   if (!groupId) return NextResponse.json({ error: "groupId is required" }, { status: 400 });
 
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") {
     const membership = await prisma.groupMembership.findUnique({
       where: { userId_groupId: { userId: session.user.id, groupId } },
     });

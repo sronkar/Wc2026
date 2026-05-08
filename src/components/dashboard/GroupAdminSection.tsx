@@ -693,7 +693,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
             >
               <option value="MEMBER">Member</option>
               <option value="ADMIN">Admin</option>
-              <option value="SUB_ADMIN">Sub Admin</option>
+              <option value="GROUP_ADMIN">Group Admin</option>
               <option value="VISITOR_ADMIN">Visitor Admin</option>
             </select>
             <button
@@ -782,7 +782,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
             >
               <option value="MEMBER">Member</option>
               <option value="ADMIN">Admin</option>
-              <option value="SUB_ADMIN">Sub Admin</option>
+              <option value="GROUP_ADMIN">Group Admin</option>
               <option value="VISITOR_ADMIN">Visitor Admin</option>
             </select>
             <button
@@ -846,10 +846,10 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                       {m.memberRole !== "MEMBER" && (
                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${
                           m.memberRole === "ADMIN" ? "bg-amber-100 text-amber-800" :
-                          m.memberRole === "SUB_ADMIN" ? "bg-blue-100 text-blue-700" :
+                          m.memberRole === "GROUP_ADMIN" ? "bg-blue-100 text-blue-700" :
                           "bg-purple-100 text-purple-700"
                         }`}>
-                          {m.memberRole === "ADMIN" ? "Admin" : m.memberRole === "SUB_ADMIN" ? "Sub Admin" : "Visitor"}
+                          {m.memberRole === "ADMIN" ? "Admin" : m.memberRole === "GROUP_ADMIN" ? "Group Admin" : "Visitor"}
                         </span>
                       )}
                     </div>

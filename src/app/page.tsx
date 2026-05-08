@@ -16,7 +16,7 @@ export default async function Home() {
     });
     if (first) redirect(`/groups/${first.groupId}`);
 
-    const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUB_ADMIN";
+    const isAdmin = session.user.role === "ADMIN" || session.user.role === "GROUP_ADMIN";
     if (isAdmin) {
       const anyGroup = await prisma.group.findFirst({ orderBy: { createdAt: "asc" }, select: { id: true } });
       if (anyGroup) redirect(`/groups/${anyGroup.id}`);

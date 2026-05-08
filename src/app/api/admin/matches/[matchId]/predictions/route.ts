@@ -11,17 +11,17 @@ export async function GET(
   const session = await getServerSession(authOptions);
   if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Build the group filter:
   // - Global ADMIN sees predictions from every group.
-  // - SUB_ADMIN sees only predictions from groups they are an APPROVED
-  //   member of. Without this, a SUB_ADMIN could fetch every user's
+  // - GROUP_ADMIN sees only predictions from groups they are an APPROVED
+  //   member of. Without this, a GROUP_ADMIN could fetch every user's
   //   prediction in every group (cross-tenant data leak).
   let groupFilter: { groupId?: { in: string[] } } = {};
-  if (role === "SUB_ADMIN") {
+  if (role === "GROUP_ADMIN") {
     const memberships = await prisma.groupMembership.findMany({
       where: { userId: session.user.id, status: "APPROVED" },
       select: { groupId: true },

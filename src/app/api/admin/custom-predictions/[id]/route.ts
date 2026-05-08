@@ -8,9 +8,9 @@ import { requireGroupAdminAccess } from "@/lib/authz";
 type Ctx = { params: { id: string } };
 
 /**
- * Authorize a SUB_ADMIN to act on the custom prediction identified by `cp`.
+ * Authorize a GROUP_ADMIN to act on the custom prediction identified by `cp`.
  * - ADMIN: always allowed.
- * - SUB_ADMIN: only for group-scoped predictions where they are a member.
+ * - GROUP_ADMIN: only for group-scoped predictions where they are a member.
  *   Global predictions are ADMIN-only to modify.
  */
 async function authorizeCustomPredMutation(cp: { isGlobal: boolean; groupId: string | null }):
@@ -19,8 +19,8 @@ async function authorizeCustomPredMutation(cp: { isGlobal: boolean; groupId: str
   if (!session?.user) return { ok: false, status: 401, error: "Unauthorized" };
   const role = session.user.role;
   if (role === "ADMIN") return { ok: true };
-  if (role !== "SUB_ADMIN") return { ok: false, status: 403, error: "Forbidden" };
-  // SUB_ADMIN can't touch globals
+  if (role !== "GROUP_ADMIN") return { ok: false, status: 403, error: "Forbidden" };
+  // GROUP_ADMIN can't touch globals
   if (cp.isGlobal || !cp.groupId) return { ok: false, status: 403, error: "Only ADMIN can modify global custom predictions" };
   const auth = await requireGroupAdminAccess(cp.groupId);
   return auth.ok ? { ok: true } : { ok: false, status: auth.status, error: auth.error };

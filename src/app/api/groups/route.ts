@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "SUB_ADMIN") {
+  if (role !== "ADMIN" && role !== "GROUP_ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
 
   const userId = session.user.id;
   const role = session.user.role;
-  const isAdminRole = role === "ADMIN" || role === "SUB_ADMIN";
+  const isAdminRole = role === "ADMIN" || role === "GROUP_ADMIN";
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search")?.trim() ?? "";
 

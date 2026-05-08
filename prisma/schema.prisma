@@ -232,6 +232,18 @@ model GroupInvite {
   createdAt  DateTime @default(now())
 }
 
+// Invite sent by the global admin to let someone create their own group.
+// Clicking the link promotes the recipient to GROUP_ADMIN.
+model PlatformInvite {
+  id        String    @id @default(cuid())
+  email     String
+  token     String    @unique
+  createdBy String
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
 model CustomPrediction {
   id            String                   @id @default(cuid())
   groupId       String?

@@ -14,7 +14,7 @@ export default function AdminGroupPage() {
   useEffect(() => {
     if (status === "loading") return;
     const role = session?.user?.role;
-    if (!session || (role !== "ADMIN" && role !== "SUB_ADMIN")) {
+    if (!session || (role !== "ADMIN" && role !== "GROUP_ADMIN")) {
       router.replace("/");
     }
   }, [session, status, router]);

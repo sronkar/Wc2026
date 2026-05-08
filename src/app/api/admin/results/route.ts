@@ -9,7 +9,7 @@ import { logAdminAction } from "@/lib/auditLog";
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const role = session?.user?.role;
-  if (!session?.user || (role !== "ADMIN" && role !== "SUB_ADMIN")) {
+  if (!session?.user || (role !== "ADMIN" && role !== "GROUP_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -42,9 +42,9 @@ export async function POST(req: NextRequest) {
     context: `Set result for ${match.homeTeam} vs ${match.awayTeam} (#${match.matchNumber})`,
   });
 
-  if (role === "SUB_ADMIN") {
+  if (role === "GROUP_ADMIN") {
     notifyAdminOfSubAdminAction(
-      session.user.name ?? "Sub-admin",
+      session.user.name ?? "Group Admin",
       "score_update",
       {
         matchId,

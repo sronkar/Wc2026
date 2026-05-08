@@ -369,7 +369,7 @@ export async function sendLock30mEmail(to: string, name: string, matches: Upcomi
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sub-admin action alert
+// Group Admin action alert
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface SubAdminActionDetails {
@@ -401,7 +401,7 @@ export function buildSubAdminActionHtml(
 
   return WRAP(`
     <div style="background:#003366;padding:24px;text-align:center">
-      <h1 style="color:#fff;margin:0;font-size:22px">⚽ WC2026 — Sub-admin Action</h1>
+      <h1 style="color:#fff;margin:0;font-size:22px">⚽ WC2026 — Group Admin Action</h1>
     </div>
     <div style="padding:24px">
       <p>${body}</p>
@@ -411,7 +411,7 @@ export function buildSubAdminActionHtml(
       </a>
     </div>
     <div style="background:#f8f9fa;padding:12px;text-align:center;color:#999;font-size:12px">
-      WC2026 Predictions · Sub-admin activity log
+      WC2026 Predictions · Group Admin activity log
     </div>
   `);
 }
@@ -424,8 +424,8 @@ export async function sendSubAdminActionEmail(
 ): Promise<void> {
   const isScore = action === "score_update";
   const subject = isScore
-    ? `[Sub-admin] Score updated: ${details.matchHomeTeam} vs ${details.matchAwayTeam}`
-    : `[Sub-admin] Prediction edited: ${details.targetUserName} — ${details.matchHomeTeam} vs ${details.matchAwayTeam}`;
+    ? `[Group Admin] Score updated: ${details.matchHomeTeam} vs ${details.matchAwayTeam}`
+    : `[Group Admin] Prediction edited: ${details.targetUserName} — ${details.matchHomeTeam} vs ${details.matchAwayTeam}`;
 
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
@@ -433,6 +433,31 @@ export async function sendSubAdminActionEmail(
     subject,
     html: buildSubAdminActionHtml(actorName, action, details),
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Platform invite — lets recipient create their own group
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendPlatformInviteEmail(to: string, inviteUrl: string): Promise<void> {
+  const html = WRAP(`
+    <div style="background:#003366;padding:24px;text-align:center">
+      <h1 style="color:#fff;margin:0;font-size:22px">⚽ You're invited to WC2026 Predictions</h1>
+    </div>
+    <div style="padding:24px">
+      <p>You've been invited to create your own WC2026 Predictions group.</p>
+      <p>Click below to accept — you'll be able to set up your group, invite friends, and compete on predictions for the 2026 World Cup.</p>
+      <a href="${inviteUrl}"
+         style="display:inline-block;margin-top:16px;background:#003366;color:#fff;padding:12px 28px;border-radius:8px;font-weight:bold;text-decoration:none">
+        Accept Invite &amp; Create Group →
+      </a>
+      <p style="margin-top:24px;color:#666;font-size:13px">This invite expires in 7 days. If you didn't expect this email, you can ignore it.</p>
+    </div>
+    <div style="background:#f8f9fa;padding:12px;text-align:center;color:#999;font-size:12px">
+      WC2026 Predictions
+    </div>
+  `);
+  await sendEmail({ to, subject: "You're invited to create a WC2026 Predictions group", html });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

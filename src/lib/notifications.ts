@@ -324,7 +324,7 @@ function buildInsights(
   return insights;
 }
 
-// ── Sub-admin action notification to admin ────────────────────────────────────
+// ── Group Admin action notification to admin ────────────────────────────────────
 
 export async function notifyAdminOfSubAdminAction(
   actorName: string,
@@ -359,7 +359,7 @@ export async function notifyAdminOfSubAdminAction(
     const label = action === "score_update" ? "updated a score" : "edited a prediction";
     try {
       await sendPushToUser(adminUser.id, {
-        title: "Sub-admin action",
+        title: "Group Admin action",
         body: `${actorName} ${label}: ${details.matchHomeTeam} vs ${details.matchAwayTeam}`,
         url: "/admin",
         tag: "subadmin-action",

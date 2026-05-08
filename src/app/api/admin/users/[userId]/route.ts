@@ -13,7 +13,7 @@ export async function PATCH(
   }
 
   const { role } = await req.json();
-  if (role !== "USER" && role !== "SUB_ADMIN") {
+  if (role !== "USER" && role !== "GROUP_ADMIN") {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
@@ -23,8 +23,13 @@ export async function PATCH(
 
   const target = await prisma.user.findUnique({ where: { id: params.userId } });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+  // The global admin can never be demoted — not by role check, not by email
   if (target.role === "ADMIN") {
-    return NextResponse.json({ error: "Cannot modify another admin's role" }, { status: 403 });
+    return NextResponse.json({ error: "The global admin role cannot be changed" }, { status: 403 });
+  }
+  if (process.env.ADMIN_EMAIL && target.email?.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase()) {
+    return NextResponse.json({ error: "The global admin role cannot be changed" }, { status: 403 });
   }
 
   const updated = await prisma.user.update({

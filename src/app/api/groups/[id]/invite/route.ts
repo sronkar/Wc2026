@@ -7,12 +7,12 @@ import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
 
 type Ctx = { params: { id: string } };
 
-const VALID_ROLES = ["MEMBER", "ADMIN", "SUB_ADMIN", "VISITOR_ADMIN"];
+const VALID_ROLES = ["MEMBER", "ADMIN", "GROUP_ADMIN", "VISITOR_ADMIN"];
 
 const ROLE_LABELS: Record<string, string> = {
   MEMBER: "Member",
   ADMIN: "Admin",
-  SUB_ADMIN: "Sub Admin",
+  GROUP_ADMIN: "Group Admin",
   VISITOR_ADMIN: "Visitor Admin (no predictions)",
 };
 
