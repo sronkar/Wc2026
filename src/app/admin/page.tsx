@@ -299,6 +299,7 @@ Winner\t\tTeam\t10`;
   const handleSaveResult = async (matchId: string) => {
     const input = resultInputs[matchId];
     if (!input) return;
+    if (input.home === "" || input.away === "") return;
     const home = parseInt(input.home, 10);
     const away = parseInt(input.away, 10);
     if (isNaN(home) || isNaN(away)) return;
@@ -841,23 +842,22 @@ Winner\t\tTeam\t10`;
                             {match.homeScore} – {match.awayScore}
                           </span>
                         ) : (
-                          <div className="flex items-center gap-1">
+                          <div className="flex flex-col gap-1">
                             <input
                               type="number" min="0" max="20" value={input.home}
                               onChange={(e) =>
                                 setResultInputs((prev) => ({ ...prev, [match.id]: { ...prev[match.id], home: e.target.value } }))
                               }
                               className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                              placeholder="0"
+                              placeholder="–"
                             />
-                            <span className="text-gray-400">–</span>
                             <input
                               type="number" min="0" max="20" value={input.away}
                               onChange={(e) =>
                                 setResultInputs((prev) => ({ ...prev, [match.id]: { ...prev[match.id], away: e.target.value } }))
                               }
                               className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
-                              placeholder="0"
+                              placeholder="–"
                             />
                           </div>
                         )}
@@ -918,13 +918,12 @@ Winner\t\tTeam\t10`;
             <p className="text-xs text-gray-400 mb-4">
               Changing values here only affects <strong>future</strong> groups. To re-apply these to an existing group, open that group&apos;s Manage page → <em>Group Settings</em> → <em>Reset to global defaults</em>.
             </p>
-            <div className="overflow-x-auto -mx-4">
-              <table className="w-full text-sm min-w-[420px]">
+            <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-400 uppercase tracking-wide">
-                    <th className="px-4 py-1.5 font-semibold">Stage</th>
-                    <th className="px-4 py-1.5 font-semibold w-32">Right pick</th>
-                    <th className="px-4 py-1.5 font-semibold w-32">Exact score</th>
+                    <th className="py-1.5 pr-3 font-semibold">Stage</th>
+                    <th className="py-1.5 pr-3 font-semibold">Right pick</th>
+                    <th className="py-1.5 font-semibold">Exact score</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -932,25 +931,25 @@ Winner\t\tTeam\t10`;
                     const val = settings.stagePoints[stage];
                     return (
                       <tr key={stage}>
-                        <td className="px-4 py-2 text-gray-700">{stage}</td>
-                        <td className="px-4 py-2">
+                        <td className="py-2 pr-3 text-gray-700 text-xs sm:text-sm">{stage}</td>
+                        <td className="py-2 pr-3">
                           <input
                             type="number" min="0" value={val.direction}
                             onChange={(e) => setSettings((s) => ({
                               ...s,
                               stagePoints: { ...s.stagePoints, [stage]: { ...s.stagePoints[stage], direction: Number(e.target.value) } },
                             }))}
-                            className="w-20 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                            className="w-14 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                           />
                         </td>
-                        <td className="px-4 py-2">
+                        <td className="py-2">
                           <input
                             type="number" min="0" value={val.exact}
                             onChange={(e) => setSettings((s) => ({
                               ...s,
                               stagePoints: { ...s.stagePoints, [stage]: { ...s.stagePoints[stage], exact: Number(e.target.value) } },
                             }))}
-                            className="w-20 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                            className="w-14 border border-gray-300 rounded-md px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                           />
                         </td>
                       </tr>
@@ -958,7 +957,6 @@ Winner\t\tTeam\t10`;
                   })}
                 </tbody>
               </table>
-            </div>
             <div className="mt-4 flex items-center gap-3">
               <button onClick={handleSaveSettings} className="btn-primary">
                 {settingsSaved ? "Saved ✓" : "Save Defaults"}
@@ -998,7 +996,6 @@ Winner\t\tTeam\t10`;
                 )}
               </button>
             </div>
-
             {pollResult && (
               <div className={`mt-4 rounded-lg p-3 text-sm ${
                 pollResult.updated > 0
