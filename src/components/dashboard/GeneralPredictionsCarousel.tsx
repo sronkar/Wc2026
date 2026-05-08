@@ -103,6 +103,8 @@ function TeamPicker({ value, onChange, sort = "ALPHABETICAL" }: { value: string;
         onFocus={() => setOpen(true)}
         placeholder={placeholder}
         autoFocus={open}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
       />
       {open && (
@@ -451,6 +453,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
               )}
               {isTeam && (
                 <TeamPicker
+                  key={cp.id}
                   value={selected[cp.id] ?? ""}
                   onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
                   sort={cp.teamSort}
