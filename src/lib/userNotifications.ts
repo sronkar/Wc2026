@@ -36,7 +36,7 @@ export async function generateLockNotifications() {
         groupMemberships: { some: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } } },
       },
       select: {
-        id: true, email: true, name: true, emailNotifications: true,
+        id: true, email: true, name: true, emailNotifications: true, emailReminders: true, emailLock30m: true,
         groupMemberships: {
           where: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
           select: { groupId: true, group: { select: { name: true } } },
@@ -62,7 +62,8 @@ export async function generateLockNotifications() {
   }> = [];
   // For lock_30m: { userId, user email/name/prefs, match, groupNames[] }
   const lock30mTargets: Array<{
-    userId: string; email: string | null; name: string | null; emailNotifications: boolean;
+    userId: string; email: string | null; name: string | null;
+    emailNotifications: boolean; emailLock30m: boolean;
     match: typeof allMatches[number]; groupNames: string[];
   }> = [];
 
@@ -117,6 +118,7 @@ export async function generateLockNotifications() {
           email: user.email,
           name: user.name,
           emailNotifications: user.emailNotifications,
+          emailLock30m: user.emailLock30m,
           match,
           groupNames: unpredictedGroups.map((g) => g.name),
         });
@@ -146,7 +148,7 @@ export async function generateLockNotifications() {
   // Email for lock_30m — aggregate matches per user
   const byUser = new Map<string, { email: string; name: string | null; matches: typeof allMatches }>();
   for (const t of lock30mTargets) {
-    if (!t.email || !t.emailNotifications) continue;
+    if (!t.email || !t.emailNotifications || !t.emailLock30m) continue;
     const entry = byUser.get(t.userId) ?? { email: t.email, name: t.name, matches: [] };
     if (!entry.matches.find((m) => m.id === t.match.id)) entry.matches.push(t.match);
     byUser.set(t.userId, entry);

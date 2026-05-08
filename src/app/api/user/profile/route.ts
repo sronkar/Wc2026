@@ -3,13 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const EMAIL_PREF_FIELDS = ["emailNotifications", "emailReminders", "emailLock30m", "emailPostGame"] as const;
+
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, image: true, emailNotifications: true, allowDirectAdd: true },
+    select: { id: true, name: true, email: true, image: true, emailNotifications: true, emailReminders: true, emailLock30m: true, emailPostGame: true, allowDirectAdd: true },
   });
 
   return NextResponse.json(user);
@@ -20,7 +22,6 @@ export async function PATCH(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json();
-
   const updates: Record<string, unknown> = {};
 
   if ("name" in body) {
@@ -30,8 +31,8 @@ export async function PATCH(req: NextRequest) {
     updates.name = trimmed;
   }
 
-  if ("emailNotifications" in body) {
-    updates.emailNotifications = Boolean(body.emailNotifications);
+  for (const field of EMAIL_PREF_FIELDS) {
+    if (field in body) updates[field] = Boolean(body[field]);
   }
 
   if ("allowDirectAdd" in body) {
@@ -45,7 +46,7 @@ export async function PATCH(req: NextRequest) {
   const updated = await prisma.user.update({
     where: { id: session.user.id },
     data: updates,
-    select: { id: true, name: true, email: true, emailNotifications: true, allowDirectAdd: true },
+    select: { id: true, name: true, email: true, emailNotifications: true, emailReminders: true, emailLock30m: true, emailPostGame: true, allowDirectAdd: true },
   });
 
   return NextResponse.json(updated);

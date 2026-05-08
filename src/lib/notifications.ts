@@ -27,7 +27,7 @@ export async function sendMatchReminders() {
       groupMemberships: { some: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } } },
     },
     select: {
-      id: true, email: true, name: true, emailNotifications: true,
+      id: true, email: true, name: true, emailNotifications: true, emailReminders: true,
       groupMemberships: {
         where: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
         select: { groupId: true },
@@ -81,7 +81,7 @@ export async function sendMatchReminders() {
 
     // Send email reminder
     try {
-      if (user.email && user.emailNotifications) {
+      if (user.email && user.emailNotifications && user.emailReminders) {
         await sendReminderEmail(user.email, user.name ?? "Predictor", matchesToRemind);
       }
     } catch { /* non-fatal */ }
@@ -197,6 +197,7 @@ export async function sendPostGameNotifications(
             name: true,
             email: true,
             emailNotifications: true,
+            emailPostGame: true,
             isDemo: true,
             predictions: { where: { points: { not: null }, groupId }, select: { points: true } },
             customPredictionAnswers: { where: { points: { not: null }, groupId }, select: { points: true } },
@@ -235,6 +236,7 @@ export async function sendPostGameNotifications(
           name: m.user.name ?? m.user.email ?? "Anonymous",
           email: m.user.email,
           emailNotifications: m.user.emailNotifications,
+          emailPostGame: m.user.emailPostGame,
           totalPoints: allPts.reduce((s, p) => s + p, 0),
           pointsGained: pointsGainedMap[m.user.id] ?? 0,
         };
@@ -249,7 +251,7 @@ export async function sendPostGameNotifications(
       leaderboard.map(async (entry) => {
         // Email
         try {
-          if (entry.email && entry.emailNotifications) {
+          if (entry.email && entry.emailNotifications && entry.emailPostGame) {
             await sendPostGameEmail(
               entry.email,
               entry.name,

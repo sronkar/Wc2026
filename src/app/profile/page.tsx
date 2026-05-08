@@ -16,6 +16,9 @@ function ProfilePageInner() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [emailReminders, setEmailReminders] = useState(true);
+  const [emailLock30m, setEmailLock30m] = useState(true);
+  const [emailPostGame, setEmailPostGame] = useState(true);
   const [savingEmail, setSavingEmail] = useState(false);
   const [allowDirectAdd, setAllowDirectAdd] = useState(true);
   const [savingDirectAdd, setSavingDirectAdd] = useState(false);
@@ -34,19 +37,22 @@ function ProfilePageInner() {
       .then((r) => r.json())
       .then((d) => {
         if (typeof d.emailNotifications === "boolean") setEmailNotifications(d.emailNotifications);
+        if (typeof d.emailReminders === "boolean") setEmailReminders(d.emailReminders);
+        if (typeof d.emailLock30m === "boolean") setEmailLock30m(d.emailLock30m);
+        if (typeof d.emailPostGame === "boolean") setEmailPostGame(d.emailPostGame);
         if (typeof d.allowDirectAdd === "boolean") setAllowDirectAdd(d.allowDirectAdd);
       })
       .catch(() => {});
   }, [session?.user?.id]);
 
-  const toggleEmailNotifications = async (val: boolean) => {
-    setEmailNotifications(val);
+  const toggleEmailPref = async (field: string, val: boolean, setter: (v: boolean) => void) => {
+    setter(val);
     setSavingEmail(true);
     try {
       await fetch("/api/user/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailNotifications: val }),
+        body: JSON.stringify({ [field]: val }),
       });
     } catch {}
     setSavingEmail(false);
@@ -178,28 +184,66 @@ function ProfilePageInner() {
       {/* Notification settings */}
       <div className="card mt-4">
         <h2 className="text-base font-semibold text-gray-900 mb-4">Notification Settings</h2>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-800">Email notifications</p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Receive match reminders and result updates by email.
-            </p>
-          </div>
-          <button
-            onClick={() => toggleEmailNotifications(!emailNotifications)}
-            disabled={savingEmail}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
-              emailNotifications ? "bg-fifa-blue" : "bg-gray-200"
-            }`}
-            aria-checked={emailNotifications}
-            role="switch"
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                emailNotifications ? "translate-x-6" : "translate-x-1"
+        <div className="space-y-4">
+          {/* Master toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-800">Email notifications</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Receive match reminders and result updates by email.
+              </p>
+            </div>
+            <button
+              onClick={() => toggleEmailPref("emailNotifications", !emailNotifications, setEmailNotifications)}
+              disabled={savingEmail}
+              className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                emailNotifications ? "bg-fifa-blue" : "bg-gray-200"
               }`}
-            />
-          </button>
+              aria-checked={emailNotifications}
+              role="switch"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  emailNotifications ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Sub-toggles — only visible when master is on */}
+          {emailNotifications && (
+            <div className="ml-4 pl-3 border-l-2 border-gray-100 space-y-3">
+              {(
+                [
+                  { field: "emailReminders", label: "Match reminders", desc: "1 hour before predictions lock.", val: emailReminders, set: setEmailReminders },
+                  { field: "emailLock30m", label: "30-minute warnings", desc: "Last call — 30 min before lock.", val: emailLock30m, set: setEmailLock30m },
+                  { field: "emailPostGame", label: "Post-game results", desc: "Your points after each match.", val: emailPostGame, set: setEmailPostGame },
+                ] as const
+              ).map(({ field, label, desc, val, set }) => (
+                <div key={field} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">{label}</p>
+                    <p className="text-xs text-gray-400">{desc}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleEmailPref(field, !val, set as (v: boolean) => void)}
+                    disabled={savingEmail}
+                    className={`shrink-0 relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
+                      val ? "bg-fifa-blue" : "bg-gray-200"
+                    }`}
+                    aria-checked={val}
+                    role="switch"
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                        val ? "translate-x-4" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
