@@ -664,12 +664,12 @@ Winner\t\tTeam\t10`;
       />
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-8 border-b border-gray-200">
+      <div className="flex gap-1 mb-8 border-b border-gray-200 overflow-x-auto scrollbar-none">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition -mb-px ${
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition -mb-px whitespace-nowrap shrink-0 ${
               activeTab === t.key
                 ? "border-fifa-blue text-fifa-blue"
                 : "border-transparent text-gray-500 hover:text-gray-700"
@@ -754,8 +754,10 @@ Winner\t\tTeam\t10`;
                     <tr key={match.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                       <td className="px-4 py-3 text-gray-400">{match.matchNumber}</td>
                       <td className="px-4 py-3 font-medium">
-                        <div>
-                          {getFlag(match.homeTeam)} {match.homeTeam} vs {match.awayTeam} {getFlag(match.awayTeam)}
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">{getFlag(match.homeTeam)} <span>{match.homeTeam}</span></div>
+                          <div className="text-[10px] text-gray-300 font-normal pl-0.5">vs</div>
+                          <div className="flex items-center gap-1.5">{getFlag(match.awayTeam)} <span>{match.awayTeam}</span></div>
                           {isKnockoutEditable && (
                             <button
                               onClick={async () => {
