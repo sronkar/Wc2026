@@ -669,7 +669,7 @@ Winner\t\tTeam\t10`;
       />
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-8 border-b border-gray-200 overflow-x-auto scrollbar-none">
+      <div className="flex gap-1 mb-8 border-b border-gray-200 overflow-x-auto overflow-y-hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
         {tabs.map((t) => (
           <button
             key={t.key}

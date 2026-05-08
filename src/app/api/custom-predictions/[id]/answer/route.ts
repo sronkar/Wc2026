@@ -47,8 +47,10 @@ export async function POST(
     return NextResponse.json({ error: "This prediction has already been resolved" }, { status: 409 });
   }
 
-  // For PLAYER type, any non-empty string is valid; for others validate against options
-  if (cp.optionType !== "PLAYER") {
+  // FIXED: validate against stored options list.
+  // TEAM / PLAYER: accept any non-empty string (team names and player names are
+  // not stored as a fixed option list on the prediction row).
+  if (cp.optionType === "FIXED") {
     const options: string[] = JSON.parse(cp.options);
     if (!options.includes(option)) {
       return NextResponse.json({ error: "Invalid option" }, { status: 400 });
