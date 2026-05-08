@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { getFlag } from "@/lib/flags";
 import { WC2026_TEAMS } from "@/lib/teams";
+import { WC_GROUPS } from "@/lib/wcGroups";
 
 interface CustomPrediction {
   id: string;
@@ -53,9 +54,8 @@ function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) 
   }, [value]);
 
   const isValidTeam = value ? WC2026_TEAMS.includes(value) : false;
-  const filtered = query.trim()
-    ? WC2026_TEAMS.filter((t) => t.toLowerCase().includes(query.toLowerCase()))
-    : WC2026_TEAMS;
+  const q = query.trim().toLowerCase();
+  const filtered = q ? WC2026_TEAMS.filter((t) => t.toLowerCase().includes(q)) : [];
 
   // When a valid team is selected and dropdown is closed, show a flag pill
   if (isValidTeam && !open) {
@@ -82,24 +82,48 @@ function TeamPicker({ value, onChange }: { value: string; onChange: (v: string) 
           if (!e.target.value) onChange("");
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Search team…"
+        placeholder="Search team or tap to browse by group…"
         autoFocus={open}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
       />
-      {open && query.trim() && (
-        <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-          {filtered.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-gray-400">No teams match</p>
+      {open && (
+        <div className="max-h-52 overflow-y-auto border border-gray-200 rounded-lg">
+          {q ? (
+            // Filtered flat list
+            filtered.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-gray-400">No teams match</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {filtered.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => { setQuery(t); onChange(t); setOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
+                  >
+                    <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
+                    {value === t ? "✓ " : ""}{t}
+                  </button>
+                ))}
+              </div>
+            )
           ) : (
-            filtered.map((t) => (
-              <button
-                key={t}
-                onClick={() => { setQuery(t); onChange(t); setOpen(false); }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
-              >
-                <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
-                {value === t ? "✓ " : ""}{t}
-              </button>
+            // Grouped by WC group
+            Object.entries(WC_GROUPS).map(([group, teams]) => (
+              <div key={group}>
+                <div className="px-3 py-1 bg-gray-50 text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                  Group {group}
+                </div>
+                {teams.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => { setQuery(t); onChange(t); setOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 border-b border-gray-100 last:border-0 ${value === t ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
+                  >
+                    <span className="shrink-0">{getFlag(t) || "🏳️"}</span>
+                    {value === t ? "✓ " : ""}{t}
+                  </button>
+                ))}
+              </div>
             ))
           )}
         </div>
