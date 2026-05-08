@@ -7,15 +7,15 @@ import { WC2026_TEAMS } from "@/lib/teams";
 const DEFAULT_PREDICTIONS = [
   { question: "Top Scorer", description: "In case of ties, all players are valid", optionType: "PLAYER", points: 4 },
   { question: "Team to Receive First Red Card", description: "This is globally (first red card in the tournament), not the earliest red card in a specific game.", optionType: "TEAM", teamSort: "BY_GAME_ORDER", points: 4 },
-  { question: "Most Points in Group Stage", description: "In case of ties on points, all teams are valid", optionType: "TEAM", points: 4 },
-  { question: "Least Goals Scored in Group Stage", description: "In case of ties, all teams are valid", optionType: "TEAM", points: 4 },
-  { question: "Most Goals Scored in Group Stage", description: "In case of ties, all teams are valid", optionType: "TEAM", points: 4 },
-  { question: "Least Goals Conceded in Group Stage", description: "In case of ties, all teams are valid", optionType: "TEAM", points: 4 },
-  { question: "Most Goals Conceded in Group Stage", description: "In case of ties, all teams are valid", optionType: "TEAM", points: 4 },
+  { question: "Most Points in Group Stage", description: "In case of ties on points, all teams are valid", optionType: "TEAM", teamSort: "BY_GROUP", points: 4 },
+  { question: "Least Goals Scored in Group Stage", description: "In case of ties, all teams are valid", optionType: "TEAM", teamSort: "BY_GROUP", points: 4 },
+  { question: "Most Goals Scored in Group Stage", description: "In case of ties, all teams are valid", optionType: "TEAM", teamSort: "BY_GROUP", points: 4 },
+  { question: "Least Goals Conceded in Group Stage", description: "In case of ties, all teams are valid", optionType: "TEAM", teamSort: "BY_GROUP", points: 4 },
+  { question: "Most Goals Conceded in Group Stage", description: "In case of ties, all teams are valid", optionType: "TEAM", teamSort: "BY_GROUP", points: 4 },
   { question: "Team to Score Fastest Goal", description: "Based on official goal minute (not actual clock time). This is the earliest goal scored in the entire tournament. In case of ties, all teams are valid.", optionType: "TEAM", teamSort: "BY_GAME_ORDER", points: 4 },
-  { question: "Finalist 1", description: null, optionType: "TEAM", points: 4 },
-  { question: "Finalist 2", description: null, optionType: "TEAM", points: 4 },
-  { question: "Winner", description: null, optionType: "TEAM", points: 10 },
+  { question: "Finalist 1", description: null, optionType: "TEAM", teamSort: "ALPHABETICAL", points: 4 },
+  { question: "Finalist 2", description: null, optionType: "TEAM", teamSort: "ALPHABETICAL", points: 4 },
+  { question: "Winner", description: null, optionType: "TEAM", teamSort: "ALPHABETICAL", points: 10 },
 ];
 
 export async function POST(_req: NextRequest) {
@@ -34,19 +34,28 @@ export async function POST(_req: NextRequest) {
 
   const existing = await prisma.customPrediction.findMany({
     where: { isGlobal: true },
-    select: { question: true },
+    select: { id: true, question: true },
   });
-  const existingSet = new Set(existing.map((e) => e.question.trim().toLowerCase()));
+  const existingMap = new Map(existing.map((e) => [e.question.trim().toLowerCase(), e.id]));
 
   let created = 0;
-  let skipped = 0;
+  let updated = 0;
 
   for (const p of DEFAULT_PREDICTIONS) {
-    if (existingSet.has(p.question.toLowerCase())) {
-      skipped++;
+    const teamSort = (p as { teamSort?: string }).teamSort ?? "ALPHABETICAL";
+    const options = p.optionType === "TEAM" ? WC2026_TEAMS : [];
+    const existingId = existingMap.get(p.question.toLowerCase());
+
+    if (existingId) {
+      // Update teamSort on existing record so re-running fixes sort ordering.
+      await prisma.customPrediction.update({
+        where: { id: existingId },
+        data: { teamSort },
+      });
+      updated++;
       continue;
     }
-    const options = p.optionType === "TEAM" ? WC2026_TEAMS : [];
+
     await prisma.customPrediction.create({
       data: {
         isGlobal: true,
@@ -55,7 +64,7 @@ export async function POST(_req: NextRequest) {
         description: p.description,
         optionType: p.optionType,
         options: JSON.stringify(options),
-        teamSort: (p as { teamSort?: string }).teamSort ?? "ALPHABETICAL",
+        teamSort,
         points: p.points,
         lockTime,
       },
@@ -63,5 +72,5 @@ export async function POST(_req: NextRequest) {
     created++;
   }
 
-  return NextResponse.json({ created, skipped, total: DEFAULT_PREDICTIONS.length });
+  return NextResponse.json({ created, updated, total: DEFAULT_PREDICTIONS.length });
 }
