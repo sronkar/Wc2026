@@ -653,7 +653,7 @@ Winner\t\tTeam\t10`;
             href="/admin/simulation"
             className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 font-medium transition"
           >
-            Simulation Mode &rarr;
+            Simulation Mode →
           </Link>
         )}
       </div>
@@ -838,7 +838,7 @@ Winner\t\tTeam\t10`;
                       <td className="px-4 py-3">
                         {isFinished ? (
                           <span className="font-bold text-gray-700">
-                            {match.homeScore} &ndash; {match.awayScore}
+                            {match.homeScore} – {match.awayScore}
                           </span>
                         ) : (
                           <div className="flex items-center gap-1">
@@ -850,7 +850,7 @@ Winner\t\tTeam\t10`;
                               className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                               placeholder="0"
                             />
-                            <span className="text-gray-400">&ndash;</span>
+                            <span className="text-gray-400">–</span>
                             <input
                               type="number" min="0" max="20" value={input.away}
                               onChange={(e) =>
@@ -916,7 +916,7 @@ Winner\t\tTeam\t10`;
               These are the <strong>app-wide defaults</strong> seeded into new groups at creation time. Not group-specific.
             </p>
             <p className="text-xs text-gray-400 mb-4">
-              Changing values here only affects <strong>future</strong> groups. To re-apply these to an existing group, open that group&apos;s Manage page &rarr; <em>Group Settings</em> &rarr; <em>Reset to global defaults</em>.
+              Changing values here only affects <strong>future</strong> groups. To re-apply these to an existing group, open that group&apos;s Manage page → <em>Group Settings</em> → <em>Reset to global defaults</em>.
             </p>
             <div className="overflow-x-auto -mx-4">
               <table className="w-full text-sm min-w-[420px]">
@@ -1017,10 +1017,10 @@ Winner\t\tTeam\t10`;
                     </ul>
                   </>
                 ) : pollResult.error ? (
-                  <p>⚠ {pollResult.error} &mdash; no scores available yet from any source.</p>
+                  <p>⚠ {pollResult.error} — no scores available yet from any source.</p>
                 ) : (
                   <p>
-                    Checked {pollResult.checked} pending match{pollResult.checked !== 1 ? "es" : ""} &mdash;
+                    Checked {pollResult.checked} pending match{pollResult.checked !== 1 ? "es" : ""} —
                     {pollResult.checked === 0
                       ? " no matches in the polling window (1h 45m–8h after kickoff)."
                       : " no finished scores found yet. Will retry automatically."}
@@ -1191,7 +1191,7 @@ Winner\t\tTeam\t10`;
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">View</Link>
-                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">Manage &rarr;</Link>
+                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">Manage →</Link>
                           {isAdmin && (
                             <button
                               onClick={() => handleDeleteGroup(g.id, g.name)}
@@ -1298,7 +1298,7 @@ Winner\t\tTeam\t10`;
                   onChange={(e) => setNewGroupVisitor(e.target.checked)}
                   className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
                 />
-                Join as Visitor Admin (manage only &mdash; no predictions or leaderboard)
+                Join as Visitor Admin (manage only — no predictions or leaderboard)
               </label>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Visibility</label>
@@ -1314,9 +1314,9 @@ Winner\t\tTeam\t10`;
                     </button>
                   </div>
                   <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden group-hover:flex z-10 gap-3 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap">
-                    <span><strong className="text-white">🔒 Private</strong> &mdash; Join link / email invite only.</span>
+                    <span><strong className="text-white">🔒 Private</strong> — Join link / email invite only.</span>
                     <span className="text-gray-600">|</span>
-                    <span><strong className="text-white">🌐 Public</strong> &mdash; Discoverable on the Groups search page.</span>
+                    <span><strong className="text-white">🌐 Public</strong> — Discoverable on the Groups search page.</span>
                   </div>
                 </div>
               </div>
@@ -1494,13 +1494,13 @@ Winner\t\tTeam\t10`;
           <details className="card p-0">
             <summary className="cursor-pointer list-none px-4 py-3 flex items-center gap-2 hover:bg-gray-50">
               <span className="text-sm font-bold text-gray-800">Bulk Import via CSV</span>
-              <span className="text-xs text-gray-400">&mdash; tab-separated global custom predictions</span>
+              <span className="text-xs text-gray-400">— tab-separated global custom predictions</span>
               <span className="ml-auto text-xs text-gray-400" aria-hidden="true">expand</span>
             </summary>
             <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
               <p className="text-xs text-gray-400">
                 Tab-separated: <code className="bg-gray-100 px-1 rounded">Prediction{"\t"}comment{"\t"}Limitation{"\t"}points</code>
-                {" "}&middot; Limitation: Player, Team, or leave blank for fixed options.
+                {" "}· Limitation: Player, Team, or leave blank for fixed options.
                 Existing questions are skipped.
               </p>
               <textarea
