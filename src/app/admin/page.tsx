@@ -598,6 +598,7 @@ Winner\t\tTeam\t10`;
         if (local === saved) continue;
         attempted++;
         try {
+        try {
           if (local === null) {
             const res = await fetch(`/api/admin/advancement?team=${encodeURIComponent(team)}`, { method: "DELETE" });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
@@ -741,6 +742,10 @@ Winner\t\tTeam\t10`;
           </div>
 
           <div className="card overflow-hidden p-0">
+            <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
+              <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">🌍 Global</span>
+              <p className="text-xs text-gray-500">Match scores apply to all groups equally.</p>
+            </div>
             <div className="overflow-x-auto">
             <table className="min-w-[680px] w-full text-sm">
               <thead>
@@ -911,7 +916,10 @@ Winner\t\tTeam\t10`;
       {activeTab === "settings" && isAdmin && (
         <>
           <div className="card mb-8">
-            <h2 className="font-bold text-gray-800 mb-1">Point Defaults <span className="text-xs font-normal text-gray-400 ml-2">Global</span></h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="font-bold text-gray-800">Point Defaults</h2>
+              <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">🌍 Global</span>
+            </div>
             <p className="text-sm text-gray-500 mb-1">
               These are the <strong>app-wide defaults</strong> seeded into new groups at creation time. Not group-specific.
             </p>
@@ -974,7 +982,10 @@ Winner\t\tTeam\t10`;
           <div className="card">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="font-bold text-gray-800">Auto Score Sync</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-bold text-gray-800">Auto Score Sync</h2>
+                  <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">🌍 Global</span>
+                </div>
                 <p className="text-xs text-gray-400 mt-1 max-w-md">
                   Fetches finished match scores automatically every 5 minutes (1h 45m after kickoff).
                   Uses <strong>football-data.org</strong> if you set <code className="bg-gray-100 px-1 rounded">FOOTBALL_DATA_API_KEY</code>,
@@ -1030,7 +1041,10 @@ Winner\t\tTeam\t10`;
           <div className="card mt-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <h2 className="font-bold text-gray-800">🧠 Claudio AI Bot</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-bold text-gray-800">🧠 Claudio AI Bot</h2>
+                  <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">🌍 Global</span>
+                </div>
                 <p className="text-xs text-gray-400 mt-1 max-w-md">
                   Claudio is a global bot player that participates in every group. Use AI to generate his predictions for all upcoming matches across all groups.
                   {claudioStats && (
@@ -1085,7 +1099,10 @@ Winner\t\tTeam\t10`;
       {/* ── Email tab (admin only) ────────────────────────────────────────────── */}
       {activeTab === "email" && isAdmin && (
         <div className="card">
-          <h2 className="font-bold text-gray-800 mb-1">Email Preview</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="font-bold text-gray-800">Email Preview</h2>
+            <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">🌍 Global</span>
+          </div>
           <p className="text-xs text-gray-400 mb-4">
             Preview or test-send any transactional email template. &quot;Send to me&quot; delivers to your admin email address.
           </p>
@@ -1138,6 +1155,7 @@ Winner\t\tTeam\t10`;
         const allGroupsCard = (
           <div className="card overflow-hidden p-0">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center gap-3">
+              <span className="text-xs font-semibold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">👥 Groups</span>
               <h2 className="font-bold text-gray-800 text-sm">All Groups ({groups.length})</h2>
               <input
                 type="search"
@@ -1212,7 +1230,10 @@ Winner\t\tTeam\t10`;
 
         const createGroupCard = (
           <div className="card">
-            <h2 className="font-bold text-gray-800 mb-4">Create New Group</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="font-bold text-gray-800">Create New Group</h2>
+              <span className="text-xs font-semibold bg-emerald-600 text-white px-2 py-0.5 rounded-full">👥 Groups</span>
+            </div>
             <form onSubmit={handleCreateGroup} className="space-y-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Group Name <span className="text-red-400">*</span></label>
@@ -1531,10 +1552,16 @@ Winner\t\tTeam\t10`;
       {activeTab === "advancement" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-sm text-gray-500">
-              Set each team&apos;s actual group stage result to award points to users&apos; advancement picks.
-              Select results then click <strong>Save Group</strong> to commit.
-            </p>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">🌍 Global</span>
+                <p className="text-sm font-semibold text-gray-700">Group Stage Advancement</p>
+              </div>
+              <p className="text-sm text-gray-500">
+                Set each team&apos;s actual group stage result to award points to users&apos; advancement picks.
+                Select results then click <strong>Save Group</strong> to commit.
+              </p>
+            </div>
             {advancementLoaded && (() => {
               const resolvedCount = Object.keys(advancementResolutions).length;
               const total = 48;
@@ -1634,7 +1661,10 @@ Winner\t\tTeam\t10`;
         <>
         {/* Platform invite — send someone an invite to create their own group */}
         <div className="card mb-4">
-          <h2 className="font-bold text-gray-800 text-sm mb-1">Invite someone to create their own group</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="font-bold text-gray-800 text-sm">Invite someone to create their own group</h2>
+            <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">🌍 Global</span>
+          </div>
           <p className="text-xs text-gray-400 mb-3">They&apos;ll receive an email with a link. When they click it they&apos;ll be promoted to Group Admin and land on the group creation page. You won&apos;t be added to their group.</p>
           <form
             onSubmit={async (e) => {
@@ -1672,6 +1702,7 @@ Winner\t\tTeam\t10`;
         <div className="card overflow-hidden p-0">
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0">👥 Groups</span>
               <h2 className="font-bold text-gray-800 text-sm">Group Admins ({users.length} {users.length === 1 ? "user" : "users"})</h2>
               <input
                 type="search"
