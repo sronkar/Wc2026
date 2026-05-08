@@ -17,8 +17,8 @@ export async function GET(req: NextRequest) {
   const players = await prisma.player.findMany({
     where: {
       OR: [
-        { name: { contains: q } },
-        { country: { contains: q } },
+        { name: { contains: q, mode: "insensitive" } },
+        { country: { contains: q, mode: "insensitive" } },
       ],
     },
     orderBy: [{ country: "asc" }, { name: "asc" }],

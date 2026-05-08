@@ -165,12 +165,15 @@ function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string
               <button
                 key={p.id}
                 onClick={() => { setQuery(p.name); onChange(p.name); setOpen(false); }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition ${value === p.name ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${value === p.name ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"}`}
               >
-                <span className="font-medium">{value === p.name ? "✓ " : ""}{p.name}</span>
-                <span className="text-xs text-gray-400 ml-2">
-                  {p.country}{p.position ? ` · ${p.position}` : ""}
-                  {p.number ? ` · #${p.number}` : ""}
+                <span className="shrink-0 text-base leading-none">{getFlag(p.country) || "🏳️"}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="font-medium">{value === p.name ? "✓ " : ""}{p.name}</span>
+                  <span className="text-xs text-gray-400 ml-1.5">
+                    {p.position ? `${p.position}` : ""}
+                    {p.number ? ` · #${p.number}` : ""}
+                  </span>
                 </span>
               </button>
             ))
