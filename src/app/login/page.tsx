@@ -1,8 +1,8 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
+import { signIn, useSession, getSession } from "next-auth/react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, Suspense, useEffect } from "react";
+import { useState, Suspense, useEffect, useRef } from "react";
 import Link from "next/link";
 
 function LoginForm() {
@@ -30,6 +30,20 @@ function LoginForm() {
     const t = setTimeout(() => setResendCountdown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [resendCountdown]);
+
+  // Poll for session after magic link is sent — auto-redirect when user clicks link in email
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!emailSent) return;
+    pollRef.current = setInterval(async () => {
+      const session = await getSession();
+      if (session) {
+        clearInterval(pollRef.current!);
+        router.replace(callbackUrl);
+      }
+    }, 3000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [emailSent, callbackUrl, router]);
 
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [credEmail, setCredEmail] = useState("");
@@ -73,15 +87,25 @@ function LoginForm() {
       )}
 
       {emailSent ? (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 text-sm text-center space-y-2">
-          <p>Magic link sent to <strong>{magicEmail}</strong>! Check your email to complete sign-in.</p>
+        <div className="space-y-3">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800 text-sm text-center space-y-2">
+            <p>Magic link sent to <strong>{magicEmail}</strong>! Check your email to complete sign-in.</p>
+            <p className="text-xs text-green-600">This page will redirect automatically once you click the link.</p>
+            <button
+              type="button"
+              disabled={resendCountdown > 0 || magicLoading}
+              onClick={handleMagicLink}
+              className="text-xs underline underline-offset-2 disabled:no-underline disabled:opacity-60"
+            >
+              {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : "Didn't get it? Resend"}
+            </button>
+          </div>
           <button
             type="button"
-            disabled={resendCountdown > 0 || magicLoading}
-            onClick={handleMagicLink}
-            className="text-xs underline underline-offset-2 disabled:no-underline disabled:opacity-60"
+            onClick={() => { setEmailSent(false); setMagicEmail(""); }}
+            className="w-full text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2"
           >
-            {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : "Didn't get it? Resend"}
+            ← Use a different sign-in method
           </button>
         </div>
       ) : (
