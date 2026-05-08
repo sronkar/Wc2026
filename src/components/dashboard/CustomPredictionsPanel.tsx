@@ -464,7 +464,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                           <div className="flex items-center justify-between mb-1">
                             <span className={`font-medium ${isUserAnswer ? "text-fifa-blue" : "text-gray-700"}`}>{key}{isUserAnswer ? " ← your pick" : ""}</span>
                             <span className="text-xs text-gray-400">{pct}%</span>
-                          </div>
+          </div>
                           <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
                             <div className={`h-full rounded-full ${isUserAnswer ? "bg-fifa-blue" : "bg-gray-300"}`} style={{ width: `${pct}%` }} />
                           </div>
