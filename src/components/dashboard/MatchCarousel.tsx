@@ -474,7 +474,7 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
           const windowEnd = Math.min(matches.length, windowStart + MAX_DOTS);
           const visible = matches.slice(windowStart, windowEnd);
           return (
-            <div className="flex gap-1.5 items-center">
+            <div className="flex gap-1.5 items-center justify-center flex-1 overflow-hidden">
               {windowStart > 0 && <span className="text-gray-300 text-xs leading-none">…</span>}
               {visible.map((m) => {
                 const i = matches.indexOf(m);

@@ -242,7 +242,7 @@ export default async function GroupDashboardPage({
     : null;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-4 md:py-8">
       <FirstGroupVisitModal
         userId={userId}
         groupId={groupId}
@@ -250,7 +250,7 @@ export default async function GroupDashboardPage({
       />
 
       {/* Group header */}
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-4 mb-4 md:mb-6">
         {isEmojiAvatar(group.avatar) ? (
           <span className="w-[52px] h-[52px] rounded-full bg-blue-50 text-3xl flex items-center justify-center shrink-0 border-2 border-white shadow" aria-hidden>
             {group.avatar}
@@ -282,12 +282,12 @@ export default async function GroupDashboardPage({
         )}
       </div>
 
-      <div className="mb-6">
+      <div className="mb-3 md:mb-6">
         <GroupSwitcher activeGroupId={groupId} />
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-3 gap-3 mb-5 md:mb-8">
         {[
           { label: "Group Points", value: totalPoints, color: "text-fifa-blue" },
           { label: "Predictions", value: groupPredictions.length, color: "text-gray-700" },
@@ -300,12 +300,12 @@ export default async function GroupDashboardPage({
         ))}
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid md:grid-cols-2 gap-4 md:gap-6">
         {/* Left column. On mobile we promote "Next Up to Predict" above
             "General Predictions" — the time-sensitive thing should lead when
             the user is more likely to be on a phone, 5 min before kickoff.
             On md+ the desktop reading order is preserved. */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 md:gap-6 order-2 md:order-1">
           {/* General predictions carousel */}
           <div className="order-2 md:order-1">
             <h2 className="font-bold text-gray-800 mb-3">General Predictions</h2>
@@ -358,8 +358,8 @@ export default async function GroupDashboardPage({
           )}
         </div>
 
-        {/* Right column */}
-        <div className="space-y-6">
+        {/* Right column — shown first on mobile so leaderboard is visible early */}
+        <div className="space-y-4 md:space-y-6 order-1 md:order-2">
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-gray-800">Group Leaderboard</h2>
