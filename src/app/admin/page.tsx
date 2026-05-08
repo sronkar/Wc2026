@@ -149,8 +149,9 @@ Finalist 2\t\tTeam\t4
 Winner\t\tTeam\t10`;
   const [csvText, setCsvText] = useState(DEFAULT_CSV);
   const [csvImporting, setCsvImporting] = useState(false);
-  const [csvResult, setCsvResult] = useState<{ created: number; skipped: number; updated?: number } | null>(null);
+  const [csvResult, setCsvResult] = useState<{ created: number; skipped: number } | null>(null);
   const [loadingDefaults, setLoadingDefaults] = useState(false);
+  const [defaultsResult, setDefaultsResult] = useState<{ created: number; updated: number } | null>(null);
 
   // ── Tab state ────────────────────────────────────────────────────────────────
   const searchParams = useSearchParams();
@@ -464,13 +465,13 @@ Winner\t\tTeam\t10`;
 
   const handleLoadDefaults = async () => {
     setLoadingDefaults(true);
-    setCsvResult(null);
+    setDefaultsResult(null);
     const res = await fetch("/api/admin/custom-predictions/defaults", { method: "POST" });
     const data = await res.json();
-    setCsvResult({ created: data.created ?? 0, skipped: 0, updated: data.updated ?? 0 });
+    setDefaultsResult({ created: data.created ?? 0, updated: data.updated ?? 0 });
     setLoadingDefaults(false);
-    if ((data.created ?? 0) > 0) {
-      setGroupsLoaded(false); // trigger reload
+    if ((data.created ?? 0) > 0 || (data.updated ?? 0) > 0) {
+      setGroupsLoaded(false); // trigger reload to reflect updated teamSort values
     }
   };
 
@@ -652,7 +653,7 @@ Winner\t\tTeam\t10`;
             href="/admin/simulation"
             className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 font-medium transition"
           >
-            Simulation Mode →
+            Simulation Mode &rarr;
           </Link>
         )}
       </div>
@@ -837,7 +838,7 @@ Winner\t\tTeam\t10`;
                       <td className="px-4 py-3">
                         {isFinished ? (
                           <span className="font-bold text-gray-700">
-                            {match.homeScore} – {match.awayScore}
+                            {match.homeScore} &ndash; {match.awayScore}
                           </span>
                         ) : (
                           <div className="flex items-center gap-1">
@@ -849,7 +850,7 @@ Winner\t\tTeam\t10`;
                               className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
                               placeholder="0"
                             />
-                            <span className="text-gray-400">–</span>
+                            <span className="text-gray-400">&ndash;</span>
                             <input
                               type="number" min="0" max="20" value={input.away}
                               onChange={(e) =>
@@ -915,7 +916,7 @@ Winner\t\tTeam\t10`;
               These are the <strong>app-wide defaults</strong> seeded into new groups at creation time. Not group-specific.
             </p>
             <p className="text-xs text-gray-400 mb-4">
-              Changing values here only affects <strong>future</strong> groups. To re-apply these to an existing group, open that group&apos;s Manage page → <em>Group Settings</em> → <em>Reset to global defaults</em>.
+              Changing values here only affects <strong>future</strong> groups. To re-apply these to an existing group, open that group&apos;s Manage page &rarr; <em>Group Settings</em> &rarr; <em>Reset to global defaults</em>.
             </p>
             <div className="overflow-x-auto -mx-4">
               <table className="w-full text-sm min-w-[420px]">
@@ -1016,10 +1017,10 @@ Winner\t\tTeam\t10`;
                     </ul>
                   </>
                 ) : pollResult.error ? (
-                  <p>⚠ {pollResult.error} — no scores available yet from any source.</p>
+                  <p>⚠ {pollResult.error} &mdash; no scores available yet from any source.</p>
                 ) : (
                   <p>
-                    Checked {pollResult.checked} pending match{pollResult.checked !== 1 ? "es" : ""} —
+                    Checked {pollResult.checked} pending match{pollResult.checked !== 1 ? "es" : ""} &mdash;
                     {pollResult.checked === 0
                       ? " no matches in the polling window (1h 45m–8h after kickoff)."
                       : " no finished scores found yet. Will retry automatically."}
@@ -1129,7 +1130,7 @@ Winner\t\tTeam\t10`;
           )}
           {isDev && (
             <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              🛠 <strong>Dev mode:</strong> "Send to me" will attempt SMTP delivery. Magic link emails in this environment are logged to the server console only.
+              🛠 <strong>Dev mode:</strong> &quot;Send to me&quot; will attempt SMTP delivery. Magic link emails in this environment are logged to the server console only.
             </p>
           )}
         </div>
@@ -1158,7 +1159,7 @@ Winner\t\tTeam\t10`;
               if (filteredGroups.length === 0) {
                 return (
                   <p className="px-4 py-8 text-center text-gray-400 text-sm">
-                    No groups match "{groupSearch}".
+                    No groups match &quot;{groupSearch}&quot;.
                     <button onClick={() => setGroupSearch("")} className="ml-2 text-fifa-blue hover:underline">Clear</button>
                   </p>
                 );
@@ -1190,7 +1191,7 @@ Winner\t\tTeam\t10`;
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">View</Link>
-                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">Manage →</Link>
+                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">Manage &rarr;</Link>
                           {isAdmin && (
                             <button
                               onClick={() => handleDeleteGroup(g.id, g.name)}
@@ -1297,7 +1298,7 @@ Winner\t\tTeam\t10`;
                   onChange={(e) => setNewGroupVisitor(e.target.checked)}
                   className="rounded border-gray-300 text-fifa-blue focus:ring-fifa-blue"
                 />
-                Join as Visitor Admin (manage only — no predictions or leaderboard)
+                Join as Visitor Admin (manage only &mdash; no predictions or leaderboard)
               </label>
               <div>
                 <label className="block text-xs text-gray-500 mb-1.5">Visibility</label>
@@ -1313,9 +1314,9 @@ Winner\t\tTeam\t10`;
                     </button>
                   </div>
                   <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 hidden group-hover:flex z-10 gap-3 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap">
-                    <span><strong className="text-white">🔒 Private</strong> — Join link / email invite only.</span>
+                    <span><strong className="text-white">🔒 Private</strong> &mdash; Join link / email invite only.</span>
                     <span className="text-gray-600">|</span>
-                    <span><strong className="text-white">🌐 Public</strong> — Discoverable on the Groups search page.</span>
+                    <span><strong className="text-white">🌐 Public</strong> &mdash; Discoverable on the Groups search page.</span>
                   </div>
                 </div>
               </div>
@@ -1339,18 +1340,33 @@ Winner\t\tTeam\t10`;
 
           {/* Global predictions */}
           <div className="card overflow-hidden p-0">
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h2 className="font-bold text-gray-800 text-sm">Global Custom Predictions ({globalPreds.length})</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Shown in every group automatically.</p>
+            <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold bg-blue-600 text-white px-2 py-0.5 rounded-full">🌍 Global</span>
+                    <h2 className="font-bold text-gray-800 text-sm">Custom Predictions ({globalPreds.length})</h2>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Automatically shown in <strong>every group</strong>. Changes here affect all users across all groups.</p>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <button
+                    onClick={handleLoadDefaults}
+                    disabled={loadingDefaults}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {loadingDefaults ? "Loading…" : "Load Defaults"}
+                  </button>
+                  {defaultsResult && (
+                    <p className={`text-xs font-medium ${defaultsResult.created > 0 || defaultsResult.updated > 0 ? "text-green-600" : "text-gray-400"}`}>
+                      {defaultsResult.created > 0 ? `✓ ${defaultsResult.created} added` : ""}
+                      {defaultsResult.created > 0 && defaultsResult.updated > 0 ? " · " : ""}
+                      {defaultsResult.updated > 0 ? `✓ ${defaultsResult.updated} sorts updated` : ""}
+                      {defaultsResult.created === 0 && defaultsResult.updated === 0 ? "Already up to date" : ""}
+                    </p>
+                  )}
+                </div>
               </div>
-              <button
-                onClick={handleLoadDefaults}
-                disabled={loadingDefaults}
-                className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-50"
-              >
-                {loadingDefaults ? "Loading…" : "Load Defaults"}
-              </button>
             </div>
             {globalPreds.length === 0 ? (
               <p className="px-4 py-6 text-center text-gray-400 text-sm">No global predictions yet.</p>
@@ -1380,23 +1396,26 @@ Winner\t\tTeam\t10`;
                           <div className="flex flex-col gap-1">
                             <span>{pred.optionType === "TEAM" ? "⚽ Team" : pred.optionType === "PLAYER" ? "🧑 Player" : "Custom"}</span>
                             {pred.optionType === "TEAM" && (
-                              <select
-                                value={pred.teamSort ?? "ALPHABETICAL"}
-                                onChange={async (e) => {
-                                  const val = e.target.value;
-                                  setGlobalPreds((prev) => prev.map((p) => p.id === pred.id ? { ...p, teamSort: val } : p));
-                                  await fetch(`/api/admin/custom-predictions/${pred.id}`, {
-                                    method: "PATCH",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ teamSort: val }),
-                                  });
-                                }}
-                                className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-fifa-blue"
-                              >
-                                <option value="ALPHABETICAL">A–Z</option>
-                                <option value="BY_GROUP">By Group</option>
-                                <option value="BY_GAME_ORDER">By Game Order</option>
-                              </select>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] text-gray-400 uppercase tracking-wide">Team order</span>
+                                <select
+                                  value={pred.teamSort ?? "ALPHABETICAL"}
+                                  onChange={async (e) => {
+                                    const val = e.target.value;
+                                    setGlobalPreds((prev) => prev.map((p) => p.id === pred.id ? { ...p, teamSort: val } : p));
+                                    await fetch(`/api/admin/custom-predictions/${pred.id}`, {
+                                      method: "PATCH",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ teamSort: val }),
+                                    });
+                                  }}
+                                  className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-600 focus:outline-none focus:ring-1 focus:ring-fifa-blue"
+                                >
+                                  <option value="ALPHABETICAL">A–Z</option>
+                                  <option value="BY_GROUP">By Group</option>
+                                  <option value="BY_GAME_ORDER">By Game Order</option>
+                                </select>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -1475,13 +1494,13 @@ Winner\t\tTeam\t10`;
           <details className="card p-0">
             <summary className="cursor-pointer list-none px-4 py-3 flex items-center gap-2 hover:bg-gray-50">
               <span className="text-sm font-bold text-gray-800">Bulk Import via CSV</span>
-              <span className="text-xs text-gray-400">— tab-separated global custom predictions</span>
+              <span className="text-xs text-gray-400">&mdash; tab-separated global custom predictions</span>
               <span className="ml-auto text-xs text-gray-400" aria-hidden="true">expand</span>
             </summary>
             <div className="px-4 pb-4 space-y-3 border-t border-gray-100 pt-3">
               <p className="text-xs text-gray-400">
                 Tab-separated: <code className="bg-gray-100 px-1 rounded">Prediction{"\t"}comment{"\t"}Limitation{"\t"}points</code>
-                {" "}· Limitation: Player, Team, or leave blank for fixed options.
+                {" "}&middot; Limitation: Player, Team, or leave blank for fixed options.
                 Existing questions are skipped.
               </p>
               <textarea
@@ -1491,9 +1510,8 @@ Winner\t\tTeam\t10`;
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-fifa-blue resize-y"
               />
               {csvResult && (
-                <p className={`text-xs font-medium ${csvResult.created > 0 || (csvResult.updated ?? 0) > 0 ? "text-green-600" : "text-gray-500"}`}>
+                <p className={`text-xs font-medium ${csvResult.created > 0 ? "text-green-600" : "text-gray-500"}`}>
                   {csvResult.created > 0 ? `✓ Added ${csvResult.created} prediction${csvResult.created !== 1 ? "s" : ""}` : "No new predictions added"}
-                  {(csvResult.updated ?? 0) > 0 ? ` · ${csvResult.updated} updated (sort fixed)` : ""}
                   {csvResult.skipped > 0 ? ` · ${csvResult.skipped} skipped (already exist)` : ""}
                 </p>
               )}
@@ -1681,7 +1699,7 @@ Winner\t\tTeam\t10`;
             if (filteredUsers.length === 0) {
               return (
                 <p className="p-8 text-center text-gray-400 text-sm">
-                  No users match "{userSearch}".
+                  No users match &quot;{userSearch}&quot;.
                   <button onClick={() => setUserSearch("")} className="ml-2 text-fifa-blue hover:underline">Clear</button>
                 </p>
               );
