@@ -190,6 +190,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [cancelling, setCancelling] = useState<Record<string, boolean>>({});
+  const [showOpenOnly, setShowOpenOnly] = useState(false);
 
   useEffect(() => {
     fetch(`/api/custom-predictions?groupId=${groupId}`)
@@ -229,7 +230,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
     setTimeout(() => setSaved((p) => ({ ...p, [cpId]: false })), 2000);
   };
 
-  const visible = predictions.filter((cp) => {
+  const allVisible = predictions.filter((cp) => {
     if (hideResolved && cp.status === "RESOLVED") return false;
     return (
       cp.status === "OPEN" ||
@@ -237,11 +238,38 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
     );
   });
 
-  if (visible.length === 0) return null;
+  const openCount = allVisible.filter((cp) => cp.status === "OPEN" && !cp.isLocked && !cp.userAnswer).length;
+  const visible = showOpenOnly
+    ? allVisible.filter((cp) => cp.status === "OPEN" && !cp.isLocked && !cp.userAnswer)
+    : allVisible;
+
+  if (allVisible.length === 0) return null;
 
   return (
     <div>
-      <h2 className="font-bold text-gray-800 mb-3">Custom Predictions</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-bold text-gray-800">Custom Predictions</h2>
+        <button
+          onClick={() => setShowOpenOnly((v) => !v)}
+          className={`text-xs px-2.5 py-1 rounded-full border transition ${
+            showOpenOnly
+              ? "bg-fifa-blue text-white border-fifa-blue"
+              : "border-gray-300 text-gray-500 hover:border-fifa-blue hover:text-fifa-blue"
+          }`}
+        >
+          {showOpenOnly ? "Open only" : openCount > 0 ? `Open only (${openCount})` : "Open only"}
+        </button>
+      </div>
+      {showOpenOnly && visible.length === 0 && (
+        <div className="card text-center py-6">
+          <p className="text-2xl mb-1">🎉</p>
+          <p className="text-sm font-semibold text-gray-700">All caught up!</p>
+          <p className="text-xs text-gray-400 mt-0.5">You&apos;ve answered all open predictions.</p>
+          <button onClick={() => setShowOpenOnly(false)} className="mt-3 text-xs text-fifa-blue hover:underline">
+            Show all predictions
+          </button>
+        </div>
+      )}
       <div className="space-y-4">
         {visible.map((cp) => {
           const isPlayer = cp.optionType === "PLAYER";

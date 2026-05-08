@@ -245,6 +245,7 @@ function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string
 export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
   const [predictions, setPredictions] = useState<CustomPrediction[]>([]);
   const [current, setCurrent] = useState(0);
+  const [showOpenOnly, setShowOpenOnly] = useState(false);
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
@@ -296,7 +297,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     touchStart.current = null;
     if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dy) > Math.abs(dx)) return;
     if (dx > 0 && current > 0) setCurrent((c) => c - 1);
-    else if (dx < 0 && current < predictions.length - 1) setCurrent((c) => c + 1);
+    else if (dx < 0 && current < total - 1) setCurrent((c) => c + 1);
   }
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const target = e.target as HTMLElement;
@@ -304,7 +305,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     if (e.key === "ArrowLeft" && current > 0) {
       e.preventDefault();
       setCurrent((c) => c - 1);
-    } else if (e.key === "ArrowRight" && current < predictions.length - 1) {
+    } else if (e.key === "ArrowRight" && current < total - 1) {
       e.preventDefault();
       setCurrent((c) => c + 1);
     }
@@ -360,10 +361,17 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     setWithdrawPending((p) => ({ ...p, [cpId]: false }));
   }, []);
 
+  // Reset to first card when toggling filter
+  useEffect(() => { setCurrent(0); }, [showOpenOnly]);
+
   if (predictions.length === 0) return null;
 
-  const total = predictions.length;
-  const cp = predictions[current];
+  const displayPredictions = showOpenOnly
+    ? predictions.filter((p) => p.status === "OPEN" && !p.isLocked && !p.userAnswer)
+    : predictions;
+
+  const total = displayPredictions.length;
+  const cp = displayPredictions[current];
 
   const isPlayer = cp.optionType === "PLAYER";
   const isTeam = cp.optionType === "TEAM";
@@ -385,6 +393,8 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
   const hasPred = !!cp.userAnswer;
   const isPending = !!withdrawPending[cp.id];
 
+  const openCount = predictions.filter((p) => p.status === "OPEN" && !p.isLocked && !p.userAnswer).length;
+
   return (
     <div
       onTouchStart={onTouchStart}
@@ -393,7 +403,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       tabIndex={0}
       role="region"
       aria-roledescription="prediction carousel"
-      aria-label={`Prediction ${current + 1} of ${predictions.length}`}
+      aria-label={`Prediction ${current + 1} of ${total}`}
       className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-fifa-blue focus-visible:ring-offset-2"
     >
       <div className="card flex flex-col gap-3 relative">
@@ -614,59 +624,84 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       </div>
 
       {/* Carousel controls */}
-      <div className="flex items-center gap-2 mt-3">
-        <button
-          onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-          disabled={current === 0}
-          className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
-        >
-          ‹
-        </button>
+      {total === 0 ? (
+        <div className="card mt-3 text-center py-6">
+          <p className="text-2xl mb-1">🎉</p>
+          <p className="text-sm font-semibold text-gray-700">All caught up!</p>
+          <p className="text-xs text-gray-400 mt-0.5">You&apos;ve answered all open predictions.</p>
+          <button onClick={() => setShowOpenOnly(false)} className="mt-3 text-xs text-fifa-blue hover:underline">
+            Show all predictions
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+            disabled={current === 0}
+            className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
+          >
+            ‹
+          </button>
 
-        {(() => {
-          const MAX_DOTS = 9;
-          const windowStart = predictions.length <= MAX_DOTS
-            ? 0
-            : Math.max(0, Math.min(current - Math.floor(MAX_DOTS / 2), predictions.length - MAX_DOTS));
-          const windowEnd = Math.min(predictions.length, windowStart + MAX_DOTS);
-          const visible = predictions.slice(windowStart, windowEnd);
-          return (
-            <div className="flex gap-1 items-center justify-center flex-1 overflow-hidden">
-              {windowStart > 0 && <span className="text-gray-300 text-xs leading-none">…</span>}
-              {visible.map((p) => {
-                const i = predictions.indexOf(p);
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setCurrent(i)}
-                    className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-gray-100 transition shrink-0"
-                    aria-label={`Prediction ${i + 1}`}
-                    title={p.question}
-                  >
-                    <span className={`rounded-full transition-all block ${
-                      i === current
-                        ? "bg-fifa-blue w-4 h-2"
-                        : p.userAnswer
-                        ? "bg-green-400 w-2 h-2"
-                        : "bg-gray-200 w-2 h-2"
-                    }`} />
-                  </button>
-                );
-              })}
-              {windowEnd < predictions.length && <span className="text-gray-300 text-xs leading-none">…</span>}
-            </div>
-          );
-        })()}
+          {(() => {
+            const MAX_DOTS = 9;
+            const windowStart = total <= MAX_DOTS
+              ? 0
+              : Math.max(0, Math.min(current - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
+            const windowEnd = Math.min(total, windowStart + MAX_DOTS);
+            const visibleDots = displayPredictions.slice(windowStart, windowEnd);
+            return (
+              <div className="flex gap-1 items-center justify-center flex-1 overflow-hidden">
+                {windowStart > 0 && <span className="text-gray-300 text-xs leading-none">…</span>}
+                {visibleDots.map((p) => {
+                  const i = displayPredictions.indexOf(p);
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setCurrent(i)}
+                      className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-gray-100 transition shrink-0"
+                      aria-label={`Prediction ${i + 1}`}
+                      title={p.question}
+                    >
+                      <span className={`rounded-full transition-all block ${
+                        i === current
+                          ? "bg-fifa-blue w-4 h-2"
+                          : p.userAnswer
+                          ? "bg-green-400 w-2 h-2"
+                          : "bg-gray-200 w-2 h-2"
+                      }`} />
+                    </button>
+                  );
+                })}
+                {windowEnd < total && <span className="text-gray-300 text-xs leading-none">…</span>}
+              </div>
+            );
+          })()}
 
+          <button
+            onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}
+            disabled={current === total - 1}
+            className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
+          >
+            ›
+          </button>
+        </div>
+      )}
+      <div className="flex items-center justify-between mt-1 px-0.5">
+        <p className="text-xs text-gray-400">
+          {total > 0 ? `${current + 1} of ${total}${showOpenOnly ? " open" : ""}` : ""}
+        </p>
         <button
-          onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}
-          disabled={current === total - 1}
-          className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
+          onClick={() => setShowOpenOnly((v) => !v)}
+          className={`text-xs px-2.5 py-1 rounded-full border transition ${
+            showOpenOnly
+              ? "bg-fifa-blue text-white border-fifa-blue"
+              : "border-gray-300 text-gray-500 hover:border-fifa-blue hover:text-fifa-blue"
+          }`}
         >
-          ›
+          {showOpenOnly ? "Open only" : openCount > 0 ? `Open only (${openCount})` : "Open only"}
         </button>
       </div>
-      <p className="text-center text-xs text-gray-400 mt-1">{current + 1} of {total}</p>
     </div>
   );
 }
