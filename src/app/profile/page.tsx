@@ -4,6 +4,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import { PushSubscribeButton } from "@/components/PushSubscribeButton";
 
 function ProfilePageInner() {
   const { data: session, update, status } = useSession();
@@ -20,6 +21,11 @@ function ProfilePageInner() {
   const [emailLock30m, setEmailLock30m] = useState(true);
   const [emailPostGame, setEmailPostGame] = useState(true);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [pushNotifications, setPushNotifications] = useState(true);
+  const [pushReminders, setPushReminders] = useState(true);
+  const [pushLock30m, setPushLock30m] = useState(true);
+  const [pushPostGame, setPushPostGame] = useState(true);
+  const [savingPush, setSavingPush] = useState(false);
   const [allowDirectAdd, setAllowDirectAdd] = useState(true);
   const [savingDirectAdd, setSavingDirectAdd] = useState(false);
 
@@ -40,14 +46,22 @@ function ProfilePageInner() {
         if (typeof d.emailReminders === "boolean") setEmailReminders(d.emailReminders);
         if (typeof d.emailLock30m === "boolean") setEmailLock30m(d.emailLock30m);
         if (typeof d.emailPostGame === "boolean") setEmailPostGame(d.emailPostGame);
+        if (typeof d.pushNotifications === "boolean") setPushNotifications(d.pushNotifications);
+        if (typeof d.pushReminders === "boolean") setPushReminders(d.pushReminders);
+        if (typeof d.pushLock30m === "boolean") setPushLock30m(d.pushLock30m);
+        if (typeof d.pushPostGame === "boolean") setPushPostGame(d.pushPostGame);
         if (typeof d.allowDirectAdd === "boolean") setAllowDirectAdd(d.allowDirectAdd);
       })
       .catch(() => {});
   }, [session?.user?.id]);
 
-  const toggleEmailPref = async (field: string, val: boolean, setter: (v: boolean) => void) => {
+  const togglePref = async (
+    field: string, val: boolean,
+    setter: (v: boolean) => void,
+    setSaving: (v: boolean) => void,
+  ) => {
     setter(val);
-    setSavingEmail(true);
+    setSaving(true);
     try {
       await fetch("/api/user/profile", {
         method: "PATCH",
@@ -55,7 +69,7 @@ function ProfilePageInner() {
         body: JSON.stringify({ [field]: val }),
       });
     } catch {}
-    setSavingEmail(false);
+    setSaving(false);
   };
 
   const toggleAllowDirectAdd = async (val: boolean) => {
@@ -194,7 +208,7 @@ function ProfilePageInner() {
               </p>
             </div>
             <button
-              onClick={() => toggleEmailPref("emailNotifications", !emailNotifications, setEmailNotifications)}
+              onClick={() => togglePref("emailNotifications", !emailNotifications, setEmailNotifications, setSavingEmail)}
               disabled={savingEmail}
               className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
                 emailNotifications ? "bg-fifa-blue" : "bg-gray-200"
@@ -226,8 +240,84 @@ function ProfilePageInner() {
                     <p className="text-xs text-gray-400">{desc}</p>
                   </div>
                   <button
-                    onClick={() => toggleEmailPref(field, !val, set as (v: boolean) => void)}
+                    onClick={() => togglePref(field, !val, set as (v: boolean) => void, setSavingEmail)}
                     disabled={savingEmail}
+                    className={`shrink-0 relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
+                      val ? "bg-fifa-blue" : "bg-gray-200"
+                    }`}
+                    aria-checked={val}
+                    role="switch"
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                        val ? "translate-x-4" : "translate-x-0.5"
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Push notification settings */}
+      <div className="card mt-4">
+        <h2 className="text-base font-semibold text-gray-900 mb-1">Push Notifications</h2>
+        <p className="text-xs text-gray-400 mb-4">
+          Get notified on your device — works when the app is added to your home screen.
+        </p>
+        <div className="space-y-4">
+          {/* Device subscription row */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-800">This device</p>
+              <p className="text-xs text-gray-400 mt-0.5">Allow this device to receive push alerts.</p>
+            </div>
+            <PushSubscribeButton />
+          </div>
+
+          {/* Master preference toggle */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-800">Push notifications</p>
+              <p className="text-xs text-gray-400 mt-0.5">Send push alerts to subscribed devices.</p>
+            </div>
+            <button
+              onClick={() => togglePref("pushNotifications", !pushNotifications, setPushNotifications, setSavingPush)}
+              disabled={savingPush}
+              className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50 ${
+                pushNotifications ? "bg-fifa-blue" : "bg-gray-200"
+              }`}
+              aria-checked={pushNotifications}
+              role="switch"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  pushNotifications ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Sub-toggles */}
+          {pushNotifications && (
+            <div className="ml-4 pl-3 border-l-2 border-gray-100 space-y-3">
+              {(
+                [
+                  { field: "pushReminders", label: "Match reminders", desc: "1 hour before predictions lock.", val: pushReminders, set: setPushReminders },
+                  { field: "pushLock30m", label: "30-minute warnings", desc: "Last call — 30 min before lock.", val: pushLock30m, set: setPushLock30m },
+                  { field: "pushPostGame", label: "Post-game results", desc: "Your points after each match.", val: pushPostGame, set: setPushPostGame },
+                ] as const
+              ).map(({ field, label, desc, val, set }) => (
+                <div key={field} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">{label}</p>
+                    <p className="text-xs text-gray-400">{desc}</p>
+                  </div>
+                  <button
+                    onClick={() => togglePref(field, !val, set as (v: boolean) => void, setSavingPush)}
+                    disabled={savingPush}
                     className={`shrink-0 relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
                       val ? "bg-fifa-blue" : "bg-gray-200"
                     }`}

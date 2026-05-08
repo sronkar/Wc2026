@@ -36,7 +36,7 @@ export async function generateLockNotifications() {
         groupMemberships: { some: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } } },
       },
       select: {
-        id: true, email: true, name: true, emailNotifications: true, emailReminders: true, emailLock30m: true,
+        id: true, email: true, name: true, emailNotifications: true, emailReminders: true, emailLock30m: true, pushNotifications: true, pushLock30m: true,
         groupMemberships: {
           where: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
           select: { groupId: true, group: { select: { name: true } } },
@@ -64,6 +64,7 @@ export async function generateLockNotifications() {
   const lock30mTargets: Array<{
     userId: string; email: string | null; name: string | null;
     emailNotifications: boolean; emailLock30m: boolean;
+    pushNotifications: boolean; pushLock30m: boolean;
     match: typeof allMatches[number]; groupNames: string[];
   }> = [];
 
@@ -119,6 +120,8 @@ export async function generateLockNotifications() {
           name: user.name,
           emailNotifications: user.emailNotifications,
           emailLock30m: user.emailLock30m,
+          pushNotifications: user.pushNotifications,
+          pushLock30m: user.pushLock30m,
           match,
           groupNames: unpredictedGroups.map((g) => g.name),
         });
@@ -132,17 +135,19 @@ export async function generateLockNotifications() {
 
   // Push for lock_30m — one per (user, match) with the unpredicted group(s) in the body
   await Promise.allSettled(
-    lock30mTargets.map((t) => {
-      const body = t.groupNames.length === 1
-        ? `${t.match.homeTeam} vs ${t.match.awayTeam} (${t.groupNames[0]})`
-        : `${t.match.homeTeam} vs ${t.match.awayTeam} — open in ${t.groupNames.length} group${t.groupNames.length === 1 ? "" : "s"}`;
-      return sendPushToUser(t.userId, {
-        title: "Last chance — 30 min to lock",
-        body,
-        url: "/groups",
-        tag: `lock-30m-${t.match.id}`,
-      }).catch(() => { /* non-fatal */ });
-    })
+    lock30mTargets
+      .filter((t) => t.pushNotifications && t.pushLock30m)
+      .map((t) => {
+        const body = t.groupNames.length === 1
+          ? `${t.match.homeTeam} vs ${t.match.awayTeam} (${t.groupNames[0]})`
+          : `${t.match.homeTeam} vs ${t.match.awayTeam} — open in ${t.groupNames.length} group${t.groupNames.length === 1 ? "" : "s"}`;
+        return sendPushToUser(t.userId, {
+          title: "Last chance — 30 min to lock",
+          body,
+          url: "/groups",
+          tag: `lock-30m-${t.match.id}`,
+        }).catch(() => { /* non-fatal */ });
+      })
   );
 
   // Email for lock_30m — aggregate matches per user

@@ -28,6 +28,7 @@ export async function sendMatchReminders() {
     },
     select: {
       id: true, email: true, name: true, emailNotifications: true, emailReminders: true,
+      pushNotifications: true, pushReminders: true,
       groupMemberships: {
         where: { status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
         select: { groupId: true },
@@ -93,12 +94,14 @@ export async function sendMatchReminders() {
         ? `${matchesToRemind[0].homeTeam} vs ${matchesToRemind[0].awayTeam} — predictions lock in ~1 hour!`
         : `${matchesToRemind.length} matches lock for predictions in ~1 hour — predict now!`;
 
-    await sendPushToUser(user.id, {
-      title: "⚽ Predictions lock soon!",
-      body,
-      url: "/groups",
-      tag: "reminder",
-    });
+    if (user.pushNotifications && user.pushReminders) {
+      await sendPushToUser(user.id, {
+        title: "⚽ Predictions lock soon!",
+        body,
+        url: "/groups",
+        tag: "reminder",
+      });
+    }
 
     // Mark reminders as sent
     await Promise.allSettled(
@@ -198,6 +201,8 @@ export async function sendPostGameNotifications(
             email: true,
             emailNotifications: true,
             emailPostGame: true,
+            pushNotifications: true,
+            pushPostGame: true,
             isDemo: true,
             predictions: { where: { points: { not: null }, groupId }, select: { points: true } },
             customPredictionAnswers: { where: { points: { not: null }, groupId }, select: { points: true } },
@@ -237,6 +242,8 @@ export async function sendPostGameNotifications(
           email: m.user.email,
           emailNotifications: m.user.emailNotifications,
           emailPostGame: m.user.emailPostGame,
+          pushNotifications: m.user.pushNotifications,
+          pushPostGame: m.user.pushPostGame,
           totalPoints: allPts.reduce((s, p) => s + p, 0),
           pointsGained: pointsGainedMap[m.user.id] ?? 0,
         };
@@ -265,12 +272,14 @@ export async function sendPostGameNotifications(
         } catch { /* non-fatal */ }
 
         // Push
-        await sendPushToUser(entry.id, {
-          title: `⚽ Result: ${matchLabel}`,
-          body: pushBody,
-          url: "/groups",
-          tag: `result-${matchId}`,
-        });
+        if (entry.pushNotifications && entry.pushPostGame) {
+          await sendPushToUser(entry.id, {
+            title: `⚽ Result: ${matchLabel}`,
+            body: pushBody,
+            url: "/groups",
+            tag: `result-${matchId}`,
+          });
+        }
       })
     );
   }
