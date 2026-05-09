@@ -143,6 +143,9 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Auto-save debounce timers
+  const autoSaveTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   // 5-second undo grace period for prediction withdrawal
   const [withdrawPending, setWithdrawPending] = useState<Record<string, boolean>>({});
   const [withdrawCountdown, setWithdrawCountdown] = useState<Record<string, number>>({});
@@ -214,15 +217,46 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
     }
   }, [inputs]);
 
-  // Cleanup withdraw timers on unmount
+  // Cleanup all timers on unmount
   useEffect(() => {
     const timers = withdrawTimerRef.current;
     const ticks = withdrawTickRef.current;
+    const autoSave = autoSaveTimerRef.current;
     return () => {
       Object.values(timers).forEach(clearTimeout);
       Object.values(ticks).forEach(clearInterval);
+      Object.values(autoSave).forEach(clearTimeout);
     };
   }, []);
+
+  // Auto-save when both score fields are filled. Captures values directly
+  // to avoid stale-closure issues with the inputs state.
+  const scheduleAutoSave = useCallback((matchId: string, homeStr: string, awayStr: string) => {
+    clearTimeout(autoSaveTimerRef.current[matchId]);
+    if (!homeStr.trim() || !awayStr.trim()) return;
+    const h = parseInt(homeStr.trim(), 10);
+    const a = parseInt(awayStr.trim(), 10);
+    if (isNaN(h) || isNaN(a) || h < 0 || a < 0) return;
+    autoSaveTimerRef.current[matchId] = setTimeout(async () => {
+      setErrors((e) => ({ ...e, [matchId]: "" }));
+      setSaving((s) => ({ ...s, [matchId]: true }));
+      try {
+        const res = await fetch("/api/predictions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ matchId, groupId, homeScore: h, awayScore: a }),
+        });
+        if (!res.ok) throw new Error((await res.json()).error);
+        setPreds((p) => ({ ...p, [matchId]: { homeScore: h, awayScore: a } }));
+        setSaved((s) => ({ ...s, [matchId]: true }));
+        setTimeout(() => setSaved((s) => ({ ...s, [matchId]: false })), 2000);
+      } catch (err: unknown) {
+        setErrors((e) => ({ ...e, [matchId]: (err as Error).message ?? "Failed" }));
+      } finally {
+        setSaving((s) => ({ ...s, [matchId]: false }));
+      }
+    }, 600);
+  }, [groupId]);
 
   // Reset expand state when navigating to different match
   useEffect(() => {
@@ -316,7 +350,11 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
               <input
                 type="text" inputMode="numeric" pattern="[0-9]*"
                 value={inp.home}
-                onChange={(e) => setInputs((i) => ({ ...i, [match.id]: { ...i[match.id], home: e.target.value } }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setInputs((i) => ({ ...i, [match.id]: { ...i[match.id], home: v } }));
+                  scheduleAutoSave(match.id, v, inp.away);
+                }}
                 className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
                 placeholder="0"
               />
@@ -332,7 +370,11 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
               <input
                 type="text" inputMode="numeric" pattern="[0-9]*"
                 value={inp.away}
-                onChange={(e) => setInputs((i) => ({ ...i, [match.id]: { ...i[match.id], away: e.target.value } }))}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setInputs((i) => ({ ...i, [match.id]: { ...i[match.id], away: v } }));
+                  scheduleAutoSave(match.id, inp.home, v);
+                }}
                 className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
                 placeholder="0"
               />
@@ -380,23 +422,27 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs">
+                    {saving[match.id] ? (
+                      <span className="text-gray-400">Saving…</span>
+                    ) : saved[match.id] ? (
+                      <span className="text-green-600">Saved ✓</span>
+                    ) : errors[match.id] ? (
+                      <span className="text-red-500">{errors[match.id]}</span>
+                    ) : null}
+                  </span>
                   <button
-                    onClick={() => handleSave(match.id)}
-                    disabled={saving[match.id]}
-                    className="btn-primary text-xs px-3 py-1.5 flex-1"
+                    onClick={hasPred ? () => handleInitWithdraw(match.id) : undefined}
+                    title="Withdraw prediction"
+                    className={`w-9 h-9 flex items-center justify-center rounded-full border shrink-0 transition ${
+                      hasPred
+                        ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+                        : "invisible pointer-events-none"
+                    }`}
                   >
-                    {saving[match.id] ? "..." : saved[match.id] ? "Saved ✓" : "Save"}
+                    ✕
                   </button>
-                  {hasPred && (
-                    <button
-                      onClick={() => handleInitWithdraw(match.id)}
-                      title="Withdraw prediction"
-                      className="w-11 h-11 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition shrink-0"
-                    >
-                      ✕
-                    </button>
-                  )}
                 </div>
               )}
               {carouselWarning && (
@@ -404,7 +450,6 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
                   <span>⚠️</span> {carouselWarning}
                 </p>
               )}
-              {errors[match.id] && <p className="text-xs text-red-500">{errors[match.id]}</p>}
             </>
           )}
         </div>

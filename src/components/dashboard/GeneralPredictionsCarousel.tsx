@@ -365,6 +365,10 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
 
   const total = displayPredictions.length;
 
+  // Clamp current to valid range (guards against stale index after filter changes)
+  const safeCurrent = Math.min(current, Math.max(0, total - 1));
+  if (safeCurrent !== current) setCurrent(safeCurrent);
+
   // All caught up: open-only mode but no unanswered predictions
   if (total === 0 && showOpenOnly) {
     return (
@@ -389,7 +393,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     );
   }
 
-  const cp = displayPredictions[current];
+  const cp = displayPredictions[safeCurrent];
 
   const isPlayer = cp.optionType === "PLAYER";
   const isTeam = cp.optionType === "TEAM";
@@ -674,7 +678,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       <div className="flex items-center gap-2 mt-3">
           <button
             onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-            disabled={current === 0}
+            disabled={safeCurrent === 0}
             className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
           >
             ‹
@@ -684,7 +688,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
             const MAX_DOTS = 9;
             const windowStart = total <= MAX_DOTS
               ? 0
-              : Math.max(0, Math.min(current - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
+              : Math.max(0, Math.min(safeCurrent - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
             const windowEnd = Math.min(total, windowStart + MAX_DOTS);
             const visibleDots = displayPredictions.slice(windowStart, windowEnd);
             return (
@@ -701,7 +705,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
                       title={p.question}
                     >
                       <span className={`rounded-full transition-all block ${
-                        i === current
+                        i === safeCurrent
                           ? "bg-fifa-blue w-4 h-2"
                           : p.userAnswer
                           ? "bg-green-400 w-2 h-2"
@@ -717,7 +721,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
 
           <button
             onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}
-            disabled={current === total - 1}
+            disabled={safeCurrent === total - 1}
             className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
           >
             ›
@@ -725,7 +729,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
         </div>
       {total > 0 && (
         <p className="text-xs text-gray-400 text-center mt-1">
-          {current + 1} of {total}{showOpenOnly ? " open" : ""}
+          {safeCurrent + 1} of {total}{showOpenOnly ? " open" : ""}
         </p>
       )}
     </div>
