@@ -311,8 +311,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     }
   }
 
-  const handleSubmit = useCallback(async (cpId: string) => {
-    const option = selected[cpId];
+  const handleSubmit = useCallback(async (cpId: string, option: string) => {
     if (!option?.trim()) return;
     setSaving((p) => ({ ...p, [cpId]: true }));
     try {
@@ -326,16 +325,13 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       setPredictions((prev) => prev.map((cp) => cp.id === cpId ? { ...cp, userAnswer: option.trim() } : cp));
       setTimeout(() => setSaved((p) => ({ ...p, [cpId]: false })), 2000);
     } catch (err: unknown) {
-      // Surface error briefly so user knows save failed
-      setSaved((p) => ({ ...p, [cpId]: false }));
-      // Re-use the "saved" label area to show error for 3s via a separate error state
       const msg = (err as Error).message ?? "Failed to save";
       setSaveError((p) => ({ ...p, [cpId]: msg }));
       setTimeout(() => setSaveError((p) => ({ ...p, [cpId]: "" })), 3000);
     } finally {
       setSaving((p) => ({ ...p, [cpId]: false }));
     }
-  }, [selected, groupId]);
+  }, [groupId]);
 
   const handleWithdraw = useCallback((cpId: string) => {
     // Optimistically clear & start 5s countdown
@@ -504,7 +500,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
                         }`}
                       >
                         <input type="radio" name={cp.id} value={opt} checked={isSelected}
-                          onChange={() => setSelected((p) => ({ ...p, [cp.id]: opt }))} className="sr-only" />
+                          onChange={() => { setSelected((p) => ({ ...p, [cp.id]: opt })); handleSubmit(cp.id, opt); }} className="sr-only" />
                         <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${isSelected ? "border-fifa-blue bg-fifa-blue" : "border-gray-300"}`} />
                         {flag && <span className="shrink-0">{flag}</span>}
                         {opt}
@@ -517,30 +513,31 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
                 <TeamPicker
                   key={cp.id}
                   value={selected[cp.id] ?? ""}
-                  onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
+                  onChange={(v) => { setSelected((p) => ({ ...p, [cp.id]: v })); if (v) handleSubmit(cp.id, v); }}
                   sort={cp.teamSort}
                 />
               )}
               {isPlayer && (
                 <PlayerPicker
                   value={selected[cp.id] ?? ""}
-                  onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
+                  onChange={(v) => { setSelected((p) => ({ ...p, [cp.id]: v })); if (v) handleSubmit(cp.id, v); }}
                 />
               )}
             </div>
-            <div className="border-t border-gray-100 pt-2 flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-              <button
-                onClick={() => handleSubmit(cp.id)}
-                disabled={saving[cp.id] || !selected[cp.id]?.trim()}
-                className="btn-primary text-xs px-3 py-1.5 flex-1 disabled:opacity-40"
-              >
-                {saving[cp.id] ? "..." : saved[cp.id] ? "Saved ✓" : cp.userAnswer ? "Update" : "Save"}
-              </button>
+            <div className="border-t border-gray-100 pt-2 flex items-center justify-between">
+              <span className="text-xs">
+                {saving[cp.id] ? (
+                  <span className="text-gray-400">Saving…</span>
+                ) : saved[cp.id] ? (
+                  <span className="text-green-600">Saved ✓</span>
+                ) : saveError[cp.id] ? (
+                  <span className="text-red-500">{saveError[cp.id]}</span>
+                ) : null}
+              </span>
               <button
                 onClick={hasPred ? () => handleWithdraw(cp.id) : undefined}
                 title="Withdraw answer"
-                className={`w-11 h-11 flex items-center justify-center rounded-full border shrink-0 transition ${
+                className={`w-9 h-9 flex items-center justify-center rounded-full border shrink-0 transition ${
                   hasPred
                     ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
                     : "invisible pointer-events-none"
@@ -548,10 +545,6 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
               >
                 ✕
               </button>
-              </div>
-              {saveError[cp.id] && (
-                <p className="text-xs text-red-500">{saveError[cp.id]}</p>
-              )}
             </div>
           </>
         )}
