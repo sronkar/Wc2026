@@ -1189,7 +1189,6 @@ Winner\t\tTeam\t10`;
                           {!g.isPublic && <span className="badge bg-gray-100 text-gray-500 text-[10px]">🔒 Private</span>}
                           {!g.myStatus && <span className="badge bg-amber-50 text-amber-600 text-[10px]">Not member</span>}
                         </div>
-                        {g.description && <p className="text-xs text-gray-400 truncate">{g.description}</p>}
                       </div>
                       {/* Members */}
                       <span className="text-xs text-gray-400 shrink-0">{g.memberCount} members</span>
@@ -1207,6 +1206,9 @@ Winner\t\tTeam\t10`;
                             </button>
                           )}
                         </div>
+                      {(g as {createdByName?: string}).createdByName && (
+                        <span className="text-xs text-gray-300 shrink-0">{(g as {createdByName?: string}).createdByName}</span>
+                      )}
                     </div>
                   ))}
               </div>
