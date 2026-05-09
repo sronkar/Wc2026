@@ -1587,19 +1587,19 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500">
                     <th className="px-4 py-3 font-semibold">Member</th>
+                    <th className="px-4 py-3 font-semibold text-center">Global Preds</th>
+                    <th className="px-4 py-3 font-semibold text-center">Advancement</th>
                     <th className="px-4 py-3 font-semibold text-center">Group Stage</th>
                     <th className="px-4 py-3 font-semibold text-center">Knockout</th>
-                    <th className="px-4 py-3 font-semibold text-center">Custom</th>
-                    <th className="px-4 py-3 font-semibold text-center">Advancement</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {predStats.stats.map((member) => {
                     const cols = [
-                      { done: member.matchGroupStage, total: predStats.totals.matchGroupStage },
-                      { done: member.matchKnockout, total: predStats.totals.matchKnockout },
                       { done: member.customPredictions, total: predStats.totals.customPredictions },
                       { done: member.advancementPicks, total: predStats.totals.advancementPicks },
+                      { done: member.matchGroupStage, total: predStats.totals.matchGroupStage },
+                      { done: member.matchKnockout, total: predStats.totals.matchKnockout },
                     ];
                     return (
                       <tr key={member.userId} className="hover:bg-gray-50 transition">
