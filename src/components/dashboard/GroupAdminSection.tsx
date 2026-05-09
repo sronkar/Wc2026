@@ -116,20 +116,27 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [addMemberSaving, setAddMemberSaving] = useState(false);
   const [addMemberMessage, setAddMemberMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  // ── Monkey re-sync state ──────────────────────────────────────────────────────
-  const [monkeyLoading, setMonkeyLoading] = useState(false);
-  const [monkeyMessage, setMonkeyMessage] = useState<string | null>(null);
+  // ── Demo bot state ────────────────────────────────────────────────────────────
+  const [botLoading, setBotLoading] = useState<Record<string, boolean>>({});
+  const [botMessage, setBotMessage] = useState<Record<string, string>>({});
 
-  const handleSyncMonkey = async () => {
-    setMonkeyLoading(true);
-    setMonkeyMessage(null);
+  const handleBotAction = async (bot: "monkey" | "claudio", action: "POST" | "DELETE") => {
+    const key = `${bot}-${action}`;
+    setBotLoading((p) => ({ ...p, [key]: true }));
+    setBotMessage((p) => ({ ...p, [key]: "" }));
     try {
-      const res = await fetch(`/api/admin/groups/${groupId}/monkey`, { method: "POST" });
-      setMonkeyMessage(res.ok ? "Monkey synced ✓" : "Failed to sync monkey");
+      const res = await fetch(`/api/admin/groups/${groupId}/${bot}`, { method: action });
+      const label = bot === "monkey" ? "Monkey" : "Claudio";
+      setBotMessage((p) => ({
+        ...p,
+        [key]: res.ok
+          ? action === "DELETE" ? `${label} removed` : `${label} synced ✓`
+          : `Failed`,
+      }));
     } catch {
-      setMonkeyMessage("Failed to sync monkey");
+      setBotMessage((p) => ({ ...p, [key]: "Failed" }));
     } finally {
-      setMonkeyLoading(false);
+      setBotLoading((p) => ({ ...p, [key]: false }));
     }
   };
 
@@ -935,24 +942,44 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         )}
       </div>
 
-      {/* ── Monkey demo user ─────────────────────────────────────────────────── */}
-      <div className="card">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-gray-700">🐒 Monkey (demo predictor)</p>
-            <p className="text-xs text-gray-400 mt-0.5">Adds or re-syncs the Monkey demo user. Fills all missing match, global, and advancement predictions with random picks.</p>
-          </div>
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            <button
-              onClick={handleSyncMonkey}
-              disabled={monkeyLoading}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition disabled:opacity-50"
-            >
-              {monkeyLoading ? "Syncing…" : "Add / Re-sync Monkey"}
-            </button>
-            {monkeyMessage && <span className="text-[10px] text-gray-500">{monkeyMessage}</span>}
-          </div>
-        </div>
+      {/* ── Demo bots ────────────────────────────────────────────────────────── */}
+      <div className="card space-y-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Demo Predictors</p>
+        {(["monkey", "claudio"] as const).map((bot) => {
+          const label = bot === "monkey" ? "🐒 Monkey" : "🧠 Claudio";
+          const desc = bot === "monkey"
+            ? "Fills all missing predictions with random picks (attacking players for scorer awards)."
+            : "Fills match predictions using AI-generated scores.";
+          const syncKey = `${bot}-POST`;
+          const removeKey = `${bot}-DELETE`;
+          return (
+            <div key={bot} className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-700">{label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleBotAction(bot, "POST")}
+                  disabled={botLoading[syncKey]}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition disabled:opacity-50"
+                >
+                  {botLoading[syncKey] ? "…" : "Add / Sync"}
+                </button>
+                <button
+                  onClick={() => handleBotAction(bot, "DELETE")}
+                  disabled={botLoading[removeKey]}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
+                >
+                  {botLoading[removeKey] ? "…" : "Remove"}
+                </button>
+                {(botMessage[syncKey] || botMessage[removeKey]) && (
+                  <span className="text-[10px] text-gray-400">{botMessage[syncKey] || botMessage[removeKey]}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── B. Group Settings ────────────────────────────────────────────────── */}

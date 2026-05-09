@@ -11,6 +11,16 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// Remove a demo user (monkey or claudio) from a group — clears all their predictions in that group
+export async function removeDemoUserFromGroup(userId: string, groupId: string): Promise<void> {
+  await Promise.all([
+    prisma.groupMembership.deleteMany({ where: { userId, groupId } }),
+    prisma.prediction.deleteMany({ where: { userId, groupId } }),
+    prisma.customPredictionAnswer.deleteMany({ where: { userId, groupId } }),
+    prisma.advancementPrediction.deleteMany({ where: { userId, groupId } }),
+  ]);
+}
+
 export async function ensureMonkeyUser(): Promise<string> {
   let monkey = await prisma.user.findFirst({ where: { email: "monkey@wc2026.internal" } });
   if (!monkey) {
@@ -71,6 +81,8 @@ async function fillMatchPredictions(monkeyId: string, groupId: string): Promise<
   });
 }
 
+const ATTACKING_POSITIONS = ["MID", "FWD", "ATT", "AMF", "CAM", "LW", "RW", "ST", "SS", "CF", "LF", "RF"];
+
 // Fill custom predictions (global + group-specific) with a random valid option
 async function fillCustomPredictions(monkeyId: string, groupId: string): Promise<void> {
   const customPreds = await prisma.customPrediction.findMany({
@@ -78,28 +90,30 @@ async function fillCustomPredictions(monkeyId: string, groupId: string): Promise
       status: { not: "DISABLED" },
       OR: [{ isGlobal: true }, { groupId }],
     },
-    select: { id: true, options: true, optionType: true, isGlobal: true },
+    select: { id: true, question: true, options: true, optionType: true, isGlobal: true },
   });
 
   const answered = await prisma.customPredictionAnswer.findMany({
     where: { userId: monkeyId, groupId },
     select: { customPredictionId: true },
   });
-  const answeredIds = new Set(answered.map((a) => a.customPredictionId));
+  const answeredIds = new Set(answered.map((a: { customPredictionId: string }) => a.customPredictionId));
 
-  // For PLAYER type we need a random player name from the DB
-  let randomPlayer: string | null = null;
-  const playerPreds = customPreds.filter((cp) => cp.optionType === "PLAYER" && !answeredIds.has(cp.id));
-  if (playerPreds.length > 0) {
-    const players = await prisma.player.findMany({ select: { name: true }, take: 200 });
-    if (players.length > 0) randomPlayer = pickRandom(players).name;
-  }
+  // Pre-fetch attacker pool (for scoring questions like Top Scorer)
+  const attackers = await prisma.player.findMany({
+    where: { position: { in: ATTACKING_POSITIONS } },
+    select: { name: true },
+    take: 300,
+  });
+  // Fallback to any player if no attackers found
+  const allPlayers = attackers.length > 0 ? attackers
+    : await prisma.player.findMany({ select: { name: true }, take: 300 });
 
   for (const cp of customPreds) {
     if (answeredIds.has(cp.id)) continue;
     let option: string | null = null;
     if (cp.optionType === "PLAYER") {
-      option = randomPlayer;
+      option = allPlayers.length > 0 ? pickRandom(allPlayers).name : null;
     } else {
       const opts: string[] = JSON.parse(cp.options);
       if (opts.length > 0) option = pickRandom(opts);
