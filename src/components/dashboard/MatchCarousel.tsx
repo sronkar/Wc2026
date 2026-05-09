@@ -434,14 +434,13 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
                   </span>
                   <button
                     onClick={hasPred ? () => handleInitWithdraw(match.id) : undefined}
-                    title="Withdraw prediction"
-                    className={`w-9 h-9 flex items-center justify-center rounded-full border shrink-0 transition ${
+                    className={`text-xs font-medium px-2 py-1 rounded transition ${
                       hasPred
-                        ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+                        ? "text-red-500 hover:text-red-700 hover:bg-red-50"
                         : "invisible pointer-events-none"
                     }`}
                   >
-                    ✕
+                    Clear
                   </button>
                 </div>
               )}
