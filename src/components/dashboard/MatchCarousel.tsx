@@ -356,7 +356,7 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
                   scheduleAutoSave(match.id, v, inp.away);
                 }}
                 className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
-                placeholder="0"
+                placeholder="–"
               />
             )}
           </div>
@@ -376,7 +376,7 @@ export function MatchCarousel({ groupId, matches, predictions: initialPrediction
                   scheduleAutoSave(match.id, inp.home, v);
                 }}
                 className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
-                placeholder="0"
+                placeholder="–"
               />
             )}
           </div>

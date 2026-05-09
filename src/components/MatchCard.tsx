@@ -328,7 +328,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
               value={homeInput}
               onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 2); setHomeInput(v); scheduleAutoSave(v, awayInput); }}
               className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
-              placeholder="0"
+              placeholder="–"
               aria-label={`${match.homeTeam} predicted score`}
             />
           ) : null}
@@ -355,7 +355,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
               value={awayInput}
               onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 2); setAwayInput(v); scheduleAutoSave(homeInput, v); }}
               className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
-              placeholder="0"
+              placeholder="–"
               aria-label={`${match.awayTeam} predicted score`}
             />
           ) : null}
