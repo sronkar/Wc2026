@@ -134,6 +134,14 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
+  // ── Prediction stats state ────────────────────────────────────────────────────
+  const [predStats, setPredStats] = useState<{
+    stats: { userId: string; userName: string; userImage: string | null; memberRole: string; matchGroupStage: number; matchKnockout: number; customPredictions: number; advancementPicks: number }[];
+    totals: { matchGroupStage: number; matchKnockout: number; customPredictions: number; advancementPicks: number };
+  } | null>(null);
+  const [predStatsLoading, setPredStatsLoading] = useState(false);
+  const [predStatsLoaded, setPredStatsLoaded] = useState(false);
+
   // ── Custom predictions state ──────────────────────────────────────────────────
   const [customPredictions, setCustomPredictions] = useState<CustomPredictionAdmin[]>([]);
   const [customLoaded, setCustomLoaded] = useState(false);
@@ -1549,6 +1557,105 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* ── E. Prediction Fill State ──────────────────────────────────────────── */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-bold text-gray-800">Prediction Fill State</h3>
+          <button
+            onClick={async () => {
+              if (predStatsLoaded) { setPredStatsLoaded(false); setPredStats(null); return; }
+              setPredStatsLoading(true);
+              const data = await fetch(`/api/admin/groups/${groupId}/prediction-stats`).then((r) => r.json());
+              setPredStats(data);
+              setPredStatsLoading(false);
+              setPredStatsLoaded(true);
+            }}
+            disabled={predStatsLoading}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-50"
+          >
+            {predStatsLoading ? "Loading…" : predStatsLoaded ? "Hide" : "Load"}
+          </button>
+        </div>
+
+        {predStatsLoaded && predStats && (
+          <div className="card overflow-hidden p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500">
+                    <th className="px-4 py-3 font-semibold">Member</th>
+                    <th className="px-4 py-3 font-semibold text-center">Group Stage</th>
+                    <th className="px-4 py-3 font-semibold text-center">Knockout</th>
+                    <th className="px-4 py-3 font-semibold text-center">Custom</th>
+                    <th className="px-4 py-3 font-semibold text-center">Advancement</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {predStats.stats.map((member) => {
+                    const cols = [
+                      { done: member.matchGroupStage, total: predStats.totals.matchGroupStage },
+                      { done: member.matchKnockout, total: predStats.totals.matchKnockout },
+                      { done: member.customPredictions, total: predStats.totals.customPredictions },
+                      { done: member.advancementPicks, total: predStats.totals.advancementPicks },
+                    ];
+                    return (
+                      <tr key={member.userId} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {member.userImage ? (
+                              <img src={member.userImage} alt="" className="w-6 h-6 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className="w-6 h-6 rounded-full bg-gray-200 shrink-0" />
+                            )}
+                            <span className="font-medium text-gray-800 truncate max-w-[120px]">{member.userName}</span>
+                            {member.memberRole === "VISITOR_ADMIN" && (
+                              <span className="text-[10px] text-gray-400 border border-gray-200 rounded px-1">visitor</span>
+                            )}
+                          </div>
+                        </td>
+                        {cols.map((col, i) => {
+                          const pct = col.total > 0 ? Math.round((col.done / col.total) * 100) : 100;
+                          const allDone = col.done === col.total;
+                          const none = col.done === 0;
+                          return (
+                            <td key={i} className="px-4 py-3 text-center">
+                              {col.total === 0 ? (
+                                <span className="text-xs text-gray-300">—</span>
+                              ) : (
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={`text-xs font-semibold ${allDone ? "text-green-600" : none ? "text-gray-400" : "text-amber-600"}`}>
+                                    {col.done}/{col.total}
+                                  </span>
+                                  <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${allDone ? "bg-green-400" : none ? "bg-gray-200" : "bg-amber-400"}`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-200 bg-gray-50 text-xs text-gray-400">
+                    <td className="px-4 py-2 font-semibold">Total possible</td>
+                    <td className="px-4 py-2 text-center">{predStats.totals.matchGroupStage}</td>
+                    <td className="px-4 py-2 text-center">{predStats.totals.matchKnockout}</td>
+                    <td className="px-4 py-2 text-center">{predStats.totals.customPredictions}</td>
+                    <td className="px-4 py-2 text-center">{predStats.totals.advancementPicks}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           </div>
         )}
       </div>
