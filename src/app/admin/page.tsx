@@ -598,7 +598,6 @@ Winner\t\tTeam\t10`;
         if (local === saved) continue;
         attempted++;
         try {
-        try {
           if (local === null) {
             const res = await fetch(`/api/admin/advancement?team=${encodeURIComponent(team)}`, { method: "DELETE" });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
