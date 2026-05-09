@@ -116,6 +116,23 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [addMemberSaving, setAddMemberSaving] = useState(false);
   const [addMemberMessage, setAddMemberMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // ── Monkey re-sync state ──────────────────────────────────────────────────────
+  const [monkeyLoading, setMonkeyLoading] = useState(false);
+  const [monkeyMessage, setMonkeyMessage] = useState<string | null>(null);
+
+  const handleSyncMonkey = async () => {
+    setMonkeyLoading(true);
+    setMonkeyMessage(null);
+    try {
+      const res = await fetch(`/api/admin/groups/${groupId}/monkey`, { method: "POST" });
+      setMonkeyMessage(res.ok ? "Monkey synced ✓" : "Failed to sync monkey");
+    } catch {
+      setMonkeyMessage("Failed to sync monkey");
+    } finally {
+      setMonkeyLoading(false);
+    }
+  };
+
   // ── Invite state ──────────────────────────────────────────────────────────────
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("MEMBER");
@@ -916,6 +933,26 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ── Monkey demo user ─────────────────────────────────────────────────── */}
+      <div className="card">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-700">🐒 Monkey (demo predictor)</p>
+            <p className="text-xs text-gray-400 mt-0.5">Adds or re-syncs the Monkey demo user. Fills all missing match, global, and advancement predictions with random picks.</p>
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <button
+              onClick={handleSyncMonkey}
+              disabled={monkeyLoading}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition disabled:opacity-50"
+            >
+              {monkeyLoading ? "Syncing…" : "Add / Re-sync Monkey"}
+            </button>
+            {monkeyMessage && <span className="text-[10px] text-gray-500">{monkeyMessage}</span>}
+          </div>
+        </div>
       </div>
 
       {/* ── B. Group Settings ────────────────────────────────────────────────── */}
