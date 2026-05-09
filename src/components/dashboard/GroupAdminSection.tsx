@@ -945,29 +945,27 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       {/* ── Demo bots ────────────────────────────────────────────────────────── */}
       <div className="card space-y-4">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Demo Predictors</p>
-        {(["monkey", "claudio"] as const).map((bot) => {
-          const label = bot === "monkey" ? "🐒 Monkey" : "🧠 Claudio";
-          const desc = bot === "monkey"
-            ? "Fills all missing predictions with random picks (attacking players for scorer awards)."
-            : "Fills match predictions using AI-generated scores.";
-          const syncKey = `${bot}-POST`;
-          const removeKey = `${bot}-DELETE`;
+
+        {/* Monkey — random fills, fully per-group */}
+        {(() => {
+          const syncKey = "monkey-POST";
+          const removeKey = "monkey-DELETE";
           return (
-            <div key={bot} className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-gray-700">{label}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                <p className="text-sm font-semibold text-gray-700">🐒 Monkey</p>
+                <p className="text-xs text-gray-400 mt-0.5">Fills all missing predictions with random picks. Attackers for scorer awards.</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => handleBotAction(bot, "POST")}
+                  onClick={() => handleBotAction("monkey", "POST")}
                   disabled={botLoading[syncKey]}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition disabled:opacity-50"
                 >
-                  {botLoading[syncKey] ? "…" : "Add / Sync"}
+                  {botLoading[syncKey] ? "…" : "Add / Re-sync"}
                 </button>
                 <button
-                  onClick={() => handleBotAction(bot, "DELETE")}
+                  onClick={() => handleBotAction("monkey", "DELETE")}
                   disabled={botLoading[removeKey]}
                   className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
                 >
@@ -979,7 +977,40 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
               </div>
             </div>
           );
-        })}
+        })()}
+
+        {/* Claudio — singleton AI predictor managed globally by admin */}
+        {(() => {
+          const addKey = "claudio-POST";
+          const removeKey = "claudio-DELETE";
+          return (
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-700">🧠 Claudio</p>
+                <p className="text-xs text-gray-400 mt-0.5">AI predictor managed globally by the admin. Adding copies his existing predictions into this group.</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleBotAction("claudio", "POST")}
+                  disabled={botLoading[addKey]}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition disabled:opacity-50"
+                >
+                  {botLoading[addKey] ? "…" : "Add to Group"}
+                </button>
+                <button
+                  onClick={() => handleBotAction("claudio", "DELETE")}
+                  disabled={botLoading[removeKey]}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
+                >
+                  {botLoading[removeKey] ? "…" : "Remove"}
+                </button>
+                {(botMessage[addKey] || botMessage[removeKey]) && (
+                  <span className="text-[10px] text-gray-400">{botMessage[addKey] || botMessage[removeKey]}</span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── B. Group Settings ────────────────────────────────────────────────── */}
