@@ -1647,10 +1647,10 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                 <tfoot>
                   <tr className="border-t-2 border-gray-200 bg-gray-50 text-xs text-gray-400">
                     <td className="px-4 py-2 font-semibold">Total possible</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.matchGroupStage}</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.matchKnockout}</td>
                     <td className="px-4 py-2 text-center">{predStats.totals.customPredictions}</td>
                     <td className="px-4 py-2 text-center">{predStats.totals.advancementPicks}</td>
+                    <td className="px-4 py-2 text-center">{predStats.totals.matchGroupStage}</td>
+                    <td className="px-4 py-2 text-center">{predStats.totals.matchKnockout}</td>
                   </tr>
                 </tfoot>
               </table>
