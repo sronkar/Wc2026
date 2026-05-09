@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { getFlag } from "@/lib/flags";
 
 type Pick = "WINNER" | "RUNNER_UP" | "THIRD";
@@ -9,12 +9,6 @@ const PICK_LABELS: Record<Pick, string> = {
   WINNER:    "1st",
   RUNNER_UP: "2nd",
   THIRD:     "Advance as 3rd",
-};
-
-const PICK_TOOLTIPS: Record<Pick, string> = {
-  WINNER:    "Team finishes 1st in their group",
-  RUNNER_UP: "Team finishes 2nd in their group",
-  THIRD:     "Team to advance as one of the best 8 3rd-place finishers",
 };
 
 const PICK_SELECTED: Record<Pick, string> = {
@@ -48,7 +42,6 @@ export function AdvancementPicksClient({
   isLocked,
   isVisitor,
 }: Props) {
-  // localPicks: what's shown in the UI (may differ from saved until "Save Group" is clicked)
   const [localPicks, setLocalPicks] = useState<Record<string, Pick | null>>(() => {
     const init: Record<string, Pick | null> = {};
     for (const [team, data] of Object.entries(initialPicks)) {
@@ -59,27 +52,14 @@ export function AdvancementPicksClient({
     return init;
   });
 
-  // savedPicks: what's actually in the DB (used to detect unsaved changes)
-  const [savedPicks, setSavedPicks] = useState<Record<string, Pick | null>>(() => {
-    const init: Record<string, Pick | null> = {};
-    for (const [team, data] of Object.entries(initialPicks)) {
-      if (data.pick === "WINNER" || data.pick === "RUNNER_UP" || data.pick === "THIRD") {
-        init[team] = data.pick as Pick;
-      }
-    }
-    return init;
-  });
-
-  // Points per team (loaded after admin resolves)
   const [points, setPoints] = useState<Record<string, number | null>>(() => {
     const init: Record<string, number | null> = {};
     for (const [team, data] of Object.entries(initialPicks)) init[team] = data.points;
     return init;
   });
 
-  const [saving, setSaving] = useState<Record<string, boolean>>({}); // keyed by WC group
-  const [saved, setSaved] = useState<Record<string, boolean>>({});   // keyed by WC group
-  const [errors, setErrors] = useState<Record<string, string>>({});  // keyed by WC group
+  // Per-team saving state for optimistic UI
+  const [savingTeam, setSavingTeam] = useState<Record<string, boolean>>({});
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState("");
 
@@ -97,7 +77,7 @@ export function AdvancementPicksClient({
   const isDisabled = useCallback((wcGroup: string, team: string, pick: Pick): boolean => {
     if (isLocked || isVisitor) return true;
     const current = localPicks[team];
-    if (current === pick) return false; // toggle-off is always allowed
+    if (current === pick) return false; // toggle-off always allowed
 
     const { winners, runnerUps, thirds } = getGroupCounts(wcGroup);
     if (pick === "WINNER"    && winners   >= 1) return true;
@@ -107,123 +87,63 @@ export function AdvancementPicksClient({
     return false;
   }, [localPicks, getGroupCounts, totalThirds, isLocked, isVisitor]);
 
-  // Toggle a pick locally (no API call until "Save Group" is clicked)
-  const handleToggle = useCallback((team: string, pick: Pick) => {
+  // Auto-save on every toggle (no Save button)
+  const handleToggle = useCallback(async (team: string, pick: Pick) => {
     if (isLocked || isVisitor) return;
-    setLocalPicks((prev) => ({
-      ...prev,
-      [team]: prev[team] === pick ? null : pick,
-    }));
-  }, [isLocked, isVisitor]);
+    const prevPick = localPicks[team] ?? null;
+    const newPick: Pick | null = prevPick === pick ? null : pick;
 
-  const groupIsDirty = useCallback((wcGroup: string) => {
-    const teams = wcGroups[wcGroup];
-    // Treat undefined (never picked) and null (picked then cleared) as equivalent.
-    return teams.some((t) => (localPicks[t] ?? null) !== (savedPicks[t] ?? null));
-  }, [localPicks, savedPicks, wcGroups]);
-
-  // Save all picks for one WC group
-  const handleSaveGroup = useCallback(async (wcGroup: string) => {
-    const teams = wcGroups[wcGroup];
-    const picks: Record<string, Pick | null> = {};
-    for (const team of teams) picks[team] = localPicks[team] ?? null;
-
-    setSaving((s) => ({ ...s, [wcGroup]: true }));
-    setSaved((s) => ({ ...s, [wcGroup]: false }));
-    setErrors((e) => ({ ...e, [wcGroup]: "" }));
+    // Optimistic update
+    setLocalPicks((prev: Record<string, Pick | null>) => ({ ...prev, [team]: newPick }));
+    setSavingTeam((prev: Record<string, boolean>) => ({ ...prev, [team]: true }));
 
     try {
       const res = await fetch("/api/advancement-predictions/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupId, picks }),
+        body: JSON.stringify({ groupId, picks: { [team]: newPick } }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to save");
-
-      // Commit local picks to saved state for this group
-      setSavedPicks((prev) => {
-        const next = { ...prev };
-        for (const team of teams) next[team] = localPicks[team] ?? null;
-        return next;
-      });
-      // Clear any old points for picks that were removed
-      setPoints((prev) => {
-        const next = { ...prev };
-        for (const team of teams) {
-          if (!localPicks[team]) next[team] = null;
-        }
-        return next;
-      });
-
-      setSaved((s) => ({ ...s, [wcGroup]: true }));
-      setTimeout(() => setSaved((s) => ({ ...s, [wcGroup]: false })), 2500);
-    } catch (err: unknown) {
-      setErrors((e) => ({ ...e, [wcGroup]: (err as Error).message ?? "Failed to save" }));
+      if (!newPick) setPoints((prev: Record<string, number | null>) => ({ ...prev, [team]: null }));
+    } catch {
+      // Revert on error
+      setLocalPicks((prev: Record<string, Pick | null>) => ({ ...prev, [team]: prevPick }));
     } finally {
-      setSaving((s) => ({ ...s, [wcGroup]: false }));
+      setSavingTeam((prev: Record<string, boolean>) => ({ ...prev, [team]: false }));
     }
-  }, [wcGroups, groupId, localPicks]);
+  }, [isLocked, isVisitor, localPicks, groupId]);
 
-  const totalWinnerRunnerUp = Object.values(localPicks).filter(
-    (p) => p === "WINNER" || p === "RUNNER_UP"
-  ).length;
-  const totalGroupCount = Object.keys(wcGroups).length; // 12
-  const targetWinnerRunnerUp = totalGroupCount * 2; // 24
-
-  // All 12 WC groups have at least 1 winner and 1 runner-up saved
-  const advancementComplete = Object.entries(wcGroups).every(([, teams]) =>
-    teams.some((t) => savedPicks[t] === "WINNER") && teams.some((t) => savedPicks[t] === "RUNNER_UP")
-  );
-
-  // Reset all picks for a WC group — immediately persists to server
+  // Reset all picks for one WC group — saves immediately
   const handleResetGroup = useCallback(async (wcGroup: string) => {
     if (isLocked || isVisitor) return;
     const teams = wcGroups[wcGroup];
+    const prev: Record<string, Pick | null> = {};
+    for (const t of teams) prev[t] = localPicks[t] ?? null;
 
-    // Optimistically clear local state
-    setLocalPicks((prev) => {
-      const next = { ...prev };
-      for (const team of teams) next[team] = null;
-      return next;
-    });
+    setLocalPicks((p: Record<string, Pick | null>) => { const n = { ...p }; for (const t of teams) n[t] = null; return n; });
 
-    setSaving((s) => ({ ...s, [wcGroup]: true }));
-    setErrors((e) => ({ ...e, [wcGroup]: "" }));
     try {
       const picks: Record<string, null> = {};
-      for (const team of teams) picks[team] = null;
+      for (const t of teams) picks[t] = null;
       const res = await fetch("/api/advancement-predictions/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ groupId, picks }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to reset");
-      // Commit cleared picks to saved state
-      setSavedPicks((prev) => {
-        const next = { ...prev };
-        for (const team of teams) next[team] = null;
-        return next;
-      });
-    } catch (err: unknown) {
-      setErrors((e) => ({ ...e, [wcGroup]: (err as Error).message ?? "Failed to reset" }));
-      // Revert local state on error
-      setSavedPicks((prev) => {
-        setLocalPicks(prev); // restore from saved
-        return prev;
-      });
-    } finally {
-      setSaving((s) => ({ ...s, [wcGroup]: false }));
+      setPoints((p: Record<string, number | null>) => { const n = { ...p }; for (const t of teams) n[t] = null; return n; });
+    } catch {
+      setLocalPicks((p: Record<string, Pick | null>) => ({ ...p, ...prev })); // revert
     }
-  }, [wcGroups, isLocked, isVisitor, groupId]);
+  }, [wcGroups, isLocked, isVisitor, groupId, localPicks]);
 
-  // Reset all picks globally — immediately persists to server
+  // Reset all picks globally
   const handleResetAll = useCallback(async () => {
     if (isLocked || isVisitor || resetting) return;
     if (!window.confirm("Clear all your group stage picks? This cannot be undone.")) return;
     setResetting(true);
     setResetError("");
     try {
-      // Build a null-pick payload for every team
       const allPicks: Record<string, null> = {};
       for (const teams of Object.values(wcGroups)) {
         for (const team of teams) allPicks[team] = null;
@@ -235,7 +155,6 @@ export function AdvancementPicksClient({
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to reset");
       setLocalPicks({});
-      setSavedPicks({});
       setPoints({});
     } catch (err: unknown) {
       setResetError((err as Error).message ?? "Failed to reset");
@@ -243,6 +162,25 @@ export function AdvancementPicksClient({
       setResetting(false);
     }
   }, [isLocked, isVisitor, resetting, wcGroups, groupId]);
+
+  const totalWinnerRunnerUp = Object.values(localPicks).filter(
+    (p) => p === "WINNER" || p === "RUNNER_UP"
+  ).length;
+  const totalGroupCount = Object.keys(wcGroups).length;
+  const targetWinnerRunnerUp = totalGroupCount * 2;
+
+  const advancementComplete = Object.entries(wcGroups).every(([, teams]) =>
+    teams.some((t) => localPicks[t] === "WINNER") && teams.some((t) => localPicks[t] === "RUNNER_UP")
+  );
+
+  // Scroll-vs-tap guard: ignore click if pointer moved significantly from touchstart
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+  const didScroll = useCallback((clickX: number, clickY: number) => {
+    if (!pointerDownPos.current) return false;
+    const dx = Math.abs(clickX - pointerDownPos.current.x);
+    const dy = Math.abs(clickY - pointerDownPos.current.y);
+    return dx > 8 || dy > 8;
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -276,7 +214,6 @@ export function AdvancementPicksClient({
                 onClick={handleResetAll}
                 disabled={resetting}
                 className="text-xs text-red-400 hover:text-red-600 transition font-medium disabled:opacity-50"
-                title="Clear all picks — saves immediately"
               >
                 {resetting ? "Resetting…" : "Reset All"}
               </button>
@@ -289,19 +226,15 @@ export function AdvancementPicksClient({
         )}
         {!isLocked && !isVisitor && (
           <p className="text-xs text-gray-400 mt-2">
-            <strong>1st</strong> = group winner · <strong>2nd</strong> = runner-up · <strong>Advance as 3rd</strong> = one of the 8 best 3rd-place finishers that advance to the knockouts. Unselected = eliminated. Tap again to clear.
+            <strong>Advance as 3rd</strong> = one of the 8 best 3rd-place finishers that advance. Tap again to clear.
           </p>
         )}
       </div>
 
-      {/* WC Group cards — 2-column on sm+, single column on mobile */}
+      {/* WC Group cards */}
       <div className="grid sm:grid-cols-2 gap-4">
         {Object.entries(wcGroups).sort(([a], [b]) => a.localeCompare(b)).map(([wcGroup, teams]) => {
           const { winners, runnerUps, thirds } = getGroupCounts(wcGroup);
-          const dirty = groupIsDirty(wcGroup);
-          const isSaving = saving[wcGroup];
-          const isSaved = saved[wcGroup];
-          const groupError = errors[wcGroup];
 
           return (
             <div key={wcGroup} className="card p-0">
@@ -319,6 +252,7 @@ export function AdvancementPicksClient({
                   const currentPick = localPicks[team];
                   const teamPoints = points[team];
                   const resolved = resolvedMap[team];
+                  const teamSaving = savingTeam[team];
 
                   return (
                     <div key={team} className="px-3 py-2">
@@ -341,13 +275,16 @@ export function AdvancementPicksClient({
                       <div className="flex gap-1">
                         {ALL_PICKS.map((pick) => {
                           const selected = currentPick === pick;
-                          const disabled = (!selected && isDisabled(wcGroup, team, pick)) || isSaving;
+                          const disabled = (!selected && isDisabled(wcGroup, team, pick)) || teamSaving;
                           return (
-                            <div key={pick} className="relative group/pick flex-1">
+                            <div key={pick} className={`relative flex-1 ${pick === "THIRD" ? "group/pick" : ""}`}>
                               <button
-                                onClick={() => handleToggle(team, pick)}
+                                onPointerDown={(e) => { pointerDownPos.current = { x: e.clientX, y: e.clientY }; }}
+                                onClick={(e) => {
+                                  if (didScroll(e.clientX, e.clientY)) return;
+                                  handleToggle(team, pick);
+                                }}
                                 disabled={disabled}
-                                aria-label={PICK_TOOLTIPS[pick]}
                                 className={`w-full text-[10px] font-semibold py-1 rounded border transition whitespace-nowrap ${
                                   selected
                                     ? PICK_SELECTED[pick]
@@ -356,14 +293,16 @@ export function AdvancementPicksClient({
                                     : `border-gray-200 text-gray-500 ${PICK_HOVER[pick]}`
                                 }`}
                               >
-                                {PICK_LABELS[pick]}
+                                {teamSaving && selected ? "…" : PICK_LABELS[pick]}
                               </button>
-                              <div
-                                role="tooltip"
-                                className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover/pick:block z-20 whitespace-nowrap bg-gray-900 text-white text-[10px] font-normal rounded px-2 py-1 shadow-lg pointer-events-none"
-                              >
-                                {PICK_TOOLTIPS[pick]}
-                              </div>
+                              {pick === "THIRD" && (
+                                <div
+                                  role="tooltip"
+                                  className="absolute bottom-full right-0 mb-1 hidden group-hover/pick:block z-20 max-w-[10rem] bg-gray-900 text-white text-[10px] font-normal rounded px-2 py-1 shadow-lg pointer-events-none text-center leading-snug"
+                                >
+                                  Best 8 3rd-place finishers advance
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -373,33 +312,16 @@ export function AdvancementPicksClient({
                 })}
               </div>
 
-              {/* Per-group save footer */}
+              {/* Per-group reset footer */}
               {!isLocked && !isVisitor && (
-                <div className="px-3 py-2 border-t border-gray-100 flex items-center gap-2">
-                  <button
-                    onClick={() => handleSaveGroup(wcGroup)}
-                    disabled={isSaving || !dirty}
-                    className={`text-xs font-semibold px-3 py-1 rounded-lg transition ${
-                      dirty && !isSaving
-                        ? "bg-fifa-blue text-white hover:bg-blue-700"
-                        : isSaved
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    }`}
-                  >
-                    {isSaving ? "Saving…" : isSaved ? "Saved ✓" : dirty ? "Save Group" : "No changes"}
-                  </button>
+                <div className="px-3 py-2 border-t border-gray-100 flex items-center justify-end">
                   <button
                     onClick={() => handleResetGroup(wcGroup)}
-                    disabled={isSaving || teams.every((t) => !localPicks[t])}
-                    className="text-xs text-red-400 hover:text-red-600 transition disabled:opacity-30 disabled:cursor-not-allowed ml-auto"
-                    title="Clear all picks for this group"
+                    disabled={teams.every((t) => !localPicks[t])}
+                    className="text-xs text-red-400 hover:text-red-600 transition disabled:opacity-30 disabled:cursor-not-allowed"
                   >
                     Reset
                   </button>
-                  {groupError && (
-                    <span className="text-[10px] text-red-500">{groupError}</span>
-                  )}
                 </div>
               )}
             </div>

@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const countryIds = new Set(countryMatches.map((p) => p.id));
-  const deduped = nameMatches.filter((p) => !countryIds.has(p.id));
+  const countryIds = new Set(countryMatches.map((p: { id: string }) => p.id));
+  const deduped = nameMatches.filter((p: { id: string }) => !countryIds.has(p.id));
   const players = [...countryMatches, ...deduped].slice(0, 30);
 
   return NextResponse.json(players);
