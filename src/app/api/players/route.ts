@@ -14,17 +14,25 @@ export async function GET(req: NextRequest) {
 
   if (!q) return NextResponse.json([]);
 
-  const players = await prisma.player.findMany({
-    where: {
-      OR: [
-        { name: { contains: q, mode: "insensitive" } },
-        { country: { contains: q, mode: "insensitive" } },
-      ],
-    },
-    orderBy: [{ country: "asc" }, { name: "asc" }],
-    take: 30,
-    select: { id: true, name: true, country: true, position: true, number: true },
-  });
+  // Country matches first (e.g. "Franc" → all French players before "Franco Armani")
+  const [countryMatches, nameMatches] = await Promise.all([
+    prisma.player.findMany({
+      where: { country: { contains: q, mode: "insensitive" } },
+      orderBy: { name: "asc" },
+      take: 25,
+      select: { id: true, name: true, country: true, position: true, number: true },
+    }),
+    prisma.player.findMany({
+      where: { name: { contains: q, mode: "insensitive" } },
+      orderBy: { name: "asc" },
+      take: 15,
+      select: { id: true, name: true, country: true, position: true, number: true },
+    }),
+  ]);
+
+  const countryIds = new Set(countryMatches.map((p: { id: string }) => p.id));
+  const deduped = nameMatches.filter((p: { id: string }) => !countryIds.has(p.id));
+  const players = [...countryMatches, ...deduped].slice(0, 30);
 
   return NextResponse.json(players);
 }

@@ -53,8 +53,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const knockoutMatchIds = new Set(allMatches.filter((m) => KNOCKOUT_ROUNDS.includes(m.round)).map((m) => m.id));
   const customPredictionIds = new Set(customPredictions.map((cp) => cp.id));
 
-  // Unique teams in advancement (48 total)
-  const totalAdvancement = 48;
+  // 12 group winners + 12 runner-ups + 8 best-third-place = 32 picks
+  const totalAdvancement = 32;
 
   const totals = {
     matchGroupStage: groupStageMatchIds.size,

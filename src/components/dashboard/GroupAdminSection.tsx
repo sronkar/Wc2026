@@ -116,6 +116,30 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [addMemberSaving, setAddMemberSaving] = useState(false);
   const [addMemberMessage, setAddMemberMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // ── Demo bot state ────────────────────────────────────────────────────────────
+  const [botLoading, setBotLoading] = useState<Record<string, boolean>>({});
+  const [botMessage, setBotMessage] = useState<Record<string, string>>({});
+
+  const handleBotAction = async (bot: "monkey" | "claudio", action: "POST" | "DELETE") => {
+    const key = `${bot}-${action}`;
+    setBotLoading((p) => ({ ...p, [key]: true }));
+    setBotMessage((p) => ({ ...p, [key]: "" }));
+    try {
+      const res = await fetch(`/api/admin/groups/${groupId}/${bot}`, { method: action });
+      const label = bot === "monkey" ? "Monkey" : "Claudio";
+      setBotMessage((p) => ({
+        ...p,
+        [key]: res.ok
+          ? action === "DELETE" ? `${label} removed` : `${label} synced ✓`
+          : `Failed`,
+      }));
+    } catch {
+      setBotMessage((p) => ({ ...p, [key]: "Failed" }));
+    } finally {
+      setBotLoading((p) => ({ ...p, [key]: false }));
+    }
+  };
+
   // ── Invite state ──────────────────────────────────────────────────────────────
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("MEMBER");
@@ -918,6 +942,46 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         )}
       </div>
 
+      {/* ── Demo bots ────────────────────────────────────────────────────────── */}
+      <div className="card space-y-4">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Demo Predictors</p>
+        {(["monkey", "claudio"] as const).map((bot) => {
+          const label = bot === "monkey" ? "🐒 Monkey" : "🧠 Claudio";
+          const desc = bot === "monkey"
+            ? "Fills all missing predictions with random picks (attacking players for scorer awards)."
+            : "Fills match predictions using AI-generated scores.";
+          const syncKey = `${bot}-POST`;
+          const removeKey = `${bot}-DELETE`;
+          return (
+            <div key={bot} className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-700">{label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => handleBotAction(bot, "POST")}
+                  disabled={botLoading[syncKey]}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition disabled:opacity-50"
+                >
+                  {botLoading[syncKey] ? "…" : "Add / Sync"}
+                </button>
+                <button
+                  onClick={() => handleBotAction(bot, "DELETE")}
+                  disabled={botLoading[removeKey]}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
+                >
+                  {botLoading[removeKey] ? "…" : "Remove"}
+                </button>
+                {(botMessage[syncKey] || botMessage[removeKey]) && (
+                  <span className="text-[10px] text-gray-400">{botMessage[syncKey] || botMessage[removeKey]}</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       {/* ── B. Group Settings ────────────────────────────────────────────────── */}
       <div className="card">
         <h3 className="font-bold text-gray-800 mb-1">Group Settings</h3>
@@ -1627,7 +1691,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                               ) : (
                                 <div className="flex flex-col items-center gap-1">
                                   <span className={`text-xs font-semibold ${allDone ? "text-green-600" : none ? "text-gray-400" : "text-amber-600"}`}>
-                                    {col.done}/{col.total}
+                                    {col.done}
                                   </span>
                                   <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                                     <div
@@ -1644,15 +1708,6 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                     );
                   })}
                 </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gray-200 bg-gray-50 text-xs text-gray-400">
-                    <td className="px-4 py-2 font-semibold">Total possible</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.matchGroupStage}</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.matchKnockout}</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.customPredictions}</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.advancementPicks}</td>
-                  </tr>
-                </tfoot>
               </table>
           </div>
         )}

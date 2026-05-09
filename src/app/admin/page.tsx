@@ -1179,48 +1179,36 @@ Winner\t\tTeam\t10`;
                 );
               }
               return (
-              <div className="overflow-x-auto">
-              <table className="min-w-[500px] w-full text-sm">
-                <thead>
-                  <tr className="text-gray-500 text-left border-b border-gray-200 bg-white">
-                    <th className="px-4 py-2">Name</th>
-                    <th className="px-4 py-2">Created by</th>
-                    <th className="px-4 py-2">Members</th>
-                    <th className="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredGroups.map((g, i) => (
-                    <tr key={g.id} className={`border-t border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                      <td className="px-4 py-3">
+              <div className="divide-y divide-gray-100">
+                  {filteredGroups.map((g) => (
+                    <div key={g.id} className="flex items-center gap-3 px-4 py-3">
+                      {/* Group info */}
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-medium text-gray-800">{g.name}</p>
+                          <p className="font-medium text-gray-800 text-sm">{g.name}</p>
                           {!g.isPublic && <span className="badge bg-gray-100 text-gray-500 text-[10px]">🔒 Private</span>}
                           {!g.myStatus && <span className="badge bg-amber-50 text-amber-600 text-[10px]">Not member</span>}
                         </div>
-                        {g.description && <p className="text-xs text-gray-400">{g.description}</p>}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-400">{(g as {createdByName?: string}).createdByName ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-500">{g.memberCount}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
+                        {g.description && <p className="text-xs text-gray-400 truncate">{g.description}</p>}
+                      </div>
+                      {/* Members */}
+                      <span className="text-xs text-gray-400 shrink-0">{g.memberCount} members</span>
+                      {/* Actions */}
+                      <div className="flex items-center gap-3 shrink-0">
+                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-white bg-fifa-blue hover:bg-blue-700 px-3 py-1 rounded-lg transition">Manage</Link>
                           <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">View</Link>
-                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-fifa-blue hover:underline">Manage →</Link>
                           {isAdmin && (
                             <button
                               onClick={() => handleDeleteGroup(g.id, g.name)}
                               disabled={deletingGroup[g.id]}
-                              className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 ml-auto"
+                              className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
                             >
                               {deletingGroup[g.id] ? "…" : "Delete"}
                             </button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                    </div>
                   ))}
-                </tbody>
-              </table>
               </div>
               );
             })()}
