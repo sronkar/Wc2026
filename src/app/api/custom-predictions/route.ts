@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const userId = session.user.id;
   const now = getNowMs();
 
-  const preds = await prisma.customPrediction.findMany({
+  const rawPreds = await prisma.customPrediction.findMany({
     where: { OR: [{ groupId }, { isGlobal: true }] },
     orderBy: [{ isGlobal: "asc" }, { lockTime: "asc" }],
     include: {
@@ -27,6 +27,18 @@ export async function GET(req: NextRequest) {
       },
     },
   });
+
+  // Sort: group-stage questions first, player awards second-to-last, finalist/winner last
+  function predSortKey(q: string, optionType: string): number {
+    const lower = q.toLowerCase();
+    if (lower.includes("group stage")) return 0;
+    if (lower.includes("finalist") || lower === "winner") return 3;
+    if (optionType === "PLAYER") return 2;
+    return 1;
+  }
+  const preds = [...rawPreds].sort(
+    (a, b) => predSortKey(a.question, a.optionType) - predSortKey(b.question, b.optionType)
+  );
 
   return NextResponse.json(
     preds.map((cp) => {
