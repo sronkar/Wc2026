@@ -267,6 +267,12 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
           const sel: Record<string, string> = {};
           globals.forEach((cp: CustomPrediction) => { if (cp.userAnswer) sel[cp.id] = cp.userAnswer; });
           setSelected(sel);
+          // Start at the first unanswered open prediction so it's immediately actionable,
+          // while still letting the user navigate left to see already-answered ones.
+          const firstOpen = globals.findIndex(
+            (cp) => cp.status === "OPEN" && !cp.isLocked && !cp.userAnswer
+          );
+          setCurrent(firstOpen >= 0 ? firstOpen : 0);
         }
       });
   }, [groupId]);
@@ -477,9 +483,12 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
           </span>
         </div>
 
-        {cp.description && (
-          <p className="text-xs text-gray-400 italic">{cp.description}</p>
-        )}
+        {/* Description — always reserves space so card height stays stable */}
+        <div className="min-h-[2.75rem]">
+          {cp.description && (
+            <p className="text-xs text-gray-400 italic">{cp.description}</p>
+          )}
+        </div>
 
         {!cp.isLocked && cp.status === "OPEN" && (
           <p className="text-xs text-gray-400"><Countdown lockTime={cp.lockTime} /></p>
@@ -676,8 +685,18 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       {/* Carousel controls */}
       <div className="flex items-center gap-2 mt-3">
           <button
-            onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-            disabled={safeCurrent === 0}
+            onClick={() => {
+              if (safeCurrent > 0) {
+                setCurrent((c) => c - 1);
+              } else if (showOpenOnly) {
+                // At the start of the open-only list — escape to show-all at the
+                // item just before this one in the full predictions list.
+                const fullIdx = predictions.findIndex((p) => p.id === cp.id);
+                setShowOpenOnly(false);
+                setCurrent(fullIdx > 0 ? fullIdx - 1 : 0);
+              }
+            }}
+            disabled={safeCurrent === 0 && !showOpenOnly}
             className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
           >
             ‹
