@@ -440,15 +440,13 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
                 <button
                   onClick={hasPred && onCancel ? handleWithdraw : undefined}
                   disabled={cancelling}
-                  aria-label="Clear prediction"
-                  title="Withdraw prediction"
-                  className={`w-9 h-9 flex items-center justify-center rounded-full border shrink-0 transition disabled:opacity-40 ${
+                  className={`text-xs font-medium px-2 py-1 rounded transition disabled:opacity-40 ${
                     hasPred && onCancel
-                      ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+                      ? "text-red-500 hover:text-red-700 hover:bg-red-50"
                       : "invisible pointer-events-none"
                   }`}
                 >
-                  {cancelling ? "…" : "✕"}
+                  {cancelling ? "…" : "Clear"}
                 </button>
               </div>
               {warning && (

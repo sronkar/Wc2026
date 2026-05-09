@@ -372,14 +372,13 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                     <button
                       onClick={() => handleCancel(cp.id)}
                       disabled={cancelling[cp.id]}
-                      title="Withdraw answer"
-                      className={`w-9 h-9 flex items-center justify-center rounded-full border shrink-0 transition ${
+                      className={`text-xs font-medium px-2 py-1 rounded transition disabled:opacity-40 ${
                         cp.userAnswer
-                          ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+                          ? "text-red-500 hover:text-red-700 hover:bg-red-50"
                           : "invisible pointer-events-none"
                       }`}
                     >
-                      {cancelling[cp.id] ? "…" : "✕"}
+                      {cancelling[cp.id] ? "…" : "Clear"}
                     </button>
                   </div>
                 </>
