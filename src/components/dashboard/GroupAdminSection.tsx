@@ -1627,7 +1627,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                               ) : (
                                 <div className="flex flex-col items-center gap-1">
                                   <span className={`text-xs font-semibold ${allDone ? "text-green-600" : none ? "text-gray-400" : "text-amber-600"}`}>
-                                    {col.done}/{col.total}
+                                    {col.done}
                                   </span>
                                   <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                                     <div
@@ -1644,15 +1644,6 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                     );
                   })}
                 </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-gray-200 bg-gray-50 text-xs text-gray-400">
-                    <td className="px-4 py-2 font-semibold">Total possible</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.customPredictions}</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.advancementPicks}</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.matchGroupStage}</td>
-                    <td className="px-4 py-2 text-center">{predStats.totals.matchKnockout}</td>
-                  </tr>
-                </tfoot>
               </table>
           </div>
         )}
