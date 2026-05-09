@@ -106,6 +106,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
   const [withdrawCountdown, setWithdrawCountdown] = useState(5);
   const withdrawTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const withdrawTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [error, setError] = useState("");
   const [groupPredictions, setGroupPredictions] = useState<GroupPredictionEntry[]>([]);
   const [loadingGroup, setLoadingGroup] = useState(false);
@@ -135,6 +136,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
     return () => {
       if (withdrawTimerRef.current) clearTimeout(withdrawTimerRef.current);
       if (withdrawTickRef.current) clearInterval(withdrawTickRef.current);
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
   }, []);
 
@@ -208,22 +210,26 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
     }
   };
 
-  const handleSave = async () => {
-    if (!inputsValid) {
-      setError("Enter valid scores (0 or more)");
-      return;
-    }
-    setError("");
-    setSaving(true);
-    try {
-      await onSave!(match.id, h, a);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch {
-      setError("Failed to save. Try again.");
-    } finally {
-      setSaving(false);
-    }
+  const scheduleAutoSave = (homeStr: string, awayStr: string) => {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    if (!homeStr.trim() || !awayStr.trim() || !onSave) return;
+    const hs = parseInt(homeStr.trim(), 10);
+    const as_ = parseInt(awayStr.trim(), 10);
+    if (isNaN(hs) || isNaN(as_) || hs < 0 || as_ < 0) return;
+    if (unrealisticWarning(hs, as_)) return;
+    autoSaveTimerRef.current = setTimeout(async () => {
+      setError("");
+      setSaving(true);
+      try {
+        await onSave(match.id, hs, as_);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } catch {
+        setError("Failed to save. Try again.");
+      } finally {
+        setSaving(false);
+      }
+    }, 600);
   };
 
   const resultBg = (() => {
@@ -320,7 +326,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
               pattern="[0-9]*"
               maxLength={2}
               value={homeInput}
-              onChange={(e) => setHomeInput(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+              onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 2); setHomeInput(v); scheduleAutoSave(v, awayInput); }}
               className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
               placeholder="0"
               aria-label={`${match.homeTeam} predicted score`}
@@ -347,7 +353,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
               pattern="[0-9]*"
               maxLength={2}
               value={awayInput}
-              onChange={(e) => setAwayInput(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+              onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 2); setAwayInput(v); scheduleAutoSave(homeInput, v); }}
               className="w-12 border border-gray-300 rounded px-2 py-1 text-center text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue shrink-0"
               placeholder="0"
               aria-label={`${match.awayTeam} predicted score`}
@@ -421,28 +427,29 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs">
+                  {saving ? (
+                    <span className="text-gray-400">Saving…</span>
+                  ) : saved ? (
+                    <span className="text-green-600">Saved ✓</span>
+                  ) : error ? (
+                    <span className="text-red-500">{error}</span>
+                  ) : null}
+                </span>
                 <button
-                  onClick={handleSave}
-                  // Save is blocked while a warning is showing — the user must
-                  // either acknowledge by adjusting the score, or the API check
-                  // will reject anyway.
-                  disabled={saving || !onSave || warning !== null || !inputsValid}
-                  className="btn-primary text-xs px-3 py-1.5 flex-1 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+                  onClick={hasPred && onCancel ? handleWithdraw : undefined}
+                  disabled={cancelling}
+                  aria-label="Clear prediction"
+                  title="Withdraw prediction"
+                  className={`w-9 h-9 flex items-center justify-center rounded-full border shrink-0 transition disabled:opacity-40 ${
+                    hasPred && onCancel
+                      ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+                      : "invisible pointer-events-none"
+                  }`}
                 >
-                  {saving ? "..." : saved ? "Saved ✓" : "Save"}
+                  {cancelling ? "…" : "✕"}
                 </button>
-                {hasPred && onCancel && (
-                  <button
-                    onClick={handleWithdraw}
-                    disabled={cancelling}
-                    aria-label="Clear prediction"
-                    className="w-12 h-12 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 active:scale-95 transition disabled:opacity-40 shrink-0 text-lg leading-none"
-                    title="Withdraw prediction"
-                  >
-                    {cancelling ? "…" : "✕"}
-                  </button>
-                )}
               </div>
               {warning && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
@@ -451,7 +458,6 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
               )}
             </>
           )}
-          {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
       )}
 
