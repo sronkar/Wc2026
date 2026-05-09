@@ -1713,20 +1713,28 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                         </td>
                         {cols.map((col, i) => {
                           const pct = col.total > 0 ? Math.round((col.done / col.total) * 100) : 100;
-                          const allDone = col.done === col.total;
-                          const none = col.done === 0;
+                          const textColor = pct === 0 ? "text-gray-400"
+                            : pct === 100 ? "text-green-600"
+                            : pct >= 66 ? "text-lime-600"
+                            : pct >= 33 ? "text-amber-500"
+                            : "text-red-500";
+                          const barColor = pct === 0 ? "bg-gray-200"
+                            : pct === 100 ? "bg-green-400"
+                            : pct >= 66 ? "bg-lime-400"
+                            : pct >= 33 ? "bg-amber-400"
+                            : "bg-red-400";
                           return (
                             <td key={i} className="px-4 py-3 text-center">
                               {col.total === 0 ? (
                                 <span className="text-xs text-gray-300">—</span>
                               ) : (
                                 <div className="flex flex-col items-center gap-1">
-                                  <span className={`text-xs font-semibold ${allDone ? "text-green-600" : none ? "text-gray-400" : "text-amber-600"}`}>
-                                    {col.done}
+                                  <span className={`text-xs font-semibold ${textColor}`}>
+                                    {col.done}/{col.total}
                                   </span>
                                   <div className="w-16 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                                     <div
-                                      className={`h-full rounded-full transition-all ${allDone ? "bg-green-400" : none ? "bg-gray-200" : "bg-amber-400"}`}
+                                      className={`h-full rounded-full transition-all ${barColor}`}
                                       style={{ width: `${pct}%` }}
                                     />
                                   </div>
