@@ -1582,8 +1582,8 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
         </div>
 
         {predStatsLoaded && predStats && (
-          <div className="card overflow-hidden p-0">
-              <table className="w-full text-sm">
+          <div className="card overflow-hidden p-0 overflow-x-auto">
+              <table className="w-full text-sm min-w-[540px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500">
                     <th className="px-4 py-3 font-semibold">Member</th>
