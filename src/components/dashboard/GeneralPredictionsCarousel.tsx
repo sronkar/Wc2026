@@ -361,9 +361,6 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     setWithdrawPending((p) => ({ ...p, [cpId]: false }));
   }, []);
 
-  // Reset to first card when toggling filter
-  useEffect(() => { setCurrent(0); }, [showOpenOnly]);
-
   if (predictions.length === 0) return null;
 
   const displayPredictions = showOpenOnly
@@ -371,6 +368,31 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     : predictions;
 
   const total = displayPredictions.length;
+
+  // All caught up: open-only mode but no unanswered predictions
+  if (total === 0 && showOpenOnly) {
+    return (
+      <div className="rounded-xl">
+        <div className="flex items-center justify-end mb-2">
+          <button
+            onClick={() => setShowOpenOnly(false)}
+            className="text-xs px-2.5 py-1 rounded-full border bg-fifa-blue text-white border-fifa-blue"
+          >
+            Show all
+          </button>
+        </div>
+        <div className="card text-center py-6">
+          <p className="text-2xl mb-1">🎉</p>
+          <p className="text-sm font-semibold text-gray-700">All caught up!</p>
+          <p className="text-xs text-gray-400 mt-0.5">You&apos;ve answered all open predictions.</p>
+          <button onClick={() => setShowOpenOnly(false)} className="mt-3 text-xs text-fifa-blue hover:underline">
+            Show all predictions
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const cp = displayPredictions[current];
 
   const isPlayer = cp.optionType === "PLAYER";
@@ -395,6 +417,23 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
 
   const openCount = predictions.filter((p) => p.status === "OPEN" && !p.isLocked && !p.userAnswer).length;
 
+  const handleToggleOpenOnly = () => {
+    const nextShowOpenOnly = !showOpenOnly;
+    const openList = predictions.filter((p) => p.status === "OPEN" && !p.isLocked && !p.userAnswer);
+    if (nextShowOpenOnly) {
+      // Switching to open-only: find current prediction in the open list
+      const currentPred = displayPredictions[current];
+      const idx = openList.findIndex((p) => p.id === currentPred?.id);
+      setCurrent(idx >= 0 ? idx : 0);
+    } else {
+      // Switching back to all: find the open-list prediction in the full list
+      const currentPred = displayPredictions[current];
+      const idx = predictions.findIndex((p) => p.id === currentPred?.id);
+      setCurrent(idx >= 0 ? idx : 0);
+    }
+    setShowOpenOnly(nextShowOpenOnly);
+  };
+
   return (
     <div
       onTouchStart={onTouchStart}
@@ -406,6 +445,19 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       aria-label={`Prediction ${current + 1} of ${total}`}
       className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-fifa-blue focus-visible:ring-offset-2"
     >
+      {/* Open only toggle — visible above the card */}
+      <div className="flex items-center justify-end mb-2">
+        <button
+          onClick={handleToggleOpenOnly}
+          className={`text-xs px-2.5 py-1 rounded-full border transition ${
+            showOpenOnly
+              ? "bg-fifa-blue text-white border-fifa-blue"
+              : "border-gray-300 text-gray-500 hover:border-fifa-blue hover:text-fifa-blue"
+          }`}
+        >
+          {showOpenOnly ? "Show all" : openCount > 0 ? `Open only (${openCount})` : "Open only"}
+        </button>
+      </div>
       <div className="card flex flex-col gap-3 relative">
         {/* Predicted badge */}
         {hasPred && !isPending && cp.status === "OPEN" && !cp.isLocked && (
@@ -485,15 +537,17 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
               >
                 {saving[cp.id] ? "..." : saved[cp.id] ? "Saved ✓" : cp.userAnswer ? "Update" : "Save"}
               </button>
-              {hasPred && (
-                <button
-                  onClick={() => handleWithdraw(cp.id)}
-                  title="Withdraw answer"
-                  className="w-11 h-11 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition shrink-0"
-                >
-                  ✕
-                </button>
-              )}
+              <button
+                onClick={hasPred ? () => handleWithdraw(cp.id) : undefined}
+                title="Withdraw answer"
+                className={`w-11 h-11 flex items-center justify-center rounded-full border shrink-0 transition ${
+                  hasPred
+                    ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+                    : "invisible pointer-events-none"
+                }`}
+              >
+                ✕
+              </button>
               </div>
               {saveError[cp.id] && (
                 <p className="text-xs text-red-500">{saveError[cp.id]}</p>
@@ -624,17 +678,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       </div>
 
       {/* Carousel controls */}
-      {total === 0 ? (
-        <div className="card mt-3 text-center py-6">
-          <p className="text-2xl mb-1">🎉</p>
-          <p className="text-sm font-semibold text-gray-700">All caught up!</p>
-          <p className="text-xs text-gray-400 mt-0.5">You&apos;ve answered all open predictions.</p>
-          <button onClick={() => setShowOpenOnly(false)} className="mt-3 text-xs text-fifa-blue hover:underline">
-            Show all predictions
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 mt-3">
+      <div className="flex items-center gap-2 mt-3">
           <button
             onClick={() => setCurrent((c) => Math.max(0, c - 1))}
             disabled={current === 0}
@@ -686,22 +730,11 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
             ›
           </button>
         </div>
-      )}
-      <div className="flex items-center justify-between mt-1 px-0.5">
-        <p className="text-xs text-gray-400">
-          {total > 0 ? `${current + 1} of ${total}${showOpenOnly ? " open" : ""}` : ""}
+      {total > 0 && (
+        <p className="text-xs text-gray-400 text-center mt-1">
+          {current + 1} of {total}{showOpenOnly ? " open" : ""}
         </p>
-        <button
-          onClick={() => setShowOpenOnly((v) => !v)}
-          className={`text-xs px-2.5 py-1 rounded-full border transition ${
-            showOpenOnly
-              ? "bg-fifa-blue text-white border-fifa-blue"
-              : "border-gray-300 text-gray-500 hover:border-fifa-blue hover:text-fifa-blue"
-          }`}
-        >
-          {showOpenOnly ? "Open only" : openCount > 0 ? `Open only (${openCount})` : "Open only"}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

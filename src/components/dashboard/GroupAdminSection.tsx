@@ -1583,7 +1583,6 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
 
         {predStatsLoaded && predStats && (
           <div className="card overflow-hidden p-0">
-            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs text-gray-500">
@@ -1655,7 +1654,6 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                   </tr>
                 </tfoot>
               </table>
-            </div>
           </div>
         )}
       </div>
