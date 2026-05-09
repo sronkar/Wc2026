@@ -229,8 +229,7 @@ function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string
                 <span className="flex-1 min-w-0">
                   <span className="font-medium">{value === p.name ? "✓ " : ""}{p.name}</span>
                   <span className="text-xs text-gray-400 ml-1.5">
-                    {p.position ? `${p.position}` : ""}
-                    {p.number ? ` · #${p.number}` : ""}
+                    {p.country}{p.position ? ` · ${p.position}` : ""}{p.number ? ` · #${p.number}` : ""}
                   </span>
                 </span>
               </button>

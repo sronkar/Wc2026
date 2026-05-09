@@ -131,11 +131,29 @@ interface PlayerResult {
 
 function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
   const [results, setResults] = useState<PlayerResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+
+  // Sync when parent value changes (e.g. clear action) and resolve country for pre-filled answers
+  useEffect(() => {
+    setQuery(value);
+    setOpen(false);
+    if (!value) { setSelectedCountry(null); return; }
+    fetch(`/api/players?q=${encodeURIComponent(value)}`)
+      .then((r) => r.json())
+      .then((data: PlayerResult[]) => {
+        if (Array.isArray(data)) {
+          const match = data.find((p) => p.name.toLowerCase() === value.toLowerCase());
+          setSelectedCountry(match?.country ?? null);
+        }
+      })
+      .catch(() => {});
+  }, [value]);
 
   useEffect(() => {
-    if (!query.trim()) { setResults([]); return; }
+    if (!query.trim() || !open) { setResults([]); return; }
     const timer = setTimeout(() => {
       setLoading(true);
       fetch(`/api/players?q=${encodeURIComponent(query)}`)
@@ -144,18 +162,33 @@ function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string
         .catch(() => setLoading(false));
     }, 300);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, open]);
+
+  // Pill view once a player is confirmed
+  if (value && selectedCountry && !open) {
+    return (
+      <button
+        onClick={() => { setQuery(""); setOpen(true); }}
+        className="w-full border border-fifa-blue bg-blue-50 rounded-lg px-3 py-2 text-sm text-fifa-blue font-medium flex items-center gap-2"
+      >
+        <span className="shrink-0 text-lg leading-none">{getFlag(selectedCountry) || "🏳️"}</span>
+        <span className="flex-1 text-left">{value}</span>
+        <span className="text-gray-400 text-xs shrink-0">change</span>
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-2">
       <input
         type="text"
         value={query}
-        onChange={(e) => { setQuery(e.target.value); if (!e.target.value) onChange(""); }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange(""); }}
+        onFocus={() => setOpen(true)}
         placeholder="Search by player name or country…"
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
       />
-      {query.trim() && (
+      {open && query.trim() && (
         <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
           {loading ? (
             <p className="px-3 py-2 text-sm text-gray-400">Searching…</p>
@@ -165,15 +198,17 @@ function PlayerPicker({ value, onChange }: { value: string; onChange: (v: string
             results.map((p) => (
               <button
                 key={p.id}
-                onClick={() => { setQuery(p.name); onChange(p.name); }}
-                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition ${
+                onClick={() => { setQuery(p.name); onChange(p.name); setSelectedCountry(p.country); setOpen(false); }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition flex items-center gap-2 ${
                   value === p.name ? "font-semibold text-fifa-blue bg-blue-50" : "text-gray-700"
                 }`}
               >
-                <span className="font-medium">{value === p.name ? "✓ " : ""}{p.name}</span>
-                <span className="text-xs text-gray-400 ml-2">
-                  {p.country}{p.position ? ` · ${p.position}` : ""}
-                  {p.number ? ` · #${p.number}` : ""}
+                <span className="shrink-0 text-base leading-none">{getFlag(p.country) || "🏳️"}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="font-medium">{value === p.name ? "✓ " : ""}{p.name}</span>
+                  <span className="text-xs text-gray-400 ml-1.5">
+                    {p.country}{p.position ? ` · ${p.position}` : ""}{p.number ? ` · #${p.number}` : ""}
+                  </span>
                 </span>
               </button>
             ))
