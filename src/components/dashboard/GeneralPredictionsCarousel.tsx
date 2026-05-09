@@ -311,8 +311,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     }
   }
 
-  const handleSubmit = useCallback(async (cpId: string) => {
-    const option = selected[cpId];
+  const handleSubmit = useCallback(async (cpId: string, option: string) => {
     if (!option?.trim()) return;
     setSaving((p) => ({ ...p, [cpId]: true }));
     try {
@@ -326,16 +325,13 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       setPredictions((prev) => prev.map((cp) => cp.id === cpId ? { ...cp, userAnswer: option.trim() } : cp));
       setTimeout(() => setSaved((p) => ({ ...p, [cpId]: false })), 2000);
     } catch (err: unknown) {
-      // Surface error briefly so user knows save failed
-      setSaved((p) => ({ ...p, [cpId]: false }));
-      // Re-use the "saved" label area to show error for 3s via a separate error state
       const msg = (err as Error).message ?? "Failed to save";
       setSaveError((p) => ({ ...p, [cpId]: msg }));
       setTimeout(() => setSaveError((p) => ({ ...p, [cpId]: "" })), 3000);
     } finally {
       setSaving((p) => ({ ...p, [cpId]: false }));
     }
-  }, [selected, groupId]);
+  }, [groupId]);
 
   const handleWithdraw = useCallback((cpId: string) => {
     // Optimistically clear & start 5s countdown
@@ -361,9 +357,6 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     setWithdrawPending((p) => ({ ...p, [cpId]: false }));
   }, []);
 
-  // Reset to first card when toggling filter
-  useEffect(() => { setCurrent(0); }, [showOpenOnly]);
-
   if (predictions.length === 0) return null;
 
   const displayPredictions = showOpenOnly
@@ -371,7 +364,36 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
     : predictions;
 
   const total = displayPredictions.length;
-  const cp = displayPredictions[current];
+
+  // Clamp current to valid range (guards against stale index after filter changes)
+  const safeCurrent = Math.min(current, Math.max(0, total - 1));
+  if (safeCurrent !== current) setCurrent(safeCurrent);
+
+  // All caught up: open-only mode but no unanswered predictions
+  if (total === 0 && showOpenOnly) {
+    return (
+      <div className="rounded-xl">
+        <div className="flex items-center justify-end mb-2">
+          <button
+            onClick={() => setShowOpenOnly(false)}
+            className="text-xs px-2.5 py-1 rounded-full border bg-fifa-blue text-white border-fifa-blue"
+          >
+            Show all
+          </button>
+        </div>
+        <div className="card text-center py-6">
+          <p className="text-2xl mb-1">🎉</p>
+          <p className="text-sm font-semibold text-gray-700">All caught up!</p>
+          <p className="text-xs text-gray-400 mt-0.5">You&apos;ve answered all open predictions.</p>
+          <button onClick={() => setShowOpenOnly(false)} className="mt-3 text-xs text-fifa-blue hover:underline">
+            Show all predictions
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const cp = displayPredictions[safeCurrent];
 
   const isPlayer = cp.optionType === "PLAYER";
   const isTeam = cp.optionType === "TEAM";
@@ -395,6 +417,23 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
 
   const openCount = predictions.filter((p) => p.status === "OPEN" && !p.isLocked && !p.userAnswer).length;
 
+  const handleToggleOpenOnly = () => {
+    const nextShowOpenOnly = !showOpenOnly;
+    const openList = predictions.filter((p) => p.status === "OPEN" && !p.isLocked && !p.userAnswer);
+    if (nextShowOpenOnly) {
+      // Switching to open-only: find current prediction in the open list
+      const currentPred = displayPredictions[current];
+      const idx = openList.findIndex((p) => p.id === currentPred?.id);
+      setCurrent(idx >= 0 ? idx : 0);
+    } else {
+      // Switching back to all: find the open-list prediction in the full list
+      const currentPred = displayPredictions[current];
+      const idx = predictions.findIndex((p) => p.id === currentPred?.id);
+      setCurrent(idx >= 0 ? idx : 0);
+    }
+    setShowOpenOnly(nextShowOpenOnly);
+  };
+
   return (
     <div
       onTouchStart={onTouchStart}
@@ -406,6 +445,19 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       aria-label={`Prediction ${current + 1} of ${total}`}
       className="rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-fifa-blue focus-visible:ring-offset-2"
     >
+      {/* Open only toggle — visible above the card */}
+      <div className="flex items-center justify-end mb-2">
+        <button
+          onClick={handleToggleOpenOnly}
+          className={`text-xs px-2.5 py-1 rounded-full border transition ${
+            showOpenOnly
+              ? "bg-fifa-blue text-white border-fifa-blue"
+              : "border-gray-300 text-gray-500 hover:border-fifa-blue hover:text-fifa-blue"
+          }`}
+        >
+          {showOpenOnly ? "Show all" : openCount > 0 ? `Open only (${openCount})` : "Open only"}
+        </button>
+      </div>
       <div className="card flex flex-col gap-3 relative">
         {/* Predicted badge */}
         {hasPred && !isPending && cp.status === "OPEN" && !cp.isLocked && (
@@ -452,7 +504,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
                         }`}
                       >
                         <input type="radio" name={cp.id} value={opt} checked={isSelected}
-                          onChange={() => setSelected((p) => ({ ...p, [cp.id]: opt }))} className="sr-only" />
+                          onChange={() => { setSelected((p) => ({ ...p, [cp.id]: opt })); handleSubmit(cp.id, opt); }} className="sr-only" />
                         <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${isSelected ? "border-fifa-blue bg-fifa-blue" : "border-gray-300"}`} />
                         {flag && <span className="shrink-0">{flag}</span>}
                         {opt}
@@ -465,39 +517,38 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
                 <TeamPicker
                   key={cp.id}
                   value={selected[cp.id] ?? ""}
-                  onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
+                  onChange={(v) => { setSelected((p) => ({ ...p, [cp.id]: v })); if (v) handleSubmit(cp.id, v); }}
                   sort={cp.teamSort}
                 />
               )}
               {isPlayer && (
                 <PlayerPicker
                   value={selected[cp.id] ?? ""}
-                  onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
+                  onChange={(v) => { setSelected((p) => ({ ...p, [cp.id]: v })); if (v) handleSubmit(cp.id, v); }}
                 />
               )}
             </div>
-            <div className="border-t border-gray-100 pt-2 flex flex-col gap-1">
-              <div className="flex items-center gap-2">
+            <div className="border-t border-gray-100 pt-2 flex items-center justify-between">
+              <span className="text-xs">
+                {saving[cp.id] ? (
+                  <span className="text-gray-400">Saving…</span>
+                ) : saved[cp.id] ? (
+                  <span className="text-green-600">Saved ✓</span>
+                ) : saveError[cp.id] ? (
+                  <span className="text-red-500">{saveError[cp.id]}</span>
+                ) : null}
+              </span>
               <button
-                onClick={() => handleSubmit(cp.id)}
-                disabled={saving[cp.id] || !selected[cp.id]?.trim()}
-                className="btn-primary text-xs px-3 py-1.5 flex-1 disabled:opacity-40"
+                onClick={hasPred ? () => handleWithdraw(cp.id) : undefined}
+                title="Withdraw answer"
+                className={`w-9 h-9 flex items-center justify-center rounded-full border shrink-0 transition ${
+                  hasPred
+                    ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+                    : "invisible pointer-events-none"
+                }`}
               >
-                {saving[cp.id] ? "..." : saved[cp.id] ? "Saved ✓" : cp.userAnswer ? "Update" : "Save"}
+                ✕
               </button>
-              {hasPred && (
-                <button
-                  onClick={() => handleWithdraw(cp.id)}
-                  title="Withdraw answer"
-                  className="w-11 h-11 flex items-center justify-center rounded-full border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600 transition shrink-0"
-                >
-                  ✕
-                </button>
-              )}
-              </div>
-              {saveError[cp.id] && (
-                <p className="text-xs text-red-500">{saveError[cp.id]}</p>
-              )}
             </div>
           </>
         )}
@@ -624,20 +675,10 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
       </div>
 
       {/* Carousel controls */}
-      {total === 0 ? (
-        <div className="card mt-3 text-center py-6">
-          <p className="text-2xl mb-1">🎉</p>
-          <p className="text-sm font-semibold text-gray-700">All caught up!</p>
-          <p className="text-xs text-gray-400 mt-0.5">You&apos;ve answered all open predictions.</p>
-          <button onClick={() => setShowOpenOnly(false)} className="mt-3 text-xs text-fifa-blue hover:underline">
-            Show all predictions
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 mt-3">
+      <div className="flex items-center gap-2 mt-3">
           <button
             onClick={() => setCurrent((c) => Math.max(0, c - 1))}
-            disabled={current === 0}
+            disabled={safeCurrent === 0}
             className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
           >
             ‹
@@ -647,7 +688,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
             const MAX_DOTS = 9;
             const windowStart = total <= MAX_DOTS
               ? 0
-              : Math.max(0, Math.min(current - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
+              : Math.max(0, Math.min(safeCurrent - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
             const windowEnd = Math.min(total, windowStart + MAX_DOTS);
             const visibleDots = displayPredictions.slice(windowStart, windowEnd);
             return (
@@ -664,7 +705,7 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
                       title={p.question}
                     >
                       <span className={`rounded-full transition-all block ${
-                        i === current
+                        i === safeCurrent
                           ? "bg-fifa-blue w-4 h-2"
                           : p.userAnswer
                           ? "bg-green-400 w-2 h-2"
@@ -680,28 +721,17 @@ export function GeneralPredictionsCarousel({ groupId }: { groupId: string }) {
 
           <button
             onClick={() => setCurrent((c) => Math.min(total - 1, c + 1))}
-            disabled={current === total - 1}
+            disabled={safeCurrent === total - 1}
             className="w-11 h-11 shrink-0 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-30"
           >
             ›
           </button>
         </div>
-      )}
-      <div className="flex items-center justify-between mt-1 px-0.5">
-        <p className="text-xs text-gray-400">
-          {total > 0 ? `${current + 1} of ${total}${showOpenOnly ? " open" : ""}` : ""}
+      {total > 0 && (
+        <p className="text-xs text-gray-400 text-center mt-1">
+          {safeCurrent + 1} of {total}{showOpenOnly ? " open" : ""}
         </p>
-        <button
-          onClick={() => setShowOpenOnly((v) => !v)}
-          className={`text-xs px-2.5 py-1 rounded-full border transition ${
-            showOpenOnly
-              ? "bg-fifa-blue text-white border-fifa-blue"
-              : "border-gray-300 text-gray-500 hover:border-fifa-blue hover:text-fifa-blue"
-          }`}
-        >
-          {showOpenOnly ? "Open only" : openCount > 0 ? `Open only (${openCount})` : "Open only"}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

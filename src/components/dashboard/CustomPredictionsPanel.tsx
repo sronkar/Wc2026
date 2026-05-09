@@ -215,8 +215,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
     setPredictions((prev) => prev.map((cp) => cp.id === cpId ? { ...cp, userAnswer: null } : cp));
   };
 
-  const handleSubmit = async (cpId: string) => {
-    const option = selected[cpId];
+  const handleSubmit = async (cpId: string, option: string) => {
     if (!option?.trim()) return;
     setSaving((p) => ({ ...p, [cpId]: true }));
     await fetch(`/api/custom-predictions/${cpId}/answer`, {
@@ -338,7 +337,7 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                               }`}
                             >
                               <input type="radio" name={cp.id} value={opt} checked={isSelected}
-                                onChange={() => setSelected((p) => ({ ...p, [cp.id]: opt }))} className="sr-only" />
+                                onChange={() => { setSelected((p) => ({ ...p, [cp.id]: opt })); handleSubmit(cp.id, opt); }} className="sr-only" />
                               <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${isSelected ? "border-fifa-blue bg-fifa-blue" : "border-gray-300"}`} />
                               {flag && <span className="shrink-0">{flag}</span>}
                               {opt}
@@ -351,35 +350,37 @@ export function CustomPredictionsPanel({ groupId, hideResolved = false }: { grou
                       <TeamPicker
                         key={cp.id}
                         value={selected[cp.id] ?? ""}
-                        onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
+                        onChange={(v) => { setSelected((p) => ({ ...p, [cp.id]: v })); if (v) handleSubmit(cp.id, v); }}
                         sort={cp.teamSort}
                       />
                     )}
                     {isPlayer && (
                       <PlayerPicker
                         value={selected[cp.id] ?? ""}
-                        onChange={(v) => setSelected((p) => ({ ...p, [cp.id]: v }))}
+                        onChange={(v) => { setSelected((p) => ({ ...p, [cp.id]: v })); if (v) handleSubmit(cp.id, v); }}
                       />
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between min-h-[2rem]">
+                    <span className="text-xs">
+                      {saving[cp.id] ? (
+                        <span className="text-gray-400">Saving…</span>
+                      ) : saved[cp.id] ? (
+                        <span className="text-green-600">Saved ✓</span>
+                      ) : null}
+                    </span>
                     <button
-                      onClick={() => handleSubmit(cp.id)}
-                      disabled={saving[cp.id] || !selected[cp.id]?.trim()}
-                      className="btn-primary text-xs flex-1 disabled:opacity-40"
+                      onClick={() => handleCancel(cp.id)}
+                      disabled={cancelling[cp.id]}
+                      title="Withdraw answer"
+                      className={`w-9 h-9 flex items-center justify-center rounded-full border shrink-0 transition ${
+                        cp.userAnswer
+                          ? "border-red-200 text-red-400 hover:bg-red-50 hover:border-red-400 hover:text-red-600"
+                          : "invisible pointer-events-none"
+                      }`}
                     >
-                      {saving[cp.id] ? "Saving…" : saved[cp.id] ? "Saved ✓" : cp.userAnswer ? "Update Answer" : "Submit Answer"}
+                      {cancelling[cp.id] ? "…" : "✕"}
                     </button>
-                    {cp.userAnswer && (
-                      <button
-                        onClick={() => handleCancel(cp.id)}
-                        disabled={cancelling[cp.id]}
-                        className="text-xs text-gray-400 hover:text-red-500 transition disabled:opacity-40 px-1"
-                        title="Withdraw answer"
-                      >
-                        {cancelling[cp.id] ? "…" : "×"}
-                      </button>
-                    )}
                   </div>
                 </>
               )}
