@@ -19,16 +19,16 @@ export function defaultStagePoints(): StagePointsMap {
     "Group Stage":          { exact: 2, direction: 1 },
     "Round of 32":          { exact: 3, direction: 2 },
     "Round of 16":          { exact: 4, direction: 2 },
-    "Quarter-final":        { exact: 6, direction: 3 },
-    "Semi-final":           { exact: 8, direction: 4 },
-    "Third Place Play-off": { exact: 8, direction: 4 },
-    "Final":                { exact: 10, direction: 5 },
+    "Quarter-final":        { exact: 8, direction: 4 },
+    "Semi-final":           { exact: 10, direction: 5 },
+    "Third Place Play-off": { exact: 10, direction: 5 },
+    "Final":                { exact: 12, direction: 6 },
   };
 }
 
 // Advancement scoring is independent of the stage matrix above (it scores
 // group-stage placements, not match outcomes).
-export const DEFAULT_ADVANCEMENT_POINTS = { exact: 4, direction: 2 };
+export const DEFAULT_ADVANCEMENT_POINTS = { exact: 2, direction: 1 };
 
 // Parse stored JSON (or "{}") and fill any missing stage with the per-stage
 // defaults — never with the legacy flat single-value fallback.
