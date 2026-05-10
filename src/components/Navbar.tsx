@@ -155,21 +155,18 @@ export function Navbar() {
               </clipPath>
             </defs>
             <circle cx="15" cy="15" r="13.5" fill="white" fillOpacity="0.93"/>
-            <g clipPath="url(#sb)">
-              {/* Center black pentagon — r=7 (larger for visual weight) */}
-              <polygon points="15,8 21.66,12.84 19.12,20.66 10.88,20.66 8.34,12.84" fill="#111"/>
-              {/* Seam lines */}
-              <line x1="15" y1="8" x2="15" y2="1.5" stroke="#111" strokeWidth="1.5"/>
-              <line x1="21.66" y1="12.84" x2="27.84" y2="10.83" stroke="#111" strokeWidth="1.5"/>
-              <line x1="19.12" y1="20.66" x2="22.94" y2="25.92" stroke="#111" strokeWidth="1.5"/>
-              <line x1="10.88" y1="20.66" x2="7.06" y2="25.92" stroke="#111" strokeWidth="1.5"/>
-              <line x1="8.34" y1="12.84" x2="2.16" y2="10.83" stroke="#111" strokeWidth="1.5"/>
-              {/* Edge pentagons — larger, matching center pentagon r=7 */}
-              <polygon points="15,1.5 21.66,-3.34 19.12,-11.16 10.88,-11.16 8.34,-3.34" fill="#111"/>
-              <polygon points="27.84,10.83 30.38,3.0 38.61,3.0 41.15,10.83 34.5,15.67" fill="#111"/>
-              <polygon points="22.94,25.92 31.17,25.92 33.71,33.75 27.05,38.59 20.4,33.75" fill="#111"/>
-              <polygon points="7.06,25.92 -1.17,25.92 -3.71,33.75 2.95,38.59 9.6,33.75" fill="#111"/>
-              <polygon points="2.16,10.83 -0.38,3.0 -8.61,3.0 -11.15,10.83 -4.5,15.67" fill="#111"/>
+            <g clipPath="url(#sb)" transform="rotate(-20, 15, 15)">
+              <polygon points="15,10.3 19.47,13.55 17.76,18.8 12.24,18.8 10.53,13.55" fill="#111"/>
+              <line x1="15" y1="10.3" x2="15" y2="6.9" stroke="#111" strokeWidth="1.2"/>
+              <line x1="19.47" y1="13.55" x2="22.7" y2="12.5" stroke="#111" strokeWidth="1.2"/>
+              <line x1="17.76" y1="18.8" x2="19.76" y2="21.55" stroke="#111" strokeWidth="1.2"/>
+              <line x1="12.24" y1="18.8" x2="10.24" y2="21.55" stroke="#111" strokeWidth="1.2"/>
+              <line x1="10.53" y1="13.55" x2="7.3" y2="12.5" stroke="#111" strokeWidth="1.2"/>
+              <polygon points="15,6.9 9.86,3.17 11.82,-2.87 18.18,-2.87 20.14,3.17" fill="#111"/>
+              <polygon points="22.7,12.5 24.66,6.46 31.02,6.46 32.98,12.5 27.84,16.23" fill="#111"/>
+              <polygon points="19.76,21.55 26.12,21.55 28.08,27.59 22.94,31.32 17.8,27.59" fill="#111"/>
+              <polygon points="10.24,21.55 12.2,27.59 7.06,31.32 1.92,27.59 3.88,21.55" fill="#111"/>
+              <polygon points="7.3,12.5 2.16,16.23 -2.98,12.5 -1.02,6.46 5.34,6.46" fill="#111"/>
             </g>
             <circle cx="15" cy="15" r="13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
           </svg>
