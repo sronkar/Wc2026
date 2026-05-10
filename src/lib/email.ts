@@ -59,13 +59,13 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
 const HEADER = (subtitle: string) => `
   <div style="background:#003366;padding:32px 24px;text-align:center">
     <div style="font-size:36px;margin-bottom:8px">⚽</div>
-    <h1 style="color:#fff;margin:0;font-size:24px;font-weight:900;letter-spacing:-0.5px">WC2026 Predictions</h1>
+    <h1 style="color:#fff;margin:0;font-size:24px;font-weight:900;letter-spacing:-0.5px">SoccerPicks WC 2026</h1>
     <p style="color:#C9A84C;margin:6px 0 0;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase">${subtitle}</p>
   </div>`;
 
 const FOOTER = `
   <div style="background:#f8f9fa;border-top:1px solid #e5e7eb;padding:16px 24px;text-align:center">
-    <p style="margin:0;font-size:11px;color:#9ca3af">WC2026 Predictions · Not affiliated with FIFA</p>
+    <p style="margin:0;font-size:11px;color:#9ca3af">SoccerPicks WC 2026 · Not affiliated with FIFA</p>
   </div>`;
 
 const WRAP = (inner: string, maxWidth = 540) =>
@@ -89,10 +89,10 @@ export function buildMagicLinkHtml(url: string): string {
     ${HEADER("Sign In")}
     <div style="padding:32px 24px">
       <p style="color:#555;margin:0 0 20px">
-        Click the button below to sign in to WC2026 Predictions.
+        Click the button below to sign in to SoccerPicks WC 2026.
         This link expires in <strong>24 hours</strong> and can only be used once.
       </p>
-      ${CTA(url, "Sign In to WC2026 →")}
+      ${CTA(url, "Sign In to SoccerPicks →")}
       ${MANUAL_LINK(url)}
       <p style="font-size:12px;color:#9ca3af;margin:20px 0 0">If you didn't request this, you can safely ignore it.</p>
     </div>
@@ -117,8 +117,8 @@ export function buildGroupInviteHtml({ groupName, roleLabel, inviteUrl, requireP
     ? "You will set a password to secure your account when you join."
     : "No password required — just enter your name and you're in.";
   const inviterLine = inviterName
-    ? `<p style="color:#555;margin:0 0 20px"><strong>${inviterName}</strong> has invited you to join a WC2026 prediction group.</p>`
-    : `<p style="color:#555;margin:0 0 20px">You've been invited to join a WC2026 prediction group.</p>`;
+    ? `<p style="color:#555;margin:0 0 20px"><strong>${inviterName}</strong> has invited you to join a SoccerPicks WC 2026 prediction group.</p>`
+    : `<p style="color:#555;margin:0 0 20px">You've been invited to join a SoccerPicks WC 2026 prediction group.</p>`;
 
   return WRAP(`
     ${HEADER("Group Invite")}
@@ -137,7 +137,7 @@ export function buildGroupInviteHtml({ groupName, roleLabel, inviteUrl, requireP
     </div>
     <div style="background:#f8f9fa;border-top:1px solid #e5e7eb;padding:16px 24px;text-align:center">
       <p style="margin:0;font-size:11px;color:#9ca3af">This invite expires in 7 days. If you didn't expect this, you can safely ignore it.</p>
-      <p style="margin:6px 0 0;font-size:11px;color:#d1d5db">WC2026 Predictions · Not affiliated with FIFA</p>
+      <p style="margin:6px 0 0;font-size:11px;color:#d1d5db">SoccerPicks WC 2026 · Not affiliated with FIFA</p>
     </div>
   `);
 }
@@ -146,7 +146,7 @@ export async function sendGroupInviteEmail({ to, ...rest }: { to: string } & Gro
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to,
-    subject: `You're invited to join "${rest.groupName}" on WC2026 Predictions`,
+    subject: `You're invited to join "${rest.groupName}" on SoccerPicks WC 2026`,
     html: buildGroupInviteHtml(rest),
   });
 }
@@ -168,7 +168,7 @@ export function buildWelcomeHtml({ name, groupName, groupId }: WelcomeParams): s
     <div style="padding:32px 24px">
       <p style="color:#555;margin:0 0 16px">Hi <strong>${name}</strong>,</p>
       <p style="color:#555;margin:0 0 20px">
-        You've joined <strong style="color:#003366">${groupName}</strong> on WC2026 Predictions.
+        You've joined <strong style="color:#003366">${groupName}</strong> on SoccerPicks WC 2026.
         Start predicting match scores before kickoff — earn points for correct results and bonus points for exact scores.
       </p>
       ${CTA(groupUrl, "Go to Your Group →")}
@@ -182,7 +182,7 @@ export async function sendWelcomeEmail({ to, ...rest }: { to: string } & Welcome
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to,
-    subject: `Welcome to "${rest.groupName}" — WC2026 Predictions 🎉`,
+    subject: `Welcome to "${rest.groupName}" — SoccerPicks WC 2026 🎉`,
     html: buildWelcomeHtml(rest),
   });
 }
@@ -202,7 +202,7 @@ export function buildPasswordResetHtml({ name, resetUrl }: PasswordResetParams):
     <div style="padding:32px 24px">
       <p style="color:#555;margin:0 0 16px">Hi <strong>${name}</strong>,</p>
       <p style="color:#555;margin:0 0 20px">
-        We received a request to reset your WC2026 Predictions password.
+        We received a request to reset your SoccerPicks WC 2026 password.
         Click below to set a new one. This link expires in <strong>1 hour</strong>.
       </p>
       ${CTA(resetUrl, "Reset Password →")}
@@ -217,7 +217,7 @@ export async function sendPasswordResetEmail({ to, ...rest }: { to: string } & P
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to,
-    subject: "Reset your WC2026 Predictions password",
+    subject: "Reset your SoccerPicks WC 2026 password",
     html: buildPasswordResetHtml(rest),
   });
 }
@@ -283,7 +283,7 @@ export function buildReminderHtml(name: string, matches: UpcomingMatch[]): strin
 
   return WRAP(`
     <div style="background:#003366;padding:24px;text-align:center">
-      <h1 style="color:#fff;margin:0;font-size:22px">⚽ WC2026 Predictions</h1>
+      <h1 style="color:#fff;margin:0;font-size:22px">⚽ SoccerPicks WC 2026</h1>
     </div>
     <div style="padding:24px">
       <p>Hi <strong>${name}</strong>,</p>
@@ -303,7 +303,7 @@ export function buildReminderHtml(name: string, matches: UpcomingMatch[]): strin
       </a>
     </div>
     <div style="background:#f8f9fa;padding:12px;text-align:center;color:#999;font-size:12px">
-      WC2026 Predictions · Not affiliated with FIFA
+      SoccerPicks WC 2026 · Not affiliated with FIFA
     </div>
   `);
 }
@@ -332,7 +332,7 @@ export function buildLock30mHtml(name: string, matches: UpcomingMatch[]): string
 
   return WRAP(`
     <div style="background:#003366;padding:24px;text-align:center">
-      <h1 style="color:#fff;margin:0;font-size:22px">⚽ WC2026 Predictions</h1>
+      <h1 style="color:#fff;margin:0;font-size:22px">⚽ SoccerPicks WC 2026</h1>
     </div>
     <div style="padding:24px">
       <p>Hi <strong>${name}</strong>,</p>
@@ -353,7 +353,7 @@ export function buildLock30mHtml(name: string, matches: UpcomingMatch[]): string
       </a>
     </div>
     <div style="background:#f8f9fa;padding:12px;text-align:center;color:#999;font-size:12px">
-      WC2026 Predictions · Not affiliated with FIFA
+      SoccerPicks WC 2026 · Not affiliated with FIFA
     </div>
   `);
 }
@@ -401,7 +401,7 @@ export function buildSubAdminActionHtml(
 
   return WRAP(`
     <div style="background:#003366;padding:24px;text-align:center">
-      <h1 style="color:#fff;margin:0;font-size:22px">⚽ WC2026 — Group Admin Action</h1>
+      <h1 style="color:#fff;margin:0;font-size:22px">⚽ SoccerPicks WC 2026 — Group Admin Action</h1>
     </div>
     <div style="padding:24px">
       <p>${body}</p>
@@ -411,7 +411,7 @@ export function buildSubAdminActionHtml(
       </a>
     </div>
     <div style="background:#f8f9fa;padding:12px;text-align:center;color:#999;font-size:12px">
-      WC2026 Predictions · Group Admin activity log
+      SoccerPicks WC 2026 · Group Admin activity log
     </div>
   `);
 }
@@ -442,10 +442,10 @@ export async function sendSubAdminActionEmail(
 export async function sendPlatformInviteEmail(to: string, inviteUrl: string): Promise<void> {
   const html = WRAP(`
     <div style="background:#003366;padding:24px;text-align:center">
-      <h1 style="color:#fff;margin:0;font-size:22px">⚽ You're invited to WC2026 Predictions</h1>
+      <h1 style="color:#fff;margin:0;font-size:22px">⚽ You're invited to SoccerPicks WC 2026</h1>
     </div>
     <div style="padding:24px">
-      <p>You've been invited to create your own WC2026 Predictions group.</p>
+      <p>You've been invited to create your own SoccerPicks WC 2026 group.</p>
       <p>Click below to accept — you'll be able to set up your group, invite friends, and compete on predictions for the 2026 World Cup.</p>
       <a href="${inviteUrl}"
          style="display:inline-block;margin-top:16px;background:#003366;color:#fff;padding:12px 28px;border-radius:8px;font-weight:bold;text-decoration:none">
@@ -454,10 +454,10 @@ export async function sendPlatformInviteEmail(to: string, inviteUrl: string): Pr
       <p style="margin-top:24px;color:#666;font-size:13px">This invite expires in 7 days. If you didn't expect this email, you can ignore it.</p>
     </div>
     <div style="background:#f8f9fa;padding:12px;text-align:center;color:#999;font-size:12px">
-      WC2026 Predictions
+      SoccerPicks WC 2026
     </div>
   `);
-  await sendEmail({ to, subject: "You're invited to create a WC2026 Predictions group", html });
+  await sendEmail({ to, subject: "You're invited to create a SoccerPicks WC 2026 group", html });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -592,7 +592,7 @@ export function buildPostGameHtml({ match, insights, top3, predRows, userEntry }
       </div>
     </div>
     <div style="background:#f8f9fa;padding:12px;text-align:center;color:#999;font-size:12px">
-      WC2026 Predictions · Not affiliated with FIFA
+      SoccerPicks WC 2026 · Not affiliated with FIFA
     </div>
   `, 560);
 }

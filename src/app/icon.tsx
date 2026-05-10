@@ -3,12 +3,8 @@ import { ImageResponse } from "next/og";
 // Auto-generated browser/PWA icon, served at /icon. Used by manifest.webmanifest
 // (192×192) and by the service worker as the notification icon.
 //
-// We use a typographic mark instead of an emoji because emoji rendering inside
-// next/og's ImageResponse depends on whether the runtime environment ships a
-// colour-emoji font. On bare Linux containers (some self-hosted Vercel-likes,
-// Docker images without `fonts-noto-color-emoji`) the ⚽ falls back to a
-// monochrome glyph or a tofu box. A plain text mark on a solid background
-// renders identically everywhere.
+// Pure geometric / typographic mark — no emoji — so it renders identically on
+// bare Linux containers that lack a colour-emoji font.
 export const size = { width: 192, height: 192 };
 export const contentType = "image/png";
 
@@ -17,20 +13,54 @@ export default function Icon() {
     (
       <div
         style={{
-          background: "#003366",
+          background: "linear-gradient(150deg, #001845 0%, #003380 100%)",
           width: "100%",
           height: "100%",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          color: "#C9A84C",
-          fontWeight: 900,
-          letterSpacing: "-1px",
+          gap: 0,
         }}
       >
-        <div style={{ fontSize: 92, lineHeight: 1, color: "white" }}>WC</div>
-        <div style={{ fontSize: 38, lineHeight: 1, marginTop: 6 }}>2026</div>
+        {/* Gold ring badge */}
+        <div
+          style={{
+            width: 108,
+            height: 108,
+            borderRadius: "50%",
+            border: "5px solid #C9A84C",
+            background: "rgba(201,168,76,0.10)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 12,
+          }}
+        >
+          <div
+            style={{
+              color: "white",
+              fontSize: 54,
+              fontWeight: 900,
+              letterSpacing: "-3px",
+              lineHeight: 1,
+            }}
+          >
+            SP
+          </div>
+        </div>
+        {/* WC 2026 label */}
+        <div
+          style={{
+            color: "#C9A84C",
+            fontSize: 17,
+            fontWeight: 800,
+            letterSpacing: "4px",
+            lineHeight: 1,
+          }}
+        >
+          WC 2026
+        </div>
       </div>
     ),
     { ...size }

@@ -48,7 +48,7 @@ export default function ResetPasswordPage() {
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">⚽</div>
           <h1 className="text-2xl font-bold text-gray-900">Set New Password</h1>
-          <p className="text-gray-500 mt-1 text-sm">WC2026 Predictions</p>
+          <p className="text-gray-500 mt-1 text-sm">SoccerPicks WC 2026</p>
         </div>
 
         <div className="card">

@@ -103,7 +103,7 @@ export async function recordScorePollFailure(errorMessage: string | null): Promi
           <p style="color:#666;font-size:12px">You'll get one more email at 6, 12, and 24 failures, then at most once per day.</p>
         </div>`;
       try {
-        await sendEmail({ to: adminEmail, subject: `[WC2026] Score-poll failing — ${newCount} consecutive failures`, html });
+        await sendEmail({ to: adminEmail, subject: `[SoccerPicks] Score-poll failing — ${newCount} consecutive failures`, html });
       } catch (e) {
         console.error("[scoreHealth] alert email send failed:", e);
       }

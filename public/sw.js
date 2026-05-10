@@ -4,11 +4,11 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: "WC2026", body: event.data.text() };
+    payload = { title: "SoccerPicks", body: event.data.text() };
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title ?? "WC2026 Predictions", {
+    self.registration.showNotification(payload.title ?? "SoccerPicks WC 2026", {
       body: payload.body ?? "",
       // Generated dynamically by Next.js from src/app/icon.tsx (192×192 PNG)
       icon: "/icon",

@@ -22,17 +22,12 @@ export async function removeDemoUserFromGroup(userId: string, groupId: string): 
 }
 
 export async function ensureMonkeyUser(): Promise<string> {
-  let monkey = await prisma.user.findFirst({ where: { email: "monkey@wc2026.internal" } });
-  if (!monkey) {
-    monkey = await prisma.user.create({
-      data: {
-        name: "🐒 Monkey",
-        email: "monkey@wc2026.internal",
-        role: "USER",
-        isDemo: true,
-      },
-    });
-  }
+  const monkey = await prisma.user.upsert({
+    where: { email: "monkey@wc2026.internal" },
+    update: {},
+    create: { name: "🐒 Monkey", email: "monkey@wc2026.internal", role: "USER", isDemo: true },
+    select: { id: true },
+  });
   return monkey.id;
 }
 
@@ -113,7 +108,13 @@ async function fillCustomPredictions(monkeyId: string, groupId: string): Promise
     if (answeredIds.has(cp.id)) continue;
     let option: string | null = null;
     if (cp.optionType === "PLAYER") {
-      option = allPlayers.length > 0 ? pickRandom(allPlayers).name : null;
+      // Use attacker pool; fall back to the prediction's own options list if DB has no players
+      if (allPlayers.length > 0) {
+        option = pickRandom(allPlayers).name;
+      } else {
+        const opts: string[] = JSON.parse(cp.options);
+        if (opts.length > 0) option = pickRandom(opts);
+      }
     } else {
       const opts: string[] = JSON.parse(cp.options);
       if (opts.length > 0) option = pickRandom(opts);

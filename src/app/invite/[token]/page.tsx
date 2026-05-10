@@ -195,7 +195,7 @@ export default function InvitePage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <div className="text-5xl mb-3">⚽</div>
-          <h1 className="text-2xl font-bold text-gray-900">WC2026 Predictions</h1>
+          <h1 className="text-2xl font-bold text-gray-900">SoccerPicks WC 2026</h1>
           <p className="text-gray-500 mt-1 text-sm">You&apos;re invited to join a group</p>
         </div>
 

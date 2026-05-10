@@ -4,8 +4,8 @@ import type { MetadataRoute } from "next";
 // "Add to Home Screen" and to size + colour the standalone-mode launch screen.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "WC2026 Predictions",
-    short_name: "WC2026",
+    name: "SoccerPicks WC 2026",
+    short_name: "SoccerPicks",
     description: "Predict FIFA World Cup 2026 match results and compete with friends.",
     // When the user opens the installed app, drop them on /groups (their leagues),
     // not the marketing homepage.

@@ -479,9 +479,12 @@ Winner\t\tTeam\t10`;
   const handleDeleteGroup = async (id: string, name: string) => {
     if (!confirm(`Delete group "${name}" and all its data? This cannot be undone.`)) return;
     setDeletingGroup((p) => ({ ...p, [id]: true }));
-    const res = await fetch(`/api/admin/groups/${id}`, { method: "DELETE" });
-    if (res.ok) setGroups((prev) => prev.filter((g) => g.id !== id));
-    setDeletingGroup((p) => ({ ...p, [id]: false }));
+    try {
+      const res = await fetch(`/api/admin/groups/${id}`, { method: "DELETE" });
+      if (res.ok) setGroups((prev) => prev.filter((g) => g.id !== id));
+    } finally {
+      setDeletingGroup((p) => ({ ...p, [id]: false }));
+    }
   };
 
   const handleToggleGlobalPred = async (pred: GlobalPrediction) => {
@@ -1181,34 +1184,31 @@ Winner\t\tTeam\t10`;
               return (
               <div className="divide-y divide-gray-100">
                   {filteredGroups.map((g) => (
-                    <div key={g.id} className="flex items-center gap-3 px-4 py-3">
-                      {/* Group info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-medium text-gray-800 text-sm">{g.name}</p>
-                          {!g.isPublic && <span className="badge bg-gray-100 text-gray-500 text-[10px]">🔒 Private</span>}
-                          {!g.myStatus && <span className="badge bg-amber-50 text-amber-600 text-[10px]">Not member</span>}
-                        </div>
+                    <div key={g.id} className="flex items-center gap-4 px-4 py-3">
+                      {/* Name + inline badges */}
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span className="font-medium text-gray-800 text-sm truncate">{g.name}</span>
+                        {!g.isPublic && <span className="shrink-0 text-[10px] font-medium text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">Private</span>}
+                        {!g.myStatus && <span className="shrink-0 text-[10px] font-medium text-amber-600 border border-amber-200 rounded px-1.5 py-0.5">Not member</span>}
                       </div>
-                      {/* Members */}
-                      <span className="text-xs text-gray-400 shrink-0">{g.memberCount} members</span>
-                      {/* Actions */}
+                      {/* Right side: members + actions + creator */}
                       <div className="flex items-center gap-3 shrink-0">
-                          <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-white bg-fifa-blue hover:bg-blue-700 px-3 py-1 rounded-lg transition">Manage</Link>
-                          <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">View</Link>
-                          {isAdmin && (
-                            <button
-                              onClick={() => handleDeleteGroup(g.id, g.name)}
-                              disabled={deletingGroup[g.id]}
-                              className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
-                            >
-                              {deletingGroup[g.id] ? "…" : "Delete"}
-                            </button>
-                          )}
-                        </div>
-                      {(g as {createdByName?: string}).createdByName && (
-                        <span className="text-xs text-gray-300 shrink-0">{(g as {createdByName?: string}).createdByName}</span>
-                      )}
+                        <span className="text-xs text-gray-400">{g.memberCount} members</span>
+                        <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-white bg-fifa-blue hover:bg-blue-700 px-3 py-1.5 rounded-lg transition">Manage</Link>
+                        <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">View</Link>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteGroup(g.id, g.name)}
+                            disabled={deletingGroup[g.id]}
+                            className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40"
+                          >
+                            {deletingGroup[g.id] ? "…" : "Delete"}
+                          </button>
+                        )}
+                        {(g as {createdByName?: string}).createdByName && (
+                          <span className="text-xs text-gray-300">{(g as {createdByName?: string}).createdByName}</span>
+                        )}
+                      </div>
                     </div>
                   ))}
               </div>

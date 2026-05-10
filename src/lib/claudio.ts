@@ -1,17 +1,12 @@
 import { prisma } from "./prisma";
 
 export async function ensureClaudioUser(): Promise<string> {
-  let claudio = await prisma.user.findFirst({ where: { email: "claudio@wc2026.internal" } });
-  if (!claudio) {
-    claudio = await prisma.user.create({
-      data: {
-        name: "🧠 Claudio",
-        email: "claudio@wc2026.internal",
-        role: "USER",
-        isDemo: true,
-      },
-    });
-  }
+  const claudio = await prisma.user.upsert({
+    where: { email: "claudio@wc2026.internal" },
+    update: {},
+    create: { name: "🧠 Claudio", email: "claudio@wc2026.internal", role: "USER", isDemo: true },
+    select: { id: true },
+  });
   return claudio.id;
 }
 

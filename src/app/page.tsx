@@ -92,7 +92,7 @@ export default async function Home() {
       )}
 
       <footer className="bg-gray-800 text-gray-400 text-center py-6 text-sm">
-        WC2026 Predictions · Not affiliated with FIFA
+        SoccerPicks WC 2026 · Not affiliated with FIFA
       </footer>
     </div>
   );

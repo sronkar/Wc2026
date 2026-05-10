@@ -81,7 +81,7 @@ export function FirstGroupVisitModal({
         <div className="p-6">
           <div className="text-4xl mb-3 text-center">⚽</div>
           <h2 id="first-visit-title" className="text-xl font-bold text-gray-900 text-center mb-1">
-            Welcome to WC2026 Predictions
+            Welcome to SoccerPicks WC 2026
           </h2>
           <p className="text-sm text-gray-500 text-center mb-5">
             A few things to know before you start.
