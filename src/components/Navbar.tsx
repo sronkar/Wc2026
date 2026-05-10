@@ -167,6 +167,7 @@ export function Navbar() {
               <polygon points="18.24,19.46 26.24,19.46 28.71,27.06 22.24,31.76 15.77,27.06" fill="#111"/>
               <polygon points="11.76,19.46 14.23,27.06 7.76,31.76 1.29,27.06 3.76,19.46" fill="#111"/>
               <polygon points="9.77,13.3 3.3,18 -3.17,13.3 -0.7,5.7 7.3,5.7" fill="#111"/>
+              <path d="M13.5,23.4 L14.8,25 L17.5,20.4" stroke="#C9A84C" strokeWidth="0.85" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             </g>
             <circle cx="15" cy="15" r="13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
           </svg>
