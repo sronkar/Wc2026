@@ -169,9 +169,11 @@ export function AdvancementPicksClient({
   const totalGroupCount = Object.keys(wcGroups).length;
   const targetWinnerRunnerUp = totalGroupCount * 2;
 
-  const advancementComplete = Object.entries(wcGroups).every(([, teams]) =>
-    teams.some((t) => localPicks[t] === "WINNER") && teams.some((t) => localPicks[t] === "RUNNER_UP")
-  );
+  const advancementComplete =
+    totalThirds === 8 &&
+    Object.entries(wcGroups).every(([, teams]) =>
+      teams.some((t) => localPicks[t] === "WINNER") && teams.some((t) => localPicks[t] === "RUNNER_UP")
+    );
 
   // Scroll-vs-tap guard: ignore click if pointer moved significantly from touchstart
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);

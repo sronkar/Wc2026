@@ -10,7 +10,7 @@ import { PWABanner } from "@/components/PWABanner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "WC2026 Predictions",
+  title: "SoccerPicks WC 2026",
   description: "Predict FIFA World Cup 2026 match results and compete with friends",
   // iOS standalone-mode (PWA) tags. statusBarStyle "default" gives a white bar
   // with dark text — works against our light page bg. The title here is what
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "WC2026",
+    title: "SoccerPicks",
   },
   // Disable Apple's "phone number detector" so match scores like "2-1" aren't
   // turned into tap-to-call links on iOS.

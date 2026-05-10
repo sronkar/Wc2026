@@ -45,7 +45,7 @@ export const authOptions: NextAuthOptions = {
           const { sendEmail, buildMagicLinkHtml } = await import("@/lib/email");
           await sendEmail({
             to: email,
-            subject: "Your WC2026 sign-in link",
+            subject: "Your SoccerPicks sign-in link",
             html: buildMagicLinkHtml(url),
           });
         }

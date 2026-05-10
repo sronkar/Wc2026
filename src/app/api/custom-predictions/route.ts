@@ -17,8 +17,20 @@ export async function GET(req: NextRequest) {
   const userId = session.user.id;
   const now = getNowMs();
 
+  // Verify the requesting user is an approved member of the group (prevents IDOR)
+  const membership = await prisma.groupMembership.findUnique({
+    where: { userId_groupId: { userId, groupId } },
+    select: { status: true },
+  });
+  if (!membership || membership.status !== "APPROVED") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const rawPreds = await prisma.customPrediction.findMany({
-    where: { OR: [{ groupId }, { isGlobal: true }] },
+    where: {
+      status: { not: "DISABLED" },
+      OR: [{ groupId }, { isGlobal: true }],
+    },
     orderBy: [{ isGlobal: "asc" }, { lockTime: "asc" }],
     include: {
       answers: {
@@ -32,7 +44,7 @@ export async function GET(req: NextRequest) {
   function predSortKey(q: string, optionType: string): number {
     const lower = q.toLowerCase();
     if (lower.includes("group stage")) return 0;
-    if (lower.includes("finalist") || lower === "winner") return 3;
+    if (lower.includes("finalist") || lower.includes("winner")) return 3;
     if (optionType === "PLAYER") return 2;
     return 1;
   }

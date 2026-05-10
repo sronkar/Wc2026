@@ -119,6 +119,14 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   // ── Demo bot state ────────────────────────────────────────────────────────────
   const [botLoading, setBotLoading] = useState<Record<string, boolean>>({});
   const [botMessage, setBotMessage] = useState<Record<string, string>>({});
+  const [botAddLocked, setBotAddLocked] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/demo-bot-lock")
+      .then((r) => r.json())
+      .then((d) => { if (d.locked) setBotAddLocked(true); })
+      .catch(() => {});
+  }, []);
 
   const handleBotAction = async (bot: "monkey" | "claudio", action: "POST" | "DELETE") => {
     const key = `${bot}-${action}`;
@@ -127,12 +135,17 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
     try {
       const res = await fetch(`/api/admin/groups/${groupId}/${bot}`, { method: action });
       const label = bot === "monkey" ? "Monkey" : "Claudio";
-      setBotMessage((p) => ({
-        ...p,
-        [key]: res.ok
-          ? action === "DELETE" ? `${label} removed` : `${label} synced ✓`
-          : `Failed`,
-      }));
+      if (res.ok) {
+        setBotMessage((p) => ({ ...p, [key]: action === "DELETE" ? `${label} removed` : `${label} synced ✓` }));
+        // Refresh memberships so bot presence badges update immediately
+        fetch(`/api/admin/groups/${groupId}/members`)
+          .then((r) => r.json())
+          .then((data) => setMemberships(data))
+          .catch(() => {});
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setBotMessage((p) => ({ ...p, [key]: body.error ?? "Failed" }));
+      }
     } catch {
       setBotMessage((p) => ({ ...p, [key]: "Failed" }));
     } finally {
@@ -162,6 +175,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
   const [predStats, setPredStats] = useState<{
     stats: { userId: string; userName: string; userImage: string | null; memberRole: string; matchGroupStage: number; matchKnockout: number; customPredictions: number; advancementPicks: number }[];
     totals: { matchGroupStage: number; matchKnockout: number; customPredictions: number; advancementPicks: number };
+    availability: { matchGroupStage: boolean; matchKnockout: boolean; customPredictions: boolean; advancementPicks: boolean };
   } | null>(null);
   const [predStatsLoading, setPredStatsLoading] = useState(false);
   const [predStatsLoaded, setPredStatsLoaded] = useState(false);
@@ -943,75 +957,74 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
       </div>
 
       {/* ── Demo bots ────────────────────────────────────────────────────────── */}
-      <div className="card space-y-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Demo Predictors</p>
+      {(() => {
+        const monkeyInGroup = memberships.some((m) => m.user.email === "monkey@wc2026.internal" && m.status === "APPROVED");
+        const claudioInGroup = memberships.some((m) => m.user.email === "claudio@wc2026.internal" && m.status === "APPROVED");
 
-        {/* Monkey — random fills, fully per-group */}
-        {(() => {
-          const syncKey = "monkey-POST";
-          const removeKey = "monkey-DELETE";
-          return (
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-gray-700">🐒 Monkey</p>
-                <p className="text-xs text-gray-400 mt-0.5">Fills all missing predictions with random picks. Attackers for scorer awards.</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
+        const BotRow = ({
+          emoji, name, description, inGroup, addLabel, addColorClass, onAdd, onRemove, addKey, removeKey,
+        }: {
+          emoji: string; name: string; description: string; inGroup: boolean;
+          addLabel: string; addColorClass: string;
+          onAdd: () => void; onRemove: () => void;
+          addKey: string; removeKey: string;
+        }) => (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-700">{emoji} {name}</span>
+              {inGroup && <span className="text-[10px] text-green-600 border border-green-200 rounded px-1.5 py-0.5 font-medium">In group</span>}
+              {botMessage[addKey] || botMessage[removeKey] ? (
+                <span className="text-[10px] text-gray-400 ml-1">{botMessage[addKey] || botMessage[removeKey]}</span>
+              ) : null}
+              <div className="flex items-center gap-2 ml-auto">
                 <button
-                  onClick={() => handleBotAction("monkey", "POST")}
-                  disabled={botLoading[syncKey]}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition disabled:opacity-50"
+                  onClick={onAdd}
+                  disabled={botLoading[addKey] || botAddLocked}
+                  title={botAddLocked ? "Locked — tournament has started" : undefined}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition disabled:opacity-40 disabled:cursor-not-allowed ${addColorClass}`}
                 >
-                  {botLoading[syncKey] ? "…" : "Add / Re-sync"}
+                  {botLoading[addKey] ? "…" : addLabel}
                 </button>
                 <button
-                  onClick={() => handleBotAction("monkey", "DELETE")}
-                  disabled={botLoading[removeKey]}
-                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
+                  onClick={onRemove}
+                  disabled={botLoading[removeKey] || !inGroup}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {botLoading[removeKey] ? "…" : "Remove"}
                 </button>
-                {(botMessage[syncKey] || botMessage[removeKey]) && (
-                  <span className="text-[10px] text-gray-400">{botMessage[syncKey] || botMessage[removeKey]}</span>
-                )}
               </div>
             </div>
-          );
-        })()}
+            <p className="text-xs text-gray-400">{description}</p>
+          </div>
+        );
 
-        {/* Claudio — singleton AI predictor managed globally by admin */}
-        {(() => {
-          const addKey = "claudio-POST";
-          const removeKey = "claudio-DELETE";
-          return (
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-gray-700">🧠 Claudio</p>
-                <p className="text-xs text-gray-400 mt-0.5">AI predictor managed globally by the admin. Adding copies his existing predictions into this group.</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => handleBotAction("claudio", "POST")}
-                  disabled={botLoading[addKey]}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition disabled:opacity-50"
-                >
-                  {botLoading[addKey] ? "…" : "Add to Group"}
-                </button>
-                <button
-                  onClick={() => handleBotAction("claudio", "DELETE")}
-                  disabled={botLoading[removeKey]}
-                  className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition disabled:opacity-50"
-                >
-                  {botLoading[removeKey] ? "…" : "Remove"}
-                </button>
-                {(botMessage[addKey] || botMessage[removeKey]) && (
-                  <span className="text-[10px] text-gray-400">{botMessage[addKey] || botMessage[removeKey]}</span>
-                )}
-              </div>
-            </div>
-          );
-        })()}
-      </div>
+        return (
+          <div className="card space-y-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Demo Predictors</p>
+            <BotRow
+              emoji="🐒" name="Monkey"
+              description="Fills all missing predictions with random picks. Uses attackers for scorer awards."
+              inGroup={monkeyInGroup}
+              addLabel={monkeyInGroup ? "Re-sync" : "Add"}
+              addColorClass="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+              onAdd={() => handleBotAction("monkey", "POST")}
+              onRemove={() => handleBotAction("monkey", "DELETE")}
+              addKey="monkey-POST" removeKey="monkey-DELETE"
+            />
+            <div className="border-t border-gray-100" />
+            <BotRow
+              emoji="🧠" name="Claudio"
+              description="AI predictor managed globally by the admin. Adding copies his existing predictions into this group."
+              inGroup={claudioInGroup}
+              addLabel={claudioInGroup ? "Re-sync" : "Add to Group"}
+              addColorClass="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+              onAdd={() => handleBotAction("claudio", "POST")}
+              onRemove={() => handleBotAction("claudio", "DELETE")}
+              addKey="claudio-POST" removeKey="claudio-DELETE"
+            />
+          </div>
+        );
+      })()}
 
       {/* ── B. Group Settings ────────────────────────────────────────────────── */}
       <div className="card">
@@ -1443,7 +1456,7 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                   </button>
                 ))}
               </div>
-              {cpForm.optionType === "TEAM" && <p className="text-xs text-gray-400 mt-1">Users will pick from the list of all 48 WC2026 teams.</p>}
+              {cpForm.optionType === "TEAM" && <p className="text-xs text-gray-400 mt-1">Users will pick from the list of all 48 WC 2026 teams.</p>}
               {cpForm.optionType === "PLAYER" && <p className="text-xs text-gray-400 mt-1">Users will type a player name (free text).</p>}
             </div>
             {cpForm.optionType === "FIXED" && (
@@ -1664,10 +1677,17 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
             onClick={async () => {
               if (predStatsLoaded) { setPredStatsLoaded(false); setPredStats(null); return; }
               setPredStatsLoading(true);
-              const data = await fetch(`/api/admin/groups/${groupId}/prediction-stats`).then((r) => r.json());
-              setPredStats(data);
-              setPredStatsLoading(false);
-              setPredStatsLoaded(true);
+              try {
+                const res = await fetch(`/api/admin/groups/${groupId}/prediction-stats`);
+                const data = await res.json();
+                if (!res.ok || !data.stats) throw new Error(data.error ?? "Failed to load");
+                setPredStats(data);
+                setPredStatsLoaded(true);
+              } catch {
+                // leave loaded=false so user can retry
+              } finally {
+                setPredStatsLoading(false);
+              }
             }}
             disabled={predStatsLoading}
             className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:border-fifa-blue hover:text-fifa-blue transition disabled:opacity-50"
@@ -1690,11 +1710,12 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {predStats.stats.map((member) => {
+                    const avail = predStats.availability ?? { matchGroupStage: true, matchKnockout: true, customPredictions: true, advancementPicks: true };
                     const cols = [
-                      { done: member.customPredictions, total: predStats.totals.customPredictions },
-                      { done: member.advancementPicks, total: predStats.totals.advancementPicks },
-                      { done: member.matchGroupStage, total: predStats.totals.matchGroupStage },
-                      { done: member.matchKnockout, total: predStats.totals.matchKnockout },
+                      { done: member.customPredictions, total: predStats.totals.customPredictions, available: avail.customPredictions },
+                      { done: member.advancementPicks, total: predStats.totals.advancementPicks, available: avail.advancementPicks },
+                      { done: member.matchGroupStage, total: predStats.totals.matchGroupStage, available: avail.matchGroupStage },
+                      { done: member.matchKnockout, total: predStats.totals.matchKnockout, available: avail.matchKnockout },
                     ];
                     return (
                       <tr key={member.userId} className="hover:bg-gray-50 transition">
@@ -1713,12 +1734,13 @@ export function GroupAdminSection({ groupId }: { groupId: string }) {
                         </td>
                         {cols.map((col, i) => {
                           const pct = col.total > 0 ? Math.round((col.done / col.total) * 100) : 100;
-                          const textColor = pct === 0 ? "text-gray-400"
+                          const unavailable = pct === 0 && !col.available;
+                          const textColor = unavailable ? "text-gray-300"
                             : pct === 100 ? "text-green-600"
                             : pct >= 66 ? "text-lime-600"
                             : pct >= 33 ? "text-amber-500"
                             : "text-red-500";
-                          const barColor = pct === 0 ? "bg-gray-200"
+                          const barColor = unavailable ? "bg-gray-100"
                             : pct === 100 ? "bg-green-400"
                             : pct >= 66 ? "bg-lime-400"
                             : pct >= 33 ? "bg-amber-400"

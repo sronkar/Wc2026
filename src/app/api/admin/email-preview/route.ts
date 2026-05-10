@@ -132,7 +132,7 @@ export async function GET(req: NextRequest) {
   if (shouldSend) {
     if (!to) return NextResponse.json({ error: "No recipient email" }, { status: 400 });
     try {
-      await sendEmail({ to, subject: `[Preview] ${template} — WC2026`, html });
+      await sendEmail({ to, subject: `[Preview] ${template} — SoccerPicks WC 2026`, html });
       return NextResponse.json({ ok: true, sentTo: to });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

@@ -145,10 +145,25 @@ export function Navbar() {
         {/* Logo */}
         <Link
           href={activeGroupId ? `/groups/${activeGroupId}` : "/groups"}
-          className="flex items-center gap-2 font-black text-lg tracking-tight shrink-0"
+          className="flex items-center gap-2 shrink-0"
         >
-          <span className="text-xl">⚽</span>
-          <span>WC<span className="text-fifa-gold">2026</span></span>
+          {/* Soccer ball — inline SVG so it renders identically everywhere */}
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+            <circle cx="14" cy="14" r="13" fill="white" fillOpacity="0.92"/>
+            {/* center pentagon */}
+            <polygon points="14,8.5 18,11.2 16.5,15.5 11.5,15.5 10,11.2" fill="#111"/>
+            {/* seams from pentagon vertices to edge */}
+            <line x1="14" y1="1.5" x2="14" y2="8.5" stroke="#111" strokeWidth="1.3"/>
+            <line x1="25.5" y1="9" x2="18" y2="11.2" stroke="#111" strokeWidth="1.3"/>
+            <line x1="21" y1="25" x2="16.5" y2="15.5" stroke="#111" strokeWidth="1.3"/>
+            <line x1="7" y1="25" x2="11.5" y2="15.5" stroke="#111" strokeWidth="1.3"/>
+            <line x1="2.5" y1="9" x2="10" y2="11.2" stroke="#111" strokeWidth="1.3"/>
+            <circle cx="14" cy="14" r="13" fill="none" stroke="white" strokeOpacity="0.3" strokeWidth="1"/>
+          </svg>
+          <div className="flex flex-col leading-none">
+            <span className="font-black text-[15px] tracking-tight text-white">Soccer<span className="text-fifa-gold">Picks</span></span>
+            <span className="text-[9px] font-bold tracking-[0.2em] text-white/55 uppercase mt-0.5">WC 2026</span>
+          </div>
         </Link>
 
         {/* Desktop nav */}

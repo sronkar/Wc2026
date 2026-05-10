@@ -21,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       include: { user: { select: { id: true, name: true, image: true } } },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.match.findMany({ select: { id: true, round: true } }),
+    prisma.match.findMany({ select: { id: true, round: true, homeTeam: true } }),
     prisma.prediction.findMany({
       where: { groupId: params.id },
       select: { userId: true, matchId: true },
@@ -53,6 +53,11 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const knockoutMatchIds = new Set(allMatches.filter((m) => KNOCKOUT_ROUNDS.includes(m.round)).map((m) => m.id));
   const customPredictionIds = new Set(customPredictions.map((cp) => cp.id));
 
+  // Knockout is "available" only when at least one match has a real (non-placeholder) team
+  const knockoutAvailable = allMatches.some(
+    (m) => KNOCKOUT_ROUNDS.includes(m.round) && !/^(Winner|Runner-?up|TBD)\s*/i.test(m.homeTeam ?? "")
+  );
+
   // 12 group winners + 12 runner-ups + 8 best-third-place = 32 picks
   const totalAdvancement = 32;
 
@@ -61,6 +66,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     matchKnockout: knockoutMatchIds.size,
     customPredictions: customPredictionIds.size,
     advancementPicks: totalAdvancement,
+  };
+
+  const availability = {
+    matchGroupStage: groupStageMatchIds.size > 0,
+    matchKnockout: knockoutAvailable,
+    customPredictions: customPredictionIds.size > 0,
+    advancementPicks: true,
   };
 
   const stats = members.map((m) => {
@@ -90,5 +102,5 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     };
   });
 
-  return NextResponse.json({ stats, totals });
+  return NextResponse.json({ stats, totals, availability });
 }

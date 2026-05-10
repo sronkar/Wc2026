@@ -128,7 +128,7 @@ export function PushSubscribeButton() {
             <ol className="list-decimal pl-5 space-y-1 text-xs">
               <li>Tap the <strong>Share</strong> button at the bottom of Safari (the square with an up-arrow).</li>
               <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-              <li>Open WC2026 from your home screen — you&apos;ll see this button again, and it&apos;ll work this time.</li>
+              <li>Open SoccerPicks from your home screen — you&apos;ll see this button again, and it&apos;ll work this time.</li>
             </ol>
             <p className="text-[11px] text-gray-400 mt-2">
               Apple only allows web push from installed PWAs. Sorry — not our rule.
