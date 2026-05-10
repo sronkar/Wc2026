@@ -25,7 +25,7 @@ export default function AppleIcon() {
             </clipPath>
           </defs>
           <circle cx="96" cy="96" r="80" fill="white"/>
-          <g clipPath="url(#aball)">
+          <g clipPath="url(#aball)" transform="rotate(20, 96, 96)">
             <polygon points="96,56 130.2,79.4 117.6,119.6 74.4,119.6 61.8,79.4" fill="#111111"/>
             <line x1="96" y1="56" x2="96" y2="16" stroke="#111111" strokeWidth="7"/>
             <line x1="130.2" y1="79.4" x2="172.1" y2="71.3" stroke="#111111" strokeWidth="7"/>

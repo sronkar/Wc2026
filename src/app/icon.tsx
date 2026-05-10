@@ -26,7 +26,7 @@ export default function Icon() {
           </defs>
           {/* White ball */}
           <circle cx="96" cy="96" r="80" fill="white"/>
-          <g clipPath="url(#ball)">
+          <g clipPath="url(#ball)" transform="rotate(20, 96, 96)">
             {/* Center black pentagon — r=40 (larger patches) */}
             <polygon points="96,56 130.2,79.4 117.6,119.6 74.4,119.6 61.8,79.4" fill="#111111"/>
             {/* Seam lines */}

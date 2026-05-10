@@ -155,7 +155,7 @@ export function Navbar() {
               </clipPath>
             </defs>
             <circle cx="15" cy="15" r="13.5" fill="white" fillOpacity="0.93"/>
-            <g clipPath="url(#sb)">
+            <g clipPath="url(#sb)" transform="rotate(20, 15, 15)">
               {/* Center black pentagon — r=7 (larger for visual weight) */}
               <polygon points="15,8 21.66,12.84 19.12,20.66 10.88,20.66 8.34,12.84" fill="#111"/>
               {/* Seam lines */}
