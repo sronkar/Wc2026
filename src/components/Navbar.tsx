@@ -173,9 +173,10 @@ export function Navbar() {
                 <line x1="27.0013" y1="34.0188" x2="15.1636" y2="31.3728" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
               </g>
             </g>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 28.6,21.1" stroke="white" strokeWidth="3.0" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 28.6,21.1" stroke="#C9A84C" strokeWidth="2.0" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             <circle cx="15" cy="15" r="13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 28.2,21.4" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 28.2,21.4" stroke="#C9A84C" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 28.2,21.4" stroke="rgba(255,240,120,0.75)" strokeWidth="1.0" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
           </svg>
           <div className="flex flex-col leading-none">
             <span className="font-black text-[15px] tracking-tight text-white">Soccer<span className="text-fifa-gold">Picks</span></span>
