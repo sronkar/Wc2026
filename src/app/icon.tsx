@@ -26,21 +26,18 @@ export default function Icon() {
           </defs>
           {/* White ball */}
           <circle cx="96" cy="96" r="80" fill="white"/>
-          <g clipPath="url(#ball)" transform="rotate(20, 96, 96)">
-            {/* Center black pentagon — r=40 (larger patches) */}
-            <polygon points="96,56 130.2,79.4 117.6,119.6 74.4,119.6 61.8,79.4" fill="#111111"/>
-            {/* Seam lines */}
-            <line x1="96" y1="56" x2="96" y2="16" stroke="#111111" strokeWidth="7"/>
-            <line x1="130.2" y1="79.4" x2="172.1" y2="71.3" stroke="#111111" strokeWidth="7"/>
-            <line x1="117.6" y1="119.6" x2="143.1" y2="160.7" stroke="#111111" strokeWidth="7"/>
-            <line x1="74.4" y1="119.6" x2="48.9" y2="160.7" stroke="#111111" strokeWidth="7"/>
-            <line x1="61.8" y1="79.4" x2="19.9" y2="71.3" stroke="#111111" strokeWidth="7"/>
-            {/* 5 edge pentagon patches — r=40, clipped to circle */}
-            <polygon points="96,16 130.2,-7.4 117.6,-47.6 74.4,-47.6 61.8,-7.4" fill="#111111"/>
-            <polygon points="172.1,71.3 182.6,31.8 222.8,23.7 243.5,60.7 230.9,99.5" fill="#111111"/>
-            <polygon points="143.1,160.7 183.3,168.8 193.8,209.3 157.1,231.7 122.3,212.4" fill="#111111"/>
-            <polygon points="48.9,160.7 8.7,168.8 -1.8,209.3 35,231.7 69.7,212.4" fill="#111111"/>
-            <polygon points="19.9,71.3 9.4,31.8 -30.8,23.7 -51.5,60.7 -38.9,99.5" fill="#111111"/>
+          <g clipPath="url(#ball)" transform="rotate(-20, 96, 96)">
+            <polygon points="96,68.2 122.5,87.4 112.4,118.5 79.7,118.5 69.5,87.4" fill="#111111"/>
+            <line x1="96" y1="68.2" x2="96" y2="48" stroke="#111111" strokeWidth="6"/>
+            <line x1="122.5" y1="87.4" x2="141.6" y2="81.2" stroke="#111111" strokeWidth="6"/>
+            <line x1="112.4" y1="118.5" x2="124.2" y2="134.8" stroke="#111111" strokeWidth="6"/>
+            <line x1="79.7" y1="118.5" x2="67.8" y2="134.8" stroke="#111111" strokeWidth="6"/>
+            <line x1="69.5" y1="87.4" x2="50.4" y2="81.2" stroke="#111111" strokeWidth="6"/>
+            <polygon points="96,48 65.5,25.9 77.2,-9.9 114.8,-9.9 126.5,25.9" fill="#111111"/>
+            <polygon points="141.6,81.2 153.2,45.4 190.9,45.4 202.6,81.2 172.1,103.3" fill="#111111"/>
+            <polygon points="124.2,134.8 161.9,134.8 173.5,170.6 143.0,192.7 112.6,170.6" fill="#111111"/>
+            <polygon points="67.8,134.8 79.4,170.6 49.0,192.7 18.5,170.6 30.1,134.8" fill="#111111"/>
+            <polygon points="50.4,81.2 19.9,103.3 -10.6,81.2 1.1,45.4 38.8,45.4" fill="#111111"/>
           </g>
           {/* Ball outline */}
           <circle cx="96" cy="96" r="80" fill="none" stroke="#cccccc" strokeWidth="2"/>
