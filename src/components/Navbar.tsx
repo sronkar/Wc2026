@@ -171,9 +171,10 @@ export function Navbar() {
                 <line x1="41.5906" y1="44.6172" x2="47.6376" y2="53.9126" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
                 <line x1="30.394" y1="44.6059" x2="24.3434" y2="53.9126" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
                 <line x1="27.0013" y1="34.0188" x2="15.1636" y2="31.3728" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
-                <path d="M32.73,54.12 L35.65,57.37 L41.43,47.60" stroke="#C9A84C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
               </g>
             </g>
+            <path d="M 10.6,16 L 13.3,18.7 L 19.2,13" stroke="rgba(255,255,255,0.75)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 10.6,16 L 13.3,18.7 L 19.2,13" stroke="#C9A84C" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             <circle cx="15" cy="15" r="13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
           </svg>
           <div className="flex flex-col leading-none">
