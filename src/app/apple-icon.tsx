@@ -37,6 +37,7 @@ export default function AppleIcon() {
             <polygon points="115.4,122.7 162.5,122.7 177,167.4 138.9,195.1 100.9,167.4" fill="#111111"/>
             <polygon points="76.6,122.7 91.1,167.4 53.1,195.1 15,167.4 29.6,122.7" fill="#111111"/>
             <polygon points="64.6,85.8 26.6,113.4 -11.5,85.8 3.1,41.1 50.1,41.1" fill="#111111"/>
+            <path d="M87,146 L95,155 L111,128" stroke="#C9A84C" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
           </g>
           <circle cx="96" cy="96" r="80" fill="none" stroke="#cccccc" strokeWidth="2"/>
         </svg>
