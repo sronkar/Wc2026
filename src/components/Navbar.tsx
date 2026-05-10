@@ -173,8 +173,8 @@ export function Navbar() {
                 <line x1="27.0013" y1="34.0188" x2="15.1636" y2="31.3728" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
               </g>
             </g>
-            <path d="M 10.6,16 L 13.3,18.7 L 19.2,13" stroke="rgba(255,255,255,0.75)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M 10.6,16 L 13.3,18.7 L 19.2,13" stroke="#C9A84C" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 16.4,22.1 L 19.1,25.1 L 26.5,18.4" stroke="rgba(255,255,255,0.85)" strokeWidth="3.0" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 16.4,22.1 L 19.1,25.1 L 26.5,18.4" stroke="#C9A84C" strokeWidth="2.0" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
             <circle cx="15" cy="15" r="13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
           </svg>
           <div className="flex flex-col leading-none">
