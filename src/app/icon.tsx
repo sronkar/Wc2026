@@ -43,8 +43,8 @@ export default function Icon() {
               <line x1="27.0013" y1="34.0188" x2="15.1636" y2="31.3728" stroke="#111111" strokeWidth="2" strokeLinecap="round"/>
             </g>
           </g>
-          <path d="M 118,130 L 148,158 L 190,116" stroke="rgba(255,255,255,0.88)" strokeWidth="18" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-          <path d="M 118,130 L 148,158 L 190,116" stroke="#C9A84C" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <path d="M 118,130 L 148,158 L 183,123" stroke="white" strokeWidth="18" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <path d="M 118,130 L 148,158 L 183,123" stroke="#C9A84C" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
           <circle cx="96" cy="96" r="80" fill="none" stroke="#cccccc" strokeWidth="2"/>
         </svg>
         {/* App label */}
