@@ -147,18 +147,31 @@ export function Navbar() {
           href={activeGroupId ? `/groups/${activeGroupId}` : "/groups"}
           className="flex items-center gap-2 shrink-0"
         >
-          {/* Soccer ball — inline SVG so it renders identically everywhere */}
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-            <circle cx="14" cy="14" r="13" fill="white" fillOpacity="0.92"/>
-            {/* center pentagon */}
-            <polygon points="14,8.5 18,11.2 16.5,15.5 11.5,15.5 10,11.2" fill="#111"/>
-            {/* seams from pentagon vertices to edge */}
-            <line x1="14" y1="1.5" x2="14" y2="8.5" stroke="#111" strokeWidth="1.3"/>
-            <line x1="25.5" y1="9" x2="18" y2="11.2" stroke="#111" strokeWidth="1.3"/>
-            <line x1="21" y1="25" x2="16.5" y2="15.5" stroke="#111" strokeWidth="1.3"/>
-            <line x1="7" y1="25" x2="11.5" y2="15.5" stroke="#111" strokeWidth="1.3"/>
-            <line x1="2.5" y1="9" x2="10" y2="11.2" stroke="#111" strokeWidth="1.3"/>
-            <circle cx="14" cy="14" r="13" fill="none" stroke="white" strokeOpacity="0.3" strokeWidth="1"/>
+          {/* Soccer ball — classic Telstar pattern: center pentagon + 5 edge patches clipped to circle */}
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden>
+            <defs>
+              <clipPath id="sb">
+                <circle cx="15" cy="15" r="13.5"/>
+              </clipPath>
+            </defs>
+            <circle cx="15" cy="15" r="13.5" fill="white" fillOpacity="0.93"/>
+            <g clipPath="url(#sb)">
+              {/* Center black pentagon */}
+              <polygon points="15,9.6 20.14,13.33 18.17,19.37 11.83,19.37 9.86,13.33" fill="#111"/>
+              {/* 5 seam lines — pentagon vertex to ball edge */}
+              <line x1="15" y1="9.6" x2="15" y2="1.5" stroke="#111" strokeWidth="1.3"/>
+              <line x1="20.14" y1="13.33" x2="27.84" y2="10.83" stroke="#111" strokeWidth="1.3"/>
+              <line x1="18.17" y1="19.37" x2="22.94" y2="25.92" stroke="#111" strokeWidth="1.3"/>
+              <line x1="11.83" y1="19.37" x2="7.06" y2="25.92" stroke="#111" strokeWidth="1.3"/>
+              <line x1="9.86" y1="13.33" x2="2.16" y2="10.83" stroke="#111" strokeWidth="1.3"/>
+              {/* 5 edge pentagons — clipped by circle, show as black patches at each seam end */}
+              <polygon points="15,1.5 20.14,-2.23 18.17,-8.27 11.83,-8.27 9.86,-2.23" fill="#111"/>
+              <polygon points="27.84,10.83 29.8,4.79 36.14,4.79 38.11,10.83 32.97,14.56" fill="#111"/>
+              <polygon points="22.94,25.92 29.28,25.92 31.25,31.96 26.11,35.69 20.97,31.96" fill="#111"/>
+              <polygon points="7.06,25.92 0.72,25.92 -1.25,31.96 3.89,35.69 9.03,31.96" fill="#111"/>
+              <polygon points="2.16,10.83 0.2,4.79 -6.14,4.79 -8.11,10.83 -2.97,14.56" fill="#111"/>
+            </g>
+            <circle cx="15" cy="15" r="13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
           </svg>
           <div className="flex flex-col leading-none">
             <span className="font-black text-[15px] tracking-tight text-white">Soccer<span className="text-fifa-gold">Picks</span></span>
