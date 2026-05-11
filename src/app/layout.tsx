@@ -7,6 +7,7 @@ import { LockBanner } from "@/components/LockBanner";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { PWABanner } from "@/components/PWABanner";
 import { PredictionReminderModal } from "@/components/PredictionReminderModal";
+import { MatchReminderModal } from "@/components/MatchReminderModal";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PWABanner />
           <Navbar />
           <PredictionReminderModal />
+          <MatchReminderModal />
           <LockBanner />
           {/* paddingBottom = home-bar inset (only non-zero in standalone PWA on
               iPhones with a home indicator); ensures content above the indicator
