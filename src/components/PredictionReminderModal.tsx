@@ -14,19 +14,22 @@ interface ReminderData {
   advancementLockTime: string;
   advancementLocked: boolean;
   primaryGroupId: string | null;
+  serverNowMs: number;
 }
 
 interface StoredState {
-  shownDate: string | null;
+  // "YYYY-MM-DD" in virtual server time — resets when server date advances
+  lastShownServerDay: string | null;
+  // Expiry stored as virtual server-time ms so advancing sim time ages the snooze
   snoozeUntil: number;
 }
 
 function getStored(userId: string): StoredState {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY}:${userId}`);
-    return raw ? (JSON.parse(raw) as StoredState) : { shownDate: null, snoozeUntil: 0 };
+    return raw ? (JSON.parse(raw) as StoredState) : { lastShownServerDay: null, snoozeUntil: 0 };
   } catch {
-    return { shownDate: null, snoozeUntil: 0 };
+    return { lastShownServerDay: null, snoozeUntil: 0 };
   }
 }
 
@@ -36,11 +39,11 @@ function setStored(userId: string, state: StoredState) {
   } catch { /* non-fatal */ }
 }
 
-function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+function serverDayStr(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
 }
 
-function dateStr(iso: string | null): string | null {
+function isoDay(iso: string | null): string | null {
   return iso ? iso.slice(0, 10) : null;
 }
 
@@ -62,30 +65,31 @@ export function PredictionReminderModal() {
   useEffect(() => {
     if (status !== "authenticated" || !session?.user?.id) return;
     const userId = session.user.id;
-    const today = todayStr();
-    const stored = getStored(userId);
-
-    // Already shown today — skip
-    if (stored.shownDate === today) return;
 
     fetch("/api/prediction-reminder")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: ReminderData | null) => {
         if (!d?.hasAnything) return;
 
+        const stored = getStored(userId);
+        const today = serverDayStr(d.serverNowMs);
+
+        // Already shown today in server/virtual time
+        if (stored.lastShownServerDay === today) return;
+
         // Determine if any unfilled item locks today (overrides snooze)
         const advLockDay =
           !d.advancementLocked &&
           d.incompleteAdvancementGroupCount > 0 &&
-          dateStr(d.advancementLockTime) === today;
+          isoDay(d.advancementLockTime) === today;
         const globalLockDay =
-          d.unfilledGlobalCount > 0 && dateStr(d.earliestGlobalLockTime) === today;
+          d.unfilledGlobalCount > 0 && isoDay(d.earliestGlobalLockTime) === today;
         const isAnyLockDay = advLockDay || globalLockDay;
 
-        // Respect snooze unless it's a lock day
-        if (stored.snoozeUntil > Date.now() && !isAnyLockDay) return;
+        // Respect snooze (compared in server/virtual time) unless it's lock day
+        if (stored.snoozeUntil > d.serverNowMs && !isAnyLockDay) return;
 
-        setStored(userId, { shownDate: today, snoozeUntil: stored.snoozeUntil });
+        setStored(userId, { lastShownServerDay: today, snoozeUntil: stored.snoozeUntil });
         setData(d);
         setVisible(true);
       })
@@ -95,10 +99,11 @@ export function PredictionReminderModal() {
   const dismiss = () => setVisible(false);
 
   const snooze = () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || !data) return;
+    // Snooze expiry stored as virtual server time so simulation fast-forward ages it correctly
     setStored(session.user.id, {
-      shownDate: todayStr(),
-      snoozeUntil: Date.now() + 3 * 24 * 60 * 60 * 1000,
+      lastShownServerDay: serverDayStr(data.serverNowMs),
+      snoozeUntil: data.serverNowMs + 3 * 24 * 60 * 60 * 1000,
     });
     setVisible(false);
   };

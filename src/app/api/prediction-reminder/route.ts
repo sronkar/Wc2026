@@ -64,5 +64,6 @@ export async function GET() {
     advancementLockTime: ADVANCEMENT_LOCK_TIME.toISOString(),
     advancementLocked: advLocked,
     primaryGroupId,
+    serverNowMs: now.getTime(),
   });
 }
