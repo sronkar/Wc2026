@@ -6,19 +6,17 @@ import { logAdminAction } from "@/lib/auditLog";
 
 const VALID_RESULTS = ["WINNER", "RUNNER_UP", "THIRD", "ELIMINATED"] as const;
 
+// Users only pick advancing teams (WINNER | RUNNER_UP | THIRD).
+// "ELIMINATED" is never a user pick — it is the result for teams that don't advance.
 function calcPoints(
   pick: string,
   result: string,
   exactPts: number,
   directionPts: number
 ): number {
-  if (pick === result) return exactPts;
-  // "Eliminated prediction = no scoring regardless"
-  if (pick === "ELIMINATED") return 0;
-  // Team was actually eliminated — wrong pick
-  if (result === "ELIMINATED") return 0;
-  // Both non-eliminated but different routes → directional
-  return directionPts;
+  if (pick === result) return exactPts;      // Exact finish position → full points
+  if (result === "ELIMINATED") return 0;     // Predicted to advance, team was eliminated → 0
+  return directionPts;                       // Advanced but wrong position → partial
 }
 
 export async function GET() {
