@@ -2,8 +2,10 @@ import { WC_GROUPS } from "@/lib/wcGroups";
 
 export const POSITIVE_PICKS = ["WINNER", "RUNNER_UP", "THIRD"] as const;
 export type PositivePick = typeof POSITIVE_PICKS[number];
-export const ALL_PICKS = ["WINNER", "RUNNER_UP", "THIRD", "ELIMINATED"] as const;
-export type ValidPick = typeof ALL_PICKS[number];
+// Alias kept for backwards compatibility — picks are always one of these three.
+// "ELIMINATED" is a result value set by admins, not a user pick.
+export const ALL_PICKS = POSITIVE_PICKS;
+export type ValidPick = PositivePick;
 
 export interface ValidationResult {
   ok: boolean;
@@ -17,8 +19,6 @@ export interface ValidationResult {
  *   - At most 1 RUNNER_UP per WC group
  *   - At most 1 THIRD per WC group
  *   - At most 8 THIRDs globally (only 8 of 12 third-place finishers advance)
- *
- * ELIMINATED picks are unconstrained (effectively the default state).
  *
  * `projected` must be the user's full intended end-state for this prediction
  * group (existing picks + incoming changes merged). The caller is responsible

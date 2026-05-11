@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-import { ALL_PICKS, validateProjectedPicks, type ValidPick } from "@/lib/advancementValidation";
+import { POSITIVE_PICKS, validateProjectedPicks, type ValidPick } from "@/lib/advancementValidation";
 import { isAdvancementLocked } from "@/lib/advancementLock";
 import { WC2026_TEAMS } from "@/lib/teams";
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const { groupId, team, pick } = await req.json() as { groupId: string; team: string; pick: ValidPick };
   if (!groupId || !team || !pick) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
-  if (!ALL_PICKS.includes(pick)) return NextResponse.json({ error: "Invalid pick" }, { status: 400 });
+  if (!POSITIVE_PICKS.includes(pick)) return NextResponse.json({ error: "Invalid pick" }, { status: 400 });
   // Reject team names that aren't actually in the WC2026 team list — without
   // this, a malformed client could insert garbage rows that later break
   // scoring (no TeamAdvancement row to match against).
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     const projected: Record<string, ValidPick> = {};
     for (const p of existing) {
-      if (ALL_PICKS.includes(p.pick as ValidPick)) projected[p.team] = p.pick as ValidPick;
+      if (POSITIVE_PICKS.includes(p.pick as ValidPick)) projected[p.team] = p.pick as ValidPick;
     }
     projected[team] = pick; // apply the incoming change
 
