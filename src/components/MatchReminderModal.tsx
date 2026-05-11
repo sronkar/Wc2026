@@ -135,7 +135,7 @@ export function MatchReminderModal() {
 
           {data.tomorrowUnpredicted > 0 && (
             <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
-              <span className="text-lg shrink-0 mt-0.5">📅</span>
+              <span className="text-lg shrink-0 mt-0.5">⚠️</span>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Tomorrow</p>
                 <p className="text-xs text-gray-500 mt-0.5">
