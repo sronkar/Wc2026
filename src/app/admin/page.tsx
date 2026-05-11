@@ -1185,17 +1185,21 @@ Winner\t\tTeam\t10`;
               <div className="divide-y divide-gray-100">
                   {filteredGroups.map((g) => (
                     <div key={g.id} className="flex items-center gap-4 px-4 py-3">
-                      {/* Name + inline badges */}
-                      <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <span className="font-medium text-gray-800 text-sm truncate">{g.name}</span>
-                        {!g.isPublic && <span className="shrink-0 text-[10px] font-medium text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">Private</span>}
-                        {!g.myStatus && <span className="shrink-0 text-[10px] font-medium text-amber-600 border border-amber-200 rounded px-1.5 py-0.5">Not member</span>}
+                      {/* Name + badges stacked with creator below */}
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <Link href={`/groups/${g.id}`} className="font-medium text-gray-800 text-sm truncate hover:underline">{g.name}</Link>
+                          {!g.isPublic && <span className="shrink-0 text-[10px] font-medium text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">Private</span>}
+                          {!g.myStatus && <span className="shrink-0 text-[10px] font-medium text-amber-600 border border-amber-200 rounded px-1.5 py-0.5">Not member</span>}
+                        </div>
+                        {(g as {createdByName?: string}).createdByName && (
+                          <span className="text-[11px] text-gray-400 truncate mt-0.5">{(g as {createdByName?: string}).createdByName}</span>
+                        )}
                       </div>
-                      {/* Right side: members + actions + creator */}
+                      {/* Right side: members + Manage + Delete */}
                       <div className="flex items-center gap-3 shrink-0">
                         <span className="text-xs text-gray-400">{g.memberCount} members</span>
                         <Link href={`/admin/groups/${g.id}`} className="text-xs font-semibold text-white bg-fifa-blue hover:bg-blue-700 px-3 py-1.5 rounded-lg transition">Manage</Link>
-                        <Link href={`/groups/${g.id}`} className="text-xs text-gray-400 hover:text-gray-700">View</Link>
                         {isAdmin && (
                           <button
                             onClick={() => handleDeleteGroup(g.id, g.name)}
@@ -1204,9 +1208,6 @@ Winner\t\tTeam\t10`;
                           >
                             {deletingGroup[g.id] ? "…" : "Delete"}
                           </button>
-                        )}
-                        {(g as {createdByName?: string}).createdByName && (
-                          <span className="text-xs text-gray-300">{(g as {createdByName?: string}).createdByName}</span>
                         )}
                       </div>
                     </div>
