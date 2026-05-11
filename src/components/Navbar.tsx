@@ -181,7 +181,7 @@ export function Navbar() {
           </svg>
           <div className="flex flex-col leading-none">
             <span className="font-black text-[15px] tracking-tight text-white">Soccer<span className="text-fifa-gold">Picks</span></span>
-            <span className="text-[9px] font-bold tracking-[0.2em] text-white uppercase mt-0.5">WC 2026</span>
+            <span className="text-[9px] font-black tracking-[0.2em] text-white uppercase mt-0.5">WC 2026</span>
           </div>
         </Link>
 

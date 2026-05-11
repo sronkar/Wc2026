@@ -54,7 +54,7 @@ export default function Icon() {
           style={{
             color: "white",
             fontSize: 15,
-            fontWeight: 800,
+            fontWeight: 900,
             letterSpacing: "3px",
             marginTop: 6,
           }}
