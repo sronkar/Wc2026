@@ -174,14 +174,14 @@ export function Navbar() {
               </g>
             </g>
             <circle cx="15" cy="15" r="13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 28.5,21.1" stroke="rgba(255,215,50,0.2)" strokeWidth="5.1" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 28.5,21.1" stroke="white" strokeWidth="3.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 28.5,21.1" stroke="#C9A84C" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 28.5,21.1" stroke="rgba(255,245,100,0.9)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 27.5,21.5" stroke="rgba(255,215,50,0.2)" strokeWidth="5.1" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 27.5,21.5" stroke="white" strokeWidth="4.1" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 27.5,21.5" stroke="#C9A84C" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 27.5,21.5" stroke="rgba(255,245,100,0.9)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
           </svg>
           <div className="flex flex-col leading-none">
             <span className="font-black text-[15px] tracking-tight text-white">Soccer<span className="text-fifa-gold">Picks</span></span>
-            <span className="text-[9px] font-bold tracking-[0.2em] text-white/80 uppercase mt-0.5">WC 2026</span>
+            <span className="text-[9px] font-bold tracking-[0.2em] text-white uppercase mt-0.5">WC 2026</span>
           </div>
         </Link>
 
