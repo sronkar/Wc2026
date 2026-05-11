@@ -183,7 +183,14 @@ export function PredictionReminderModal() {
           )}
         </div>
 
-        <div className="flex gap-2 mb-2">
+        <Link
+          href={href}
+          onClick={dismiss}
+          className="block w-full text-sm font-semibold text-white bg-fifa-blue hover:bg-blue-700 rounded-lg py-2.5 text-center transition mb-2"
+        >
+          Fill them in
+        </Link>
+        <div className="flex gap-2">
           <button
             onClick={remindTomorrow}
             className="flex-1 text-sm text-gray-500 border border-gray-200 rounded-lg py-2 hover:bg-gray-50 transition"
@@ -197,13 +204,6 @@ export function PredictionReminderModal() {
             Snooze 3 days
           </button>
         </div>
-        <Link
-          href={href}
-          onClick={dismiss}
-          className="block w-full text-sm font-semibold text-white bg-fifa-blue hover:bg-blue-700 rounded-lg py-2.5 text-center transition"
-        >
-          Fill them in
-        </Link>
       </div>
     </div>
   );
