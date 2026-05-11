@@ -44,14 +44,15 @@ export default function Icon() {
             </g>
           </g>
           <circle cx="96" cy="96" r="80" fill="none" stroke="#cccccc" strokeWidth="2"/>
-          <path d="M 126,138 L 143,162 L 181,129" stroke="white" strokeWidth="24" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-          <path d="M 126,138 L 143,162 L 181,129" stroke="#C9A84C" strokeWidth="16" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-          <path d="M 126,138 L 143,162 L 181,129" stroke="rgba(255,240,120,0.75)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <path d="M 126,138 L 143,162 L 183,127" stroke="rgba(255,215,50,0.2)" strokeWidth="30" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <path d="M 126,138 L 143,162 L 183,127" stroke="white" strokeWidth="22" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <path d="M 126,138 L 143,162 L 183,127" stroke="#C9A84C" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <path d="M 126,138 L 143,162 L 183,127" stroke="rgba(255,245,100,0.9)" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
         </svg>
         {/* App label */}
         <div
           style={{
-            color: "#C9A84C",
+            color: "#FFD44F",
             fontSize: 15,
             fontWeight: 800,
             letterSpacing: "3px",
