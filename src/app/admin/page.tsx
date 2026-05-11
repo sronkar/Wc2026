@@ -1187,14 +1187,14 @@ Winner\t\tTeam\t10`;
                     <div key={g.id} className="flex items-center gap-4 px-4 py-3">
                       {/* Name + badges stacked with creator below */}
                       <div className="flex flex-col min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <Link href={`/groups/${g.id}`} className="font-medium text-gray-800 text-sm truncate hover:underline">{g.name}</Link>
+                        <Link href={`/groups/${g.id}`} className="font-medium text-gray-800 text-sm truncate hover:underline">{g.name}</Link>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          {(g as {createdByName?: string}).createdByName && (
+                            <span className="text-[11px] text-gray-400 truncate">{(g as {createdByName?: string}).createdByName}</span>
+                          )}
                           {!g.isPublic && <span className="shrink-0 text-[10px] font-medium text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">Private</span>}
                           {!g.myStatus && <span className="shrink-0 text-[10px] font-medium text-amber-600 border border-amber-200 rounded px-1.5 py-0.5">Not member</span>}
                         </div>
-                        {(g as {createdByName?: string}).createdByName && (
-                          <span className="text-[11px] text-gray-400 truncate mt-0.5">{(g as {createdByName?: string}).createdByName}</span>
-                        )}
                       </div>
                       {/* Right side: members + Manage + Delete */}
                       <div className="flex items-center gap-3 shrink-0">
