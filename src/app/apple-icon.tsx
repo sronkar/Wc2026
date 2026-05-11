@@ -52,7 +52,7 @@ export default function AppleIcon() {
         <div
           style={{
             color: "white",
-            fontSize: 14,
+            fontSize: 19,
             fontWeight: 900,
             letterSpacing: "3px",
             marginTop: 6,

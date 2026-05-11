@@ -53,7 +53,7 @@ export default function Icon() {
         <div
           style={{
             color: "white",
-            fontSize: 15,
+            fontSize: 20,
             fontWeight: 900,
             letterSpacing: "3px",
             marginTop: 6,

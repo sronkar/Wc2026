@@ -277,6 +277,11 @@ export default async function GroupDashboardPage({
             {userRank ? `You're ranked #${userRank} in this group` : "Start predicting to join the rankings"} · {totalPoints} pts
           </p>
         </div>
+        {isAdminRole && (
+          <Link href={`/admin/groups/${groupId}`} className="shrink-0 text-xs font-semibold text-white bg-fifa-blue hover:bg-blue-700 px-3 py-1.5 rounded-lg transition">
+            Manage
+          </Link>
+        )}
         {!isAdminRole && !isVisitor && membership?.status === "APPROVED" && (
           <LeaveGroupButton groupId={groupId} groupName={group.name} />
         )}
