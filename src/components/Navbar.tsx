@@ -148,7 +148,7 @@ export function Navbar() {
           className="flex items-center gap-2 shrink-0"
         >
           {/* Soccer ball — OpenMoji ⚽ geometry, tilted -20° */}
-          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden>
+          <svg width="30" height="30" viewBox="0 0 30 30" overflow="visible" fill="none" aria-hidden>
             <defs>
               <clipPath id="sb">
                 <circle cx="15" cy="15" r="13.5"/>
@@ -174,10 +174,10 @@ export function Navbar() {
               </g>
             </g>
             <circle cx="15" cy="15" r="13.5" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="0.75"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 27.5,21.5" stroke="rgba(255,215,50,0.2)" strokeWidth="5.1" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 27.5,21.5" stroke="white" strokeWidth="4.1" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 27.5,21.5" stroke="#C9A84C" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M 20.1,22.1 L 22.9,26.1 L 27.5,21.5" stroke="rgba(255,245,100,0.9)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 29.2,20.7" stroke="rgba(255,215,50,0.2)" strokeWidth="5.1" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 29.2,20.7" stroke="white" strokeWidth="4.1" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 29.2,20.7" stroke="#C9A84C" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <path d="M 20.1,22.1 L 22.9,26.1 L 29.2,20.7" stroke="rgba(255,245,100,0.9)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
           </svg>
           <div className="flex flex-col leading-none">
             <span className="font-black text-[15px] tracking-tight text-white">Soccer<span className="text-fifa-gold">Picks</span></span>
