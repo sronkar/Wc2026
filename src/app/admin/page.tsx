@@ -185,6 +185,8 @@ Winner\t\tTeam\t10`;
   const [previewError, setPreviewError] = useState("");
   const [testPushState, setTestPushState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [testPushError, setTestPushError] = useState("");
+  const [testPushSentTo, setTestPushSentTo] = useState<number | null>(null);
+  const [pushTargetGroupId, setPushTargetGroupId] = useState("");
   const [isDev, setIsDev] = useState(false);
 
   // ── Auth guard ───────────────────────────────────────────────────────────────
@@ -251,9 +253,9 @@ Winner\t\tTeam\t10`;
       .then((data: UserRow[]) => { setUsers(data); setUsersLoaded(true); });
   }, [activeTab, usersLoaded, isAdmin]);
 
-  // ── Load groups + global predictions when Groups tab is opened ───────────────
+  // ── Load groups + global predictions when Groups or Email tab is opened ───────
   useEffect(() => {
-    if (activeTab !== "groups" || groupsLoaded) return;
+    if ((activeTab !== "groups" && activeTab !== "email") || groupsLoaded) return;
     Promise.all([
       fetch("/api/groups").then((r) => r.json()),
       fetch("/api/admin/custom-predictions").then((r) => r.json()),
@@ -379,18 +381,24 @@ Winner\t\tTeam\t10`;
     }
   };
 
-  const handleTestPush = async () => {
+  const handleTestPush = async (groupId?: string) => {
     setTestPushState("sending");
     setTestPushError("");
+    setTestPushSentTo(null);
     try {
-      const res = await fetch("/api/admin/test-push", { method: "POST" });
+      const res = await fetch("/api/admin/test-push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(groupId ? { groupId } : {}),
+      });
       const data = await res.json();
       if (!res.ok) {
         setTestPushState("error");
         setTestPushError(data.error ?? `HTTP ${res.status}`);
       } else {
         setTestPushState("sent");
-        setTimeout(() => setTestPushState("idle"), 4000);
+        setTestPushSentTo(data.sentTo ?? null);
+        setTimeout(() => setTestPushState("idle"), 5000);
       }
     } catch (e: unknown) {
       setTestPushState("error");
@@ -1177,22 +1185,57 @@ Winner\t\tTeam\t10`;
         <div className="card mt-4">
           <h2 className="font-bold text-gray-800 mb-1">Push Notification Test</h2>
           <p className="text-xs text-gray-400 mb-4">
-            Sends a real push notification to your subscribed devices. You must have push enabled on the device you want to test — go to your Profile page and tap &quot;Enable notifications&quot; first.
+            Fire a real push notification. Make sure push is enabled on the target device first (Profile → Enable notifications).
           </p>
-          <button
-            onClick={handleTestPush}
-            disabled={testPushState === "sending"}
-            className="btn-primary text-sm disabled:opacity-50"
-          >
-            {testPushState === "sending" ? "Sending…" : testPushState === "sent" ? "Sent ✓" : "Send test push"}
-          </button>
+
+          <div className="flex flex-col gap-3">
+            {/* Send to me */}
+            <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800">Send to me</p>
+                <p className="text-xs text-gray-400">Pushes only to your subscribed devices.</p>
+              </div>
+              <button
+                onClick={() => handleTestPush()}
+                disabled={testPushState === "sending"}
+                className="shrink-0 btn-primary text-sm disabled:opacity-50"
+              >
+                {testPushState === "sending" ? "Sending…" : "Send"}
+              </button>
+            </div>
+
+            {/* Send to a group */}
+            <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800">Send to group</p>
+                <select
+                  value={pushTargetGroupId}
+                  onChange={(e) => setPushTargetGroupId(e.target.value)}
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-fifa-blue"
+                >
+                  <option value="">— pick a group —</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={() => pushTargetGroupId && handleTestPush(pushTargetGroupId)}
+                disabled={testPushState === "sending" || !pushTargetGroupId}
+                className="shrink-0 btn-primary text-sm disabled:opacity-50"
+              >
+                {testPushState === "sending" ? "Sending…" : "Send"}
+              </button>
+            </div>
+          </div>
+
           {testPushState === "sent" && (
-            <p className="mt-2 text-xs text-green-700">
-              Push dispatched — check your device. If nothing arrived, make sure you&apos;ve subscribed on that device (Profile → Enable notifications) and that the VAPID keys are set in Railway.
+            <p className="mt-3 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              Push dispatched to {testPushSentTo ?? "?"} device{testPushSentTo === 1 ? "" : "s"}. If nothing arrived, check that you&apos;ve subscribed on that device and that VAPID keys are set in Railway.
             </p>
           )}
           {testPushState === "error" && (
-            <p className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 break-all">
+            <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 break-all">
               <strong>Failed:</strong> {testPushError}
             </p>
           )}
