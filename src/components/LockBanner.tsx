@@ -34,7 +34,6 @@ export function LockBanner() {
   const { data: session } = useSession();
   const pathname = usePathname();
   const [data, setData] = useState<BannerData>({ urgent: [], nextUnpredicted: [], serverNowMs: Date.now() });
-  const [fetchedAt, setFetchedAt] = useState(Date.now());
   const [, setTick] = useState(0);
 
   // Derive the group ID from the URL so the "Predict" link goes to the right group
@@ -46,10 +45,7 @@ export function LockBanner() {
     fetch("/api/matches/locking-soon")
       .then((r) => r.json())
       .then((d) => {
-        if (d && Array.isArray(d.urgent)) {
-          setData(d as BannerData);
-          setFetchedAt(Date.now());
-        }
+        if (d && Array.isArray(d.urgent)) setData(d as BannerData);
       })
       .catch(() => {});
   }, [session?.user?.id]);
@@ -68,9 +64,7 @@ export function LockBanner() {
 
   if (!session) return null;
 
-  // Use virtual server time as the base, advanced by real elapsed time since the last fetch.
-  // This keeps countdowns correct in simulation mode where server time ≠ wall-clock time.
-  const now = data.serverNowMs + (Date.now() - fetchedAt);
+  const now = data.serverNowMs;
 
   // Filter out already-locked urgent matches (client clock)
   const activeUrgent = data.urgent.filter((m) => new Date(m.lockTime).getTime() > now);
