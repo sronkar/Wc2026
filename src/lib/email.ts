@@ -143,8 +143,7 @@ export function buildGroupInviteHtml({ groupName, roleLabel, inviteUrl, requireP
 }
 
 export async function sendGroupInviteEmail({ to, ...rest }: { to: string } & GroupInviteParams): Promise<void> {
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendEmail({
     to,
     subject: `You're invited to join "${rest.groupName}" on SoccerPicks WC 2026`,
     html: buildGroupInviteHtml(rest),
@@ -179,8 +178,7 @@ export function buildWelcomeHtml({ name, groupName, groupId }: WelcomeParams): s
 }
 
 export async function sendWelcomeEmail({ to, ...rest }: { to: string } & WelcomeParams): Promise<void> {
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendEmail({
     to,
     subject: `Welcome to "${rest.groupName}" — SoccerPicks WC 2026 🎉`,
     html: buildWelcomeHtml(rest),
@@ -214,8 +212,7 @@ export function buildPasswordResetHtml({ name, resetUrl }: PasswordResetParams):
 }
 
 export async function sendPasswordResetEmail({ to, ...rest }: { to: string } & PasswordResetParams): Promise<void> {
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendEmail({
     to,
     subject: "Reset your SoccerPicks WC 2026 password",
     html: buildPasswordResetHtml(rest),
@@ -253,8 +250,7 @@ export function buildJoinLinkVerificationHtml({ name, groupName }: JoinVerificat
 }
 
 export async function sendJoinLinkVerificationEmail({ to, ...rest }: { to: string } & JoinVerificationParams): Promise<void> {
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendEmail({
     to,
     subject: `You've joined "${rest.groupName}" — please verify your email`,
     html: buildJoinLinkVerificationHtml(rest),
@@ -309,8 +305,7 @@ export function buildReminderHtml(name: string, matches: UpcomingMatch[]): strin
 }
 
 export async function sendReminderEmail(to: string, name: string, matches: UpcomingMatch[]): Promise<void> {
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendEmail({
     to,
     subject: `⚽ ~1 hour to lock — predict now! (${matches.map((m) => `${m.homeTeam} vs ${m.awayTeam}`).join(", ")})`,
     html: buildReminderHtml(name, matches),
@@ -360,8 +355,7 @@ export function buildLock30mHtml(name: string, matches: UpcomingMatch[]): string
 
 export async function sendLock30mEmail(to: string, name: string, matches: UpcomingMatch[]): Promise<void> {
   const matchList = matches.map((m) => `${m.homeTeam} vs ${m.awayTeam}`).join(", ");
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendEmail({
     to,
     subject: `⚡ 30 min to lock — predict now! (${matchList})`,
     html: buildLock30mHtml(name, matches),
@@ -427,8 +421,7 @@ export async function sendSubAdminActionEmail(
     ? `[Group Admin] Score updated: ${details.matchHomeTeam} vs ${details.matchAwayTeam}`
     : `[Group Admin] Prediction edited: ${details.targetUserName} — ${details.matchHomeTeam} vs ${details.matchAwayTeam}`;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendEmail({
     to: adminEmail,
     subject,
     html: buildSubAdminActionHtml(actorName, action, details),
@@ -608,8 +601,7 @@ export async function sendPostGameEmail(
 ): Promise<void> {
   // name param kept for API compat (personalisation could be added later)
   void name;
-  await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+  await sendEmail({
     to,
     subject: `⚽ Result: ${match.homeTeam} ${match.homeScore}–${match.awayScore} ${match.awayTeam}`,
     html: buildPostGameHtml({ match, insights, top3, predRows, userEntry }),
