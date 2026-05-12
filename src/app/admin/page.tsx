@@ -1121,6 +1121,7 @@ Winner\t\tTeam\t10`;
 
       {/* ── Email tab (admin only) ────────────────────────────────────────────── */}
       {activeTab === "email" && isAdmin && (
+        <>
         <div className="card">
           <div className="flex items-center gap-2 mb-1">
             <h2 className="font-bold text-gray-800">Email Preview</h2>
@@ -1196,6 +1197,7 @@ Winner\t\tTeam\t10`;
             </p>
           )}
         </div>
+        </>
       )}
 
       {/* ── Groups tab ───────────────────────────────────────────────────────── */}
