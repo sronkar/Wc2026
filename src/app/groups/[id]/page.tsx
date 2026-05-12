@@ -162,6 +162,14 @@ export default async function GroupDashboardPage({
   const ADVANCEMENT_REQUIRED = 32;
   const advancementComplete = !isVisitor && advancementPickCount >= ADVANCEMENT_REQUIRED;
 
+  // Urgent TODOs — matches locking within 2h the user hasn't predicted
+  const LOCK_OFFSET_MS = 60 * 60 * 1000;
+  const urgentUnpredicted = isVisitor ? [] : upcomingMatches.filter((m) => {
+    const lockTime = m.kickoff.getTime() - LOCK_OFFSET_MS;
+    return lockTime > now.getTime() && lockTime <= now.getTime() + 2 * 60 * 60 * 1000 && !predMap[m.id];
+  });
+  const showAdvancementWarning = !isVisitor && !advancementLocked && !advancementComplete;
+
   const memberships = await prisma.groupMembership.findMany({
     where: { groupId, status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
     include: {
@@ -291,19 +299,43 @@ export default async function GroupDashboardPage({
         <GroupSwitcher activeGroupId={groupId} />
       </div>
 
-      {/* Stats strip */}
-      <div className="grid grid-cols-3 gap-3 mb-5 md:mb-8">
-        {[
-          { label: "Group Points", value: totalPoints, color: "text-fifa-blue" },
-          { label: "Predictions", value: groupPredictions.length, color: "text-gray-700" },
-          { label: "Exact Scores", value: exactMatches, color: exactMatches > 0 ? "text-green-600" : "text-gray-700" },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="card text-center py-3">
-            <div className={`text-2xl font-extrabold ${color}`}>{value}</div>
-            <div className="text-xs text-gray-400 mt-0.5">{label}</div>
-          </div>
-        ))}
-      </div>
+      {/* Urgent TODOs — only rendered when there's something actionable */}
+      {(urgentUnpredicted.length > 0 || showAdvancementWarning) && (
+        <div className="mb-5 md:mb-8 space-y-2">
+          {urgentUnpredicted.length > 0 && (
+            <Link
+              href={`/groups/${groupId}/matches`}
+              className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3 hover:bg-red-100 transition"
+            >
+              <span className="text-xl shrink-0">🚨</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-red-800">
+                  {urgentUnpredicted.length === 1
+                    ? `${urgentUnpredicted[0].homeTeam} vs ${urgentUnpredicted[0].awayTeam} — locks in under 2 hours!`
+                    : `${urgentUnpredicted.length} matches lock in under 2 hours — predict now!`}
+                </p>
+                <p className="text-xs text-red-500 mt-0.5">Predictions lock 1 hour before kickoff</p>
+              </div>
+              <span className="text-red-400 shrink-0">›</span>
+            </Link>
+          )}
+          {showAdvancementWarning && (
+            <Link
+              href={`/groups/${groupId}/advancement`}
+              className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 hover:bg-amber-100 transition"
+            >
+              <span className="text-xl shrink-0">⚠️</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-800">
+                  Group Stage Picks — {advancementPickCount}/{ADVANCEMENT_REQUIRED} done
+                </p>
+                <p className="text-xs text-amber-600 mt-0.5">Lock before tournament starts — high point value</p>
+              </div>
+              <span className="text-amber-400 shrink-0">›</span>
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="grid md:grid-cols-2 gap-4 md:gap-6">
         {/* Right column — first in DOM so it appears first on mobile. */}
