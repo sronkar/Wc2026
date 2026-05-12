@@ -70,5 +70,5 @@ export async function GET() {
     .slice(0, 1)
     .map(serialize);
 
-  return NextResponse.json({ urgent: urgentSerialized, nextUnpredicted });
+  return NextResponse.json({ urgent: urgentSerialized, nextUnpredicted, serverNowMs: now.getTime() });
 }
