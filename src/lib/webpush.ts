@@ -6,7 +6,7 @@ let initFailed = false;
 
 function init() {
   if (initialized || initFailed) return;
-  if (!process.env.VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY === "placeholder") {
+  if (!process.env.VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY === "placeholder" || process.env.VAPID_PUBLIC_KEY.startsWith("your-")) {
     initFailed = true;
     return;
   }
