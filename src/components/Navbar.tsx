@@ -430,10 +430,13 @@ export function Navbar() {
             </>
           )}
           {session ? (
-            <div className="flex items-center justify-between py-2">
-              <button onClick={() => signOut({ callbackUrl: "/" })} className="text-red-300 hover:text-red-100 text-sm">Sign Out</button>
-              <NotificationCenter />
-            </div>
+            <>
+              <Link href="/profile" className="block py-2 text-blue-200 hover:text-white" onClick={() => setMenuOpen(false)}>Profile &amp; Notifications</Link>
+              <div className="flex items-center justify-between py-2">
+                <button onClick={() => signOut({ callbackUrl: "/" })} className="text-red-300 hover:text-red-100 text-sm">Sign Out</button>
+                <NotificationCenter />
+              </div>
+            </>
           ) : (
             <Link href="/login" className="block py-2 text-fifa-gold font-semibold" onClick={() => setMenuOpen(false)}>Sign In</Link>
           )}
