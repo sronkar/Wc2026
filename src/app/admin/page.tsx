@@ -183,6 +183,8 @@ Winner\t\tTeam\t10`;
   const [previewSending, setPreviewSending] = useState(false);
   const [previewSent, setPreviewSent] = useState(false);
   const [previewError, setPreviewError] = useState("");
+  const [testPushState, setTestPushState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [testPushError, setTestPushError] = useState("");
   const [isDev, setIsDev] = useState(false);
 
   // ── Auth guard ───────────────────────────────────────────────────────────────
@@ -374,6 +376,25 @@ Winner\t\tTeam\t10`;
       setPreviewError(e instanceof Error ? e.message : String(e));
     } finally {
       setPreviewSending(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    setTestPushState("sending");
+    setTestPushError("");
+    try {
+      const res = await fetch("/api/admin/test-push", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setTestPushState("error");
+        setTestPushError(data.error ?? `HTTP ${res.status}`);
+      } else {
+        setTestPushState("sent");
+        setTimeout(() => setTestPushState("idle"), 4000);
+      }
+    } catch (e: unknown) {
+      setTestPushState("error");
+      setTestPushError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -1147,6 +1168,31 @@ Winner\t\tTeam\t10`;
           {isDev && (
             <p className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               🛠 <strong>Dev mode:</strong> &quot;Send to me&quot; will attempt SMTP delivery. Magic link emails in this environment are logged to the server console only.
+            </p>
+          )}
+        </div>
+
+        {/* Push test */}
+        <div className="card mt-4">
+          <h2 className="font-bold text-gray-800 mb-1">Push Notification Test</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Sends a real push notification to your subscribed devices. You must have push enabled on the device you want to test — go to your Profile page and tap &quot;Enable notifications&quot; first.
+          </p>
+          <button
+            onClick={handleTestPush}
+            disabled={testPushState === "sending"}
+            className="btn-primary text-sm disabled:opacity-50"
+          >
+            {testPushState === "sending" ? "Sending…" : testPushState === "sent" ? "Sent ✓" : "Send test push"}
+          </button>
+          {testPushState === "sent" && (
+            <p className="mt-2 text-xs text-green-700">
+              Push dispatched — check your device. If nothing arrived, make sure you&apos;ve subscribed on that device (Profile → Enable notifications) and that the VAPID keys are set in Railway.
+            </p>
+          )}
+          {testPushState === "error" && (
+            <p className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 break-all">
+              <strong>Failed:</strong> {testPushError}
             </p>
           )}
         </div>
