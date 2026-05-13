@@ -451,6 +451,7 @@ export default function GroupMatchesPage() {
                       {grouped[round].map((match) => (
                         <MatchCard
                           key={match.id}
+                          anchorId={`match-${match.id}`}
                           match={match}
                           prediction={predictions[match.id]}
                           onSave={session ? handleSave : undefined}

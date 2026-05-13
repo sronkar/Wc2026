@@ -43,6 +43,7 @@ interface Props {
   isLoggedIn: boolean;
   groupId?: string;
   nowMs?: number;
+  anchorId?: string;
 }
 
 const UNUSUAL_THRESHOLD = 7;
@@ -92,7 +93,7 @@ function LockCountdown({ kickoffMs }: { kickoffMs: number }) {
   );
 }
 
-export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, groupId, nowMs }: Props) {
+export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, groupId, nowMs, anchorId }: Props) {
   const [homeInput, setHomeInput] = useState<string>(
     prediction !== undefined ? String(prediction.homeScore) : ""
   );
@@ -287,7 +288,7 @@ export function MatchCard({ match, prediction, onSave, onCancel, isLoggedIn, gro
   };
 
   return (
-    <div className={`card flex flex-col gap-3 ${resultBg}`}>
+    <div id={anchorId} className={`card flex flex-col gap-3 ${resultBg}`}>
       {/* Header */}
       <div className="flex items-center justify-between text-xs text-gray-400">
         <span className="flex items-center gap-1.5 min-w-0">
