@@ -45,11 +45,19 @@ export async function GET() {
     new Set([...urgentMatches.map((m) => m.id), ...upcoming24h.map((m) => m.id)])
   );
 
-  const predictions = await prisma.prediction.findMany({
-    where: { userId, matchId: { in: allMatchIds } },
-    select: { matchId: true },
-  });
+  const [predictions, firstMembership] = await Promise.all([
+    prisma.prediction.findMany({
+      where: { userId, matchId: { in: allMatchIds } },
+      select: { matchId: true },
+    }),
+    prisma.groupMembership.findFirst({
+      where: { userId, status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
+      select: { groupId: true },
+      orderBy: { joinedAt: "asc" },
+    }),
+  ]);
   const predictedIds = new Set(predictions.map((p) => p.matchId));
+  const fallbackGroupId = firstMembership?.groupId ?? null;
 
   // Serialize both lists
   const serialize = (m: (typeof urgentMatches)[0]) => ({
@@ -70,5 +78,5 @@ export async function GET() {
     .slice(0, 1)
     .map(serialize);
 
-  return NextResponse.json({ urgent: urgentSerialized, nextUnpredicted, serverNowMs: now.getTime() });
+  return NextResponse.json({ urgent: urgentSerialized, nextUnpredicted, serverNowMs: now.getTime(), fallbackGroupId });
 }

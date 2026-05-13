@@ -18,6 +18,7 @@ interface BannerData {
   urgent: LockingMatch[];
   nextUnpredicted: LockingMatch[];
   serverNowMs: number;
+  fallbackGroupId: string | null;
 }
 
 function formatCountdown(ms: number): string {
@@ -33,13 +34,14 @@ function formatCountdown(ms: number): string {
 export function LockBanner() {
   const { data: session } = useSession();
   const pathname = usePathname();
-  const [data, setData] = useState<BannerData>({ urgent: [], nextUnpredicted: [], serverNowMs: Date.now() });
+  const [data, setData] = useState<BannerData>({ urgent: [], nextUnpredicted: [], serverNowMs: Date.now(), fallbackGroupId: null });
   const [fetchedAt, setFetchedAt] = useState(Date.now());
   const [, setTick] = useState(0);
 
-  // Derive the group ID from the URL so the "Predict" link goes to the right group
+  // Prefer the group from the current URL; fall back to the user's first group from the API
   const urlGroupId = pathname.match(/^\/groups\/([^/]+)/)?.[1] ?? null;
-  const matchesBase = urlGroupId ? `/groups/${urlGroupId}/matches` : "/groups";
+  const groupId = urlGroupId ?? data.fallbackGroupId;
+  const matchesBase = groupId ? `/groups/${groupId}/matches` : null;
 
   const fetchData = useCallback(() => {
     if (!session?.user?.id) return;
@@ -100,7 +102,7 @@ export function LockBanner() {
         }`}
       >
         <span className="text-center">{message}</span>
-        {hasUnpredicted && (
+        {hasUnpredicted && matchesBase && (
           <Link href={`${matchesBase}?focus=${unpredicted[0].id}`} className="underline font-bold text-white shrink-0">
             Predict →
           </Link>
@@ -119,9 +121,11 @@ export function LockBanner() {
     return (
       <div className="w-full text-xs font-medium py-1.5 px-4 flex items-center justify-center gap-3 bg-yellow-50 border-b border-yellow-200 text-yellow-800">
         <span>⏰ You haven&apos;t predicted <strong>{name}</strong> yet — locks in {timeStr}</span>
-        <Link href={`${matchesBase}?focus=${next.id}`} className="underline font-semibold text-yellow-700 shrink-0">
-          Predict →
-        </Link>
+        {matchesBase && (
+          <Link href={`${matchesBase}?focus=${next.id}`} className="underline font-semibold text-yellow-700 shrink-0">
+            Predict →
+          </Link>
+        )}
       </div>
     );
   }
