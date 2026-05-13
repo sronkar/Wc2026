@@ -101,7 +101,7 @@ export function LockBanner() {
       >
         <span className="text-center">{message}</span>
         {hasUnpredicted && (
-          <Link href={`${matchesBase}#match-${unpredicted[0].id}`} className="underline font-bold text-white shrink-0">
+          <Link href={`${matchesBase}?focus=${unpredicted[0].id}`} className="underline font-bold text-white shrink-0">
             Predict →
           </Link>
         )}
@@ -119,7 +119,7 @@ export function LockBanner() {
     return (
       <div className="w-full text-xs font-medium py-1.5 px-4 flex items-center justify-center gap-3 bg-yellow-50 border-b border-yellow-200 text-yellow-800">
         <span>⏰ You haven&apos;t predicted <strong>{name}</strong> yet — locks in {timeStr}</span>
-        <Link href={`${matchesBase}#match-${next.id}`} className="underline font-semibold text-yellow-700 shrink-0">
+        <Link href={`${matchesBase}?focus=${next.id}`} className="underline font-semibold text-yellow-700 shrink-0">
           Predict →
         </Link>
       </div>

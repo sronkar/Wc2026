@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MatchCard } from "@/components/MatchCard";
 import { GroupSwitcher } from "@/components/GroupSwitcher";
@@ -60,6 +60,8 @@ export default function GroupMatchesPage() {
   const { data: session, status } = useSession();
   const { id: groupId } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusMatchId = searchParams.get("focus");
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [groupName, setGroupName] = useState("");
@@ -70,6 +72,7 @@ export default function GroupMatchesPage() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   const [nowMs, setNowMs] = useState<number>(Date.now());
+  const [scrollTargetId, setScrollTargetId] = useState<string | null>(null);
   const [alerts, setAlerts] = useState<{ id: string; text: string; type: "warn" | "score" }[]>([]);
   const [groupSettings, setGroupSettings] = useState<{
     exact: number;
@@ -116,30 +119,26 @@ export default function GroupMatchesPage() {
     try { localStorage.setItem("wc2026_collapsed", JSON.stringify(collapsed)); } catch {}
   }, [collapsed, filtersLoaded]);
 
-  // Handle hash navigation: expand round + scroll to target match card
+  // Handle ?focus={matchId}: expand the round and queue a scroll to the card
   useEffect(() => {
-    if (!filtersLoaded || loading || matches.length === 0) return;
+    if (!focusMatchId || loading || matches.length === 0) return;
+    const target = matches.find((m) => m.id === focusMatchId);
+    if (!target) return;
+    setRoundFilter("All");
+    setGroupFilter("All");
+    setCollapsed((prev) => ({ ...prev, [target.round]: false }));
+    setScrollTargetId(`match-${focusMatchId}`);
+  }, [focusMatchId, loading, matches]);
 
-    const scrollToMatch = () => {
-      const hash = window.location.hash;
-      if (!hash.startsWith("#match-")) return;
-      const matchId = hash.slice("#match-".length);
-      const target = matches.find((m) => m.id === matchId);
-      if (!target) return;
-
-      setRoundFilter("All");
-      setGroupFilter("All");
-      setCollapsed((prev) => (prev[target.round] ? { ...prev, [target.round]: false } : prev));
-
-      setTimeout(() => {
-        document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 150);
-    };
-
-    scrollToMatch();
-    window.addEventListener("hashchange", scrollToMatch);
-    return () => window.removeEventListener("hashchange", scrollToMatch);
-  }, [filtersLoaded, loading, matches]);
+  // After the DOM updates (collapsed round expanded), scroll to the target card
+  useEffect(() => {
+    if (!scrollTargetId) return;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(scrollTargetId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setScrollTargetId(null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [scrollTargetId]);
 
   // Poll server time every 30s and trigger lock warnings
   useEffect(() => {
