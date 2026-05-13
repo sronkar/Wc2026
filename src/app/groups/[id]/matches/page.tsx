@@ -116,6 +116,31 @@ export default function GroupMatchesPage() {
     try { localStorage.setItem("wc2026_collapsed", JSON.stringify(collapsed)); } catch {}
   }, [collapsed, filtersLoaded]);
 
+  // Handle hash navigation: expand round + scroll to target match card
+  useEffect(() => {
+    if (!filtersLoaded || loading || matches.length === 0) return;
+
+    const scrollToMatch = () => {
+      const hash = window.location.hash;
+      if (!hash.startsWith("#match-")) return;
+      const matchId = hash.slice("#match-".length);
+      const target = matches.find((m) => m.id === matchId);
+      if (!target) return;
+
+      setRoundFilter("All");
+      setGroupFilter("All");
+      setCollapsed((prev) => (prev[target.round] ? { ...prev, [target.round]: false } : prev));
+
+      setTimeout(() => {
+        document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
+    };
+
+    scrollToMatch();
+    window.addEventListener("hashchange", scrollToMatch);
+    return () => window.removeEventListener("hashchange", scrollToMatch);
+  }, [filtersLoaded, loading, matches]);
+
   // Poll server time every 30s and trigger lock warnings
   useEffect(() => {
     const fetchTime = async () => {
