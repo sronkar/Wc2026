@@ -53,7 +53,7 @@ export async function GET() {
     prisma.groupMembership.findFirst({
       where: { userId, status: "APPROVED", memberRole: { not: "VISITOR_ADMIN" } },
       select: { groupId: true },
-      orderBy: { joinedAt: "asc" },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
   const predictedIds = new Set(predictions.map((p) => p.matchId));
